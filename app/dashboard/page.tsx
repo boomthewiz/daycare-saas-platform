@@ -1,9 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
 
 export default function DashboardPage() {
+const router = useRouter()
+// 🔐 Auth + loading state
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
   // 📋 Main task state
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,11 +60,37 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // 📡 Initial load + real-time subscription
-  useEffect(() => {
+   // 🔐 Check login session first
+  const checkUserSession = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      router.push("/login")
+      return
+    }
+
+    setCheckingAuth(false)
+
+    // Only fetch data if authenticated
     fetchTasks()
     fetchClassrooms()
+  }
 
+  useEffect(() => {
+    checkUserSession()
+
+  // 👀 Watch for session expiration/logout
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        router.push("/login")
+      }
+    })
+
+  // 🔴 Realtime tasks updates
     const channel = supabase
       .channel("tasks-realtime")
       .on(
@@ -70,13 +101,14 @@ export default function DashboardPage() {
           table: "tasks",
         },
         () => {
-          console.log("Realtime update detected")
           fetchTasks()
         }
       )
       .subscribe()
 
+      // 🧹 Cleanup
     return () => {
+      subscription.unsubscribe()
       supabase.removeChannel(channel)
     }
   }, [])
@@ -115,6 +147,17 @@ export default function DashboardPage() {
   const childTasks = filteredTasks.filter(
     (task) => task.child_id
   )
+
+ // ⏳ Auth check loading
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-lg text-gray-500">
+          Checking login...
+        </p>
+      </div>
+    )
+  }
 
   // ⏳ Loading state
   if (loading) {
