@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
-    const [selectedRole, setSelectedRole] = useState<
+  const [selectedRole, setSelectedRole] = useState<
     "teacher" | "owner"
   >("teacher")
   const [loading, setLoading] = useState(false)
@@ -58,7 +59,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="text-gray-500 mt-2">
-            Choose your role and login to continue
+            Login to your ReJoyce Workflow System
           </p>
         </div>
 
@@ -106,8 +107,8 @@ export default function LoginPage() {
             type="email"
             placeholder={
               selectedRole === "owner"
-                ? "owner@daycare.com"
-                : "teacher@daycare.com"
+                ? "owner@business.com"
+                : "teacher@business.com"
             }
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +116,7 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* 🫧 Bubble Login Button */}
+        {/* ✨ Login Button */}
         <button
           onClick={handleLogin}
           disabled={loading}
@@ -130,7 +131,21 @@ export default function LoginPage() {
               }`}
         </button>
 
-        {/* 🌟 Footer Helper */}
+        {/* 👑 Request Access CTA */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500 mb-2">
+            Need to register your organization?
+          </p>
+
+          <Link
+            href="/request-access"
+            className="inline-block px-5 py-3 rounded-2xl font-semibold text-sm bg-pink-50 text-pink-600 hover:bg-pink-100 transition-all"
+          >
+            ✨ Request Owner Access
+          </Link>
+        </div>
+
+        {/* 🌟 Footer */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
             Safe, simple, and tablet-friendly access
