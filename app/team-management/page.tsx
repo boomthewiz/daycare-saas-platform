@@ -2,21 +2,23 @@
 
 import { useState } from "react"
 
-export default function InviteTeacherPage() {
-  // 👩‍🏫 Form State
+export default function TeamManagementPage() {
+  // 👥 Form State
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
-  const [selectedClassroom, setSelectedClassroom] = useState("")
+  const [selectedRole, setSelectedRole] = useState("teacher")
+  const [selectedGroup, setSelectedGroup] = useState("")
   const [loading, setLoading] = useState(false)
 
-  // Example classroom list (replace with Supabase fetch next)
-  const classrooms = [
+  // Example groups (replace with Supabase fetch next)
+  const groups = [
     { id: "1", name: "Infants" },
     { id: "2", name: "Toddlers" },
     { id: "3", name: "Pre-K" },
+    { id: "4", name: "After School" },
   ]
 
-  // ✨ Invite Teacher Handler
+  // ✨ Invite Team Member
   const handleInvite = async () => {
     if (!fullName || !email) {
       alert("Please complete all required fields")
@@ -34,7 +36,8 @@ export default function InviteTeacherPage() {
         body: JSON.stringify({
           fullName,
           email,
-          classroomId: selectedClassroom,
+          role: selectedRole,
+          classroomId: selectedGroup,
         }),
       })
 
@@ -44,12 +47,13 @@ export default function InviteTeacherPage() {
         throw new Error(result.error || "Invite failed")
       }
 
-      alert("Teacher invited successfully ✨")
+      alert("Team member invited successfully ✨")
 
       // Reset form
       setFullName("")
       setEmail("")
-      setSelectedClassroom("")
+      setSelectedRole("teacher")
+      setSelectedGroup("")
     } catch (error: any) {
       console.error(error)
       alert(error.message || "Something went wrong")
@@ -63,23 +67,23 @@ export default function InviteTeacherPage() {
       <div className="max-w-2xl mx-auto">
 
         {/* 🫧 Header */}
-        <div className="bg-white rounded-3xl shadow-lg p-8 mb-6">
+        <div className="bg-white rounded-3xl shadow-xl p-8 mb-6">
           <h1 className="text-3xl font-bold text-gray-800">
-            👩‍🏫 Invite Teacher
+            👥 Team Management
           </h1>
 
           <p className="text-gray-500 mt-2">
-            Add a new teacher to your daycare team
+            Invite staff members and manage team access across your organization
           </p>
         </div>
 
         {/* 🌈 Invite Form */}
-        <div className="bg-white rounded-3xl shadow-lg p-8">
+        <div className="bg-white rounded-3xl shadow-xl p-8">
 
           {/* Full Name */}
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              Teacher Full Name
+              Full Name *
             </label>
 
             <input
@@ -94,37 +98,55 @@ export default function InviteTeacherPage() {
           {/* Email */}
           <div className="mb-5">
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              Teacher Email
+              Work Email *
             </label>
 
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="teacher@daycare.com"
+              placeholder="staff@business.com"
               className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
             />
           </div>
 
-          {/* Classroom */}
-          <div className="mb-6">
+          {/* Role */}
+          <div className="mb-5">
             <label className="block text-sm font-medium text-gray-600 mb-2">
-              Assign Classroom (Optional)
+              Team Role
             </label>
 
             <select
-              value={selectedClassroom}
-              onChange={(e) => setSelectedClassroom(e.target.value)}
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
               className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-300"
             >
-              <option value="">Choose Classroom</option>
+              <option value="teacher">Teacher / Educator</option>
+              <option value="assistant">Assistant</option>
+              <option value="director">Director</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
 
-              {classrooms.map((room) => (
+          {/* Group Assignment */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Assign Group (Optional)
+            </label>
+
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">Choose Group</option>
+
+              {groups.map((group) => (
                 <option
-                  key={room.id}
-                  value={room.id}
+                  key={group.id}
+                  value={group.id}
                 >
-                  {room.name}
+                  {group.name}
                 </option>
               ))}
             </select>
@@ -138,7 +160,7 @@ export default function InviteTeacherPage() {
           >
             {loading
               ? "Sending Invite..."
-              : "✨ Send Teacher Invite"}
+              : "✨ Invite Team Member"}
           </button>
 
           {/* Footer Bubbles */}

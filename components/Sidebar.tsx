@@ -124,14 +124,14 @@ export default function Sidebar() {
             </p>
 
             <Link
-              href="/templates"
+              href="/operations"
               className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/templates")}`}
             >
               ⚙️ Operations Setup
             </Link>
 
             <Link
-              href="/invite-teacher"
+              href="/team-management"
               className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/invite-teacher")}`}
             >
               👥 Team Management
