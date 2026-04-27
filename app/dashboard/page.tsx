@@ -205,42 +205,77 @@ const router = useRouter()
           </div>
         </div>
 
-        {/* 🏫 Classroom Filter */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="text-sm font-medium">
-            Filter by Classroom:
-          </label>
+        {/* 👑 Owner Quick Actions */}
+<div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          <select
-            value={selectedClassroom}
-            onChange={(e) =>
-              setSelectedClassroom(e.target.value)
-            }
-            className="p-2 border rounded w-full sm:w-auto"
-          >
-            <option value="all">
-              All Classrooms
-            </option>
+  <button
+    onClick={() => router.push("/templates")}
+    className="p-5 rounded-3xl bg-white shadow-lg hover:scale-105 transition-all text-left"
+  >
+    <h3 className="text-lg font-bold">
+      ✨ Create First Task
+    </h3>
+    <p className="text-sm text-gray-500 mt-1">
+      Build daily templates and assign recurring tasks
+    </p>
+  </button>
 
-            {classrooms.map((room) => (
-              <option
-                key={room.id}
-                value={room.id}
-              >
-                {room.name}
-              </option>
-            ))}
-          </select>
-        </div>
+  <button
+    onClick={() => router.push("/invite-teacher")}
+    className="p-5 rounded-3xl bg-white shadow-lg hover:scale-105 transition-all text-left"
+  >
+    <h3 className="text-lg font-bold">
+      👩‍🏫 Invite Teachers
+    </h3>
+    <p className="text-sm text-gray-500 mt-1">
+      Add staff and assign classrooms
+    </p>
+  </button>
+</div>
 
-        {/* 🎉 Empty State */}
+{/* 🏫 Classroom Quick Access */}
+<div className="mb-8">
+  <h2 className="text-xl font-semibold mb-4">
+    🏫 Classrooms
+  </h2>
+
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    {classrooms.map((room) => (
+      <button
+        key={room.id}
+        onClick={() => setSelectedClassroom(room.id)}
+        className={`p-4 rounded-3xl shadow-md transition-all hover:scale-105 ${
+          selectedClassroom === room.id
+            ? "bg-gradient-to-r from-pink-400 to-purple-400 text-white"
+            : "bg-white"
+        }`}
+      >
+        <p className="font-semibold">
+          {room.name}
+        </p>
+      </button>
+    ))}
+  </div>
+</div>
+
         {tasks.length === 0 && (
-          <div className="p-6 bg-white rounded-lg shadow text-center">
-            <p className="text-gray-500">
-              No tasks for today 🎉
-            </p>
-          </div>
-        )}
+  <div className="p-8 bg-white rounded-3xl shadow-lg text-center">
+    <h2 className="text-2xl font-bold mb-2">
+      🎉 Welcome to ReJoyce
+    </h2>
+
+    <p className="text-gray-500 mb-6">
+      Let’s create your first task and start organizing your daycare
+    </p>
+
+    <button
+      onClick={() => router.push("/templates")}
+      className="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white font-semibold shadow-lg hover:scale-105 transition-all"
+    >
+      ✨ Create First Task
+    </button>
+  </div>
+)}
 
         {/* 🏫 Classroom Tasks */}
         {classroomTasks.length > 0 && (
