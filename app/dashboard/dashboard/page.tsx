@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "../../lib/supabase"
+import { supabase } from "../../../lib/supabase"
 import Header from "@/components/Header"
 import Sidebar from "@/components/Sidebar"
 
