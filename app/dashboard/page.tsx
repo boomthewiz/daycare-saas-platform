@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../lib/supabase"
+import Header from "@/components/Header"
+import Sidebar from "@/components/Sidebar"
 
 export default function DashboardPage() {
 const router = useRouter()
@@ -148,6 +150,20 @@ const router = useRouter()
     (task) => task.child_id
   )
 
+  return (
+  <div className="flex">
+    <Sidebar />
+
+    <div className="flex-1">
+      <Header />
+
+      <main className="p-6">
+        {/* page content */}
+      </main>
+    </div>
+  </div>
+)
+
  // ⏳ Auth check loading
   if (checkingAuth) {
     return (
@@ -209,14 +225,14 @@ const router = useRouter()
 <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
 
   <button
-    onClick={() => router.push("/templates")}
+    onClick={() => router.push("/operations")}
     className="p-5 rounded-3xl bg-white shadow-lg hover:scale-105 transition-all text-left"
   >
     <h3 className="text-lg font-bold">
       ✨ Create First Task
     </h3>
     <p className="text-sm text-gray-500 mt-1">
-      Build daily templates and assign recurring tasks
+      Build daily operations and assign recurring tasks
     </p>
   </button>
 
@@ -269,7 +285,7 @@ const router = useRouter()
     </p>
 
     <button
-      onClick={() => router.push("/templates")}
+      onClick={() => router.push("/operations")}
       className="px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white font-semibold shadow-lg hover:scale-105 transition-all"
     >
       ✨ Create First Task
