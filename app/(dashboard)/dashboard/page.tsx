@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "../../../lib/supabase"
-import Header from "@/components/Header"
-import Sidebar from "@/components/Sidebar"
 
 export default function DashboardPage() {
 const router = useRouter()
@@ -182,21 +180,7 @@ const router = useRouter()
   const childTasks = filteredTasks.filter(
     (task) => task.child_id
   )
-
-  return (
-  <div className="flex">
-    <Sidebar />
-
-    <div className="flex-1">
-      <Header />
-
-      <main className="p-6">
-        {/* page content */}
-      </main>
-    </div>
-  </div>
-)
-
+ 
  // ⏳ Auth check loading
   if (checkingAuth) {
     return (
