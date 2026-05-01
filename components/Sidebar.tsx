@@ -1,182 +1,98 @@
 "use client"
 
+import { useState } from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-
-  const [userRole, setUserRole] = useState<"owner" | "teacher">("teacher")
-  const [loading, setLoading] = useState(true)
-
-  // 🔐 Fetch current user + role
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.push("/login")
-        return
-      }
-
-      // Pull role from your public.users table
-      const { data, error } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", user.id)
-        .single()
-
-      if (error || !data) {
-        console.error("Role fetch error:", error)
-        setUserRole("teacher")
-      } else {
-        setUserRole(data.role)
-      }
-
-      setLoading(false)
-    }
-
-    fetchUserRole()
-  }, [])
-
-  // 🚪 Logout
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push("/login")
+  const [collapsed, setCollapsed] = useState(() => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("sidebar") === "collapsed"
   }
+  return false
+})
 
-  const isActive = (path: string) =>
-    pathname === path
-      ? "bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white shadow-lg"
-      : "text-gray-700 hover:bg-pink-50"
+const toggleSidebar = () => {
+  const newState = !collapsed
+  setCollapsed(newState)
 
-  if (loading) {
-    return (
-      <div className="w-72 min-h-screen bg-white border-r p-6">
-        <p className="text-gray-500">Loading menu...</p>
-      </div>
-    )
-  }
+  localStorage.setItem(
+    "sidebar",
+    newState ? "collapsed" : "expanded"
+  )
+}
+
+  const navItems = [
+    { name: "Dashboard", href: "/dashboard", icon: "📋" },
+    { name: "Tasks", href: "/tasks", icon: "✅" },
+    { name: "Operations", href: "/operations", icon: "⚙️" },
+    { name: "Team", href: "/team-management", icon: "👥" },
+    { name: "Access Requests", href: "/access-requests", icon: "📨" },
+    { name: "Billing", href: "/billing", icon: "💳" },
+    { name: "Reports", href: "/reports", icon: "📊" },
+    { name: "Profile", href: "/profile", icon: "👤" },
+  ]
 
   return (
-    <div className="w-72 min-h-screen bg-white border-r border-pink-100 p-6 flex flex-col justify-between">
-
-      {/* Top Section */}
-      <div>
-
-        {/* 🫧 Brand */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">
-            ✨ ReJoyce
+    <div
+      className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
+        collapsed ? "w-20" : "w-64"
+      }`}
+    >
+      {/* 🫧 Top Section */}
+      <div className="flex items-center justify-between p-4">
+        {!collapsed && (
+          <h1 className="text-lg font-bold text-gray-800">
+            ReJoyce
           </h1>
-          <p className="text-sm text-gray-500">
-            Workflow System
-          </p>
-        </div>
-
-        {/* Shared Navigation */}
-        <div className="space-y-2">
-
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-            Daily Workflow
-          </p>
-
-          <Link
-            href="/dashboard"
-            className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/dashboard")}`}
-          >
-            🏠 Dashboard
-          </Link>
-
-          <Link
-            href="/tasks"
-            className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/tasks")}`}
-          >
-            📋 My Tasks
-          </Link>
-
-          <Link
-            href="/children"
-            className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/children")}`}
-          >
-            🧒 Groups / Children
-          </Link>
-
-          <Link
-            href="/notes"
-            className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/notes")}`}
-          >
-            📝 Logs & Notes
-          </Link>
-        </div>
-
-        {/* 👑 Admin Section */}
-        {userRole === "owner" && (
-          <div className="mt-8 space-y-2">
-
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              Admin Controls
-            </p>
-
-            <Link
-              href="/operations"
-              className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/templates")}`}
-            >
-              ⚙️ Operations Setup
-            </Link>
-
-            <Link
-              href="/team-management"
-              className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/invite-teacher")}`}
-            >
-              👥 Team Management
-            </Link>
-
-            <Link
-              href="/request-access"
-              className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/request-access")}`}
-            >
-              ✨ Access Requests
-            </Link>
-
-            <Link
-              href="/billing"
-              className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/billing")}`}
-            >
-              💳 Billing
-            </Link>
-
-            <Link
-              href="/reports"
-              className={`block px-4 py-3 rounded-2xl font-medium transition-all ${isActive("/reports")}`}
-            >
-              📊 Reports
-            </Link>
-          </div>
         )}
-      </div>
-
-      {/* Bottom Section */}
-      <div className="pt-8 border-t border-pink-100">
-
-        <Link
-          href="/profile"
-          className={`block px-4 py-3 rounded-2xl font-medium transition-all mb-2 ${isActive("/profile")}`}
-        >
-          👤 My Profile
-        </Link>
 
         <button
-          onClick={handleLogout}
-          className="w-full text-left px-4 py-3 rounded-2xl font-medium text-gray-700 hover:bg-red-50 transition-all"
+          onClick={toggleSidebar}
+          className="p-2 rounded-lg hover:bg-gray-100"
         >
-          🚪 Logout
+          {collapsed ? "➡️" : "⬅️"}
         </button>
+      </div>
+
+      {/* 📍 Navigation */}
+      <nav className="flex flex-col gap-2 px-2">
+
+        {navItems.map((item) => {
+          const active = pathname === item.href
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                active
+                  ? "bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+
+              {!collapsed && (
+                <span className="font-medium">
+                  {item.name}
+                </span>
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* 🧍 Footer */}
+      <div className="mt-auto p-4">
+        {!collapsed ? (
+          <div className="text-sm text-gray-500">
+            ReJoyce System ✨
+          </div>
+        ) : (
+          <div className="text-center">✨</div>
+        )}
       </div>
     </div>
   )
