@@ -13,6 +13,7 @@ export default function AccessRequestsPage() {
     const { data, error } = await supabase
       .from("owner_requests")
       .select("*")
+      .eq("status", "pending")
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -28,10 +29,19 @@ export default function AccessRequestsPage() {
     setProcessingId(request.id)
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error("Session expired")
+      }
+
       const response = await fetch("/api/approve-owner", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           requestId: request.id,
@@ -60,27 +70,37 @@ export default function AccessRequestsPage() {
 
   // ❌ Reject Request
   const handleReject = async (id: string) => {
-    setProcessingId(id)
+  setProcessingId(id)
 
-    const { error } = await supabase
-      .from("owner_requests")
-      .update({
-        status: "rejected",
-      })
-      .eq("id", id)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-    if (error) {
-      console.error("Reject request error:", error)
-      alert("Unable to reject request")
-      setProcessingId(null)
-      return
-    }
-
-    alert("Request rejected")
-
-    fetchRequests()
+  if (!session?.access_token) {
+    alert("Session expired")
     setProcessingId(null)
+    return
   }
+
+  const { error } = await supabase
+    .from("owner_requests")
+    .update({
+      status: "rejected",
+    })
+    .eq("id", id)
+
+  if (error) {
+    console.error("Reject request error:", error)
+    alert("Unable to reject request")
+    setProcessingId(null)
+    return
+  }
+
+  alert("Request rejected")
+
+  fetchRequests()
+  setProcessingId(null)
+}
 
   useEffect(() => {
     fetchRequests()
