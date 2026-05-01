@@ -81,7 +81,40 @@ const router = useRouter()
   }
 
   useEffect(() => {
-    checkUserSession()
+    const checkUserSession = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session) {
+    router.push("/login")
+    return
+  }
+
+  // 🔐 Check if user has PIN
+  const { data: userData, error } = await supabase
+    .from("users")
+    .select("pin_hash")
+    .eq("id", session.user.id)
+    .single()
+
+  if (error) {
+    console.error("User fetch error:", error)
+    return
+  }
+
+  // 🚨 No PIN → force setup
+  if (!userData?.pin_hash) {
+    router.push("/set-pin")
+    return
+  }
+
+  // ✅ User is fully authenticated
+  setCheckingAuth(false)
+
+  fetchTasks()
+  fetchClassrooms()
+}
 
   // 👀 Watch for session expiration/logout
     const {
