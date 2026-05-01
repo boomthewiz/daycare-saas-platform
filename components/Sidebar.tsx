@@ -1,31 +1,42 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(() => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("sidebar") === "collapsed"
-  }
-  return false
-})
 
-const toggleSidebar = () => {
-  const newState = !collapsed
-  setCollapsed(newState)
+  const [collapsed, setCollapsed] = useState(false)
+  const [role, setRole] = useState<"owner" | "teacher" | "assistant" | "director" | null>(null)
 
-  localStorage.setItem(
-    "sidebar",
-    newState ? "collapsed" : "expanded"
-  )
-}
+  // 🔐 Fetch user role
+  useEffect(() => {
+    const fetchRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-  const navItems = [
+      if (!user) return
+
+      const { data } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+
+      if (data?.role) {
+        setRole(data.role)
+      }
+    }
+
+    fetchRole()
+  }, [])
+
+  // 🧠 Role-based nav config
+  const ownerNav = [
     { name: "Dashboard", href: "/dashboard", icon: "📋" },
-    { name: "Tasks", href: "/tasks", icon: "✅" },
     { name: "Operations", href: "/operations", icon: "⚙️" },
     { name: "Team", href: "/team-management", icon: "👥" },
     { name: "Access Requests", href: "/access-requests", icon: "📨" },
@@ -34,13 +45,26 @@ const toggleSidebar = () => {
     { name: "Profile", href: "/profile", icon: "👤" },
   ]
 
+  const staffNav = [
+    { name: "Dashboard", href: "/dashboard", icon: "📋" },
+    { name: "My Tasks", href: "/tasks", icon: "✅" },
+    { name: "Profile", href: "/profile", icon: "👤" },
+  ]
+
+  const navItems =
+    role === "owner"
+      ? ownerNav
+      : role
+      ? staffNav
+      : []
+
   return (
     <div
       className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
         collapsed ? "w-20" : "w-64"
       }`}
     >
-      {/* 🫧 Top Section */}
+      {/* 🫧 Top */}
       <div className="flex items-center justify-between p-4">
         {!collapsed && (
           <h1 className="text-lg font-bold text-gray-800">
@@ -49,7 +73,7 @@ const toggleSidebar = () => {
         )}
 
         <button
-          onClick={toggleSidebar}
+          onClick={() => setCollapsed(!collapsed)}
           className="p-2 rounded-lg hover:bg-gray-100"
         >
           {collapsed ? "➡️" : "⬅️"}
@@ -88,7 +112,9 @@ const toggleSidebar = () => {
       <div className="mt-auto p-4">
         {!collapsed ? (
           <div className="text-sm text-gray-500">
-            ReJoyce System ✨
+            {role === "owner"
+              ? "Owner Mode 👑"
+              : "Staff Mode 👩‍🏫"}
           </div>
         ) : (
           <div className="text-center">✨</div>
