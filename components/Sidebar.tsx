@@ -4,12 +4,36 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import {
+  LayoutDashboard,
+  Settings2,
+  CalendarDays,
+  Users,
+  Inbox,
+  CreditCard,
+  BarChart3,
+  UserRound,
+  ListChecks,
+} from "lucide-react"
 
 export default function Sidebar() {
   const pathname = usePathname()
 
   const [collapsed, setCollapsed] = useState(false)
-  const [role, setRole] = useState<"owner" | "teacher" | "assistant" | "director" | null>(null)
+  type UserRole =
+  | "owner"
+  | "admin"
+  | "manager"
+  | "director"
+  | "therapist"
+  | "teacher"
+  | "educator"
+  | "assistant"
+  | "aide"
+  | "caregiver"
+  | "staff"
+
+const [role, setRole] = useState<UserRole | null>(null)
 
   // 🔐 Fetch user role
   useEffect(() => {
@@ -35,28 +59,84 @@ export default function Sidebar() {
   }, [])
 
   // 🧠 Role-based nav config
-  const ownerNav = [
-    { name: "Dashboard", href: "/dashboard", icon: "📋" },
-    { name: "Operations", href: "/operations", icon: "⚙️" },
-    { name: "Team", href: "/team-management", icon: "👥" },
-    { name: "Access Requests", href: "/access-requests", icon: "📨" },
-    { name: "Billing", href: "/billing", icon: "💳" },
-    { name: "Reports", href: "/reports", icon: "📊" },
-    { name: "Profile", href: "/profile", icon: "👤" },
-  ]
 
-  const staffNav = [
-    { name: "Dashboard", href: "/dashboard", icon: "📋" },
-    { name: "My Tasks", href: "/tasks", icon: "✅" },
-    { name: "Profile", href: "/profile", icon: "👤" },
-  ]
+const ownerNav = [
+  {
+    name: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Sessions",
+    href: "/sessions",
+    icon: CalendarDays,
+  },
+  {
+    name: "Operations",
+    href: "/operations",
+    icon: Settings2,
+  },
+  {
+    name: "Team",
+    href: "/team-management",
+    icon: Users,
+  },
+  {
+    name: "Access Requests",
+    href: "/access-requests",
+    icon: Inbox,
+  },
+  {
+    name: "Billing",
+    href: "/billing",
+    icon: CreditCard,
+  },
+  {
+    name: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+  },
+  {
+    name: "Profile",
+    href: "/profile",
+    icon: UserRound,
+  },
+]
 
-  const navItems =
-    role === "owner"
-      ? ownerNav
-      : role
-      ? staffNav
-      : []
+const staffNav = [
+  {
+    name: "Home",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "My Sessions",
+    href: "/my-sessions",
+    icon: CalendarDays,
+  },
+  {
+    name: "Tasks",
+    href: "/tasks",
+    icon: ListChecks,
+  },
+  {
+    name: "Profile",
+    href: "/profile",
+    icon: UserRound,
+  },
+]
+
+const adminRoles: UserRole[] = [
+  "owner",
+  "admin",
+  "manager",
+  "director",
+]
+
+const navItems =
+  role && adminRoles.includes(role)
+    ? ownerNav
+    : staffNav
 
   return (
     <div
@@ -84,28 +164,26 @@ export default function Sidebar() {
       <nav className="flex flex-col gap-2 px-2">
 
         {navItems.map((item) => {
-          const active = pathname === item.href
+  const Icon = item.icon
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                active
-                  ? "bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white"
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
+  return (
+    <Link
+      key={item.href}
+      href={item.href}
+      className="flex items-center gap-3 px-4 py-3 rounded-xl"
+    >
+      <Icon
+        size={20}
+        strokeWidth={2}
+        className="shrink-0"
+      />
 
-              {!collapsed && (
-                <span className="font-medium">
-                  {item.name}
-                </span>
-              )}
-            </Link>
-          )
-        })}
+      {!collapsed && (
+        <span>{item.name}</span>
+      )}
+    </Link>
+  )
+})}
       </nav>
 
       {/* 🧍 Footer */}
