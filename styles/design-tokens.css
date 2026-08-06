@@ -1,0 +1,112 @@
+/* ========================================
+   ReJoyce Design System
+   Design Tokens
+   ======================================== */
+
+:root {
+  /* Brand palette */
+  --rj-mint-50: #f2fff7;
+  --rj-mint-100: #c6f7d8;
+  --rj-mint-500: #63c895;
+  --rj-mint-700: #3c9668;
+
+  --rj-lavender-50: #f6f5ff;
+  --rj-lavender-100: #d9d4ff;
+  --rj-lavender-500: #8d83df;
+  --rj-lavender-700: #665bb9;
+
+  --rj-blue-50: #f1f9ff;
+  --rj-blue-100: #cfeaff;
+  --rj-blue-500: #69b8e8;
+  --rj-blue-700: #377fae;
+
+  --rj-teal-50: #edfafa;
+  --rj-teal-100: #b9e6e9;
+  --rj-teal-500: #7bc6cf;
+  --rj-teal-700: #397f89;
+
+  --rj-sage-100: #d8e0de;
+  --rj-sage-500: #8d9d98;
+  --rj-sage-700: #5f706b;
+
+  /* Surfaces */
+  --rj-background: #f8fbfa;
+  --rj-surface: #ffffff;
+  --rj-surface-muted: #f2f6f5;
+  --rj-surface-elevated: #ffffff;
+
+  /* Text */
+  --rj-text-primary: #1f2937;
+  --rj-text-secondary: #596474;
+  --rj-text-muted: #84909f;
+  --rj-text-inverse: #ffffff;
+
+  /* Borders */
+  --rj-border: #e3e9e7;
+  --rj-border-strong: #ccd7d4;
+
+  /* Semantic colors */
+  --rj-success: #63c895;
+  --rj-success-soft: #e3f8ec;
+
+  --rj-warning: #e6b85c;
+  --rj-warning-soft: #fff5d9;
+
+  --rj-danger: #d9777f;
+  --rj-danger-soft: #fdebed;
+
+  --rj-info: #69b8e8;
+  --rj-info-soft: #e8f5fd;
+
+  /* Typography */
+  --rj-font-display: var(--font-fredoka), system-ui, sans-serif;
+  --rj-font-body: var(--font-nunito), system-ui, sans-serif;
+
+  /* Spacing scale */
+  --rj-space-1: 0.25rem;
+  --rj-space-2: 0.5rem;
+  --rj-space-3: 0.75rem;
+  --rj-space-4: 1rem;
+  --rj-space-5: 1.25rem;
+  --rj-space-6: 1.5rem;
+  --rj-space-8: 2rem;
+  --rj-space-10: 2.5rem;
+  --rj-space-12: 3rem;
+  --rj-space-16: 4rem;
+  --rj-space-20: 5rem;
+  --rj-space-24: 6rem;
+
+  /* Border radius */
+  --rj-radius-sm: 0.75rem;
+  --rj-radius-md: 1.25rem;
+  --rj-radius-lg: 1.75rem;
+  --rj-radius-xl: 2rem;
+  --rj-radius-pill: 9999px;
+
+  /* Shadows */
+  --rj-shadow-soft:
+    0 8px 24px rgba(31, 41, 55, 0.06);
+
+  --rj-shadow-medium:
+    0 12px 32px rgba(31, 41, 55, 0.1);
+
+  --rj-shadow-floating:
+    0 16px 44px rgba(31, 41, 55, 0.14);
+
+  --rj-shadow-modal:
+    0 24px 64px rgba(31, 41, 55, 0.18);
+
+  /* Motion */
+  --rj-duration-fast: 120ms;
+  --rj-duration-normal: 180ms;
+  --rj-duration-slow: 260ms;
+
+  --rj-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --rj-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.15);
+
+  /* Layout sizing */
+  --rj-mobile-max-width: 32rem;
+  --rj-bottom-nav-height: 5.25rem;
+  --rj-touch-target: 3.25rem;
+  --rj-session-touch-target: 3.75rem;
+}

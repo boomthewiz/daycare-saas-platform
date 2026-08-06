@@ -1,0 +1,66 @@
+/* ========================================
+   ReJoyce Design System
+   Motion
+   ======================================== */
+
+@keyframes rj-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rj-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rj-soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.rj-animate-fade-in {
+  animation:
+    rj-fade-in
+    var(--rj-duration-normal)
+    var(--rj-ease-standard);
+}
+
+.rj-animate-slide-up {
+  animation:
+    rj-slide-up
+    var(--rj-duration-slow)
+    var(--rj-ease-standard);
+}
+
+.rj-animate-soft-pulse {
+  animation: rj-soft-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

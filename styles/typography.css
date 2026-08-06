@@ -1,0 +1,69 @@
+/* ========================================
+   ReJoyce Design System
+   Typography
+   ======================================== */
+
+.rj-display {
+  font-family: var(--rj-font-display);
+  font-size: clamp(2.25rem, 8vw, 3rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.rj-heading-1 {
+  font-family: var(--rj-font-display);
+  font-size: clamp(1.875rem, 6vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.rj-heading-2 {
+  font-family: var(--rj-font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.rj-heading-3 {
+  font-family: var(--rj-font-body);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.rj-body-large {
+  font-family: var(--rj-font-body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.rj-body {
+  font-family: var(--rj-font-body);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.rj-caption {
+  color: var(--rj-text-secondary);
+  font-family: var(--rj-font-body);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.rj-label {
+  color: var(--rj-text-secondary);
+  font-family: var(--rj-font-body);
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rj-button-label {
+  font-family: var(--rj-font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
