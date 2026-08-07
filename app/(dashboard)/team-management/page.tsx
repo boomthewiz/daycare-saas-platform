@@ -24,6 +24,7 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 type Tab = "clients" | "team"
 
@@ -76,6 +77,8 @@ export default function PeopleManagementPage() {
 
   const [successMessage, setSuccessMessage] =
     useState<string | null>(null)
+
+    const router = useRouter()
 
   const loadPeople = useCallback(
     async (showRefresh = false) => {
@@ -234,23 +237,25 @@ export default function PeopleManagementPage() {
         )
       }
 
-      const { error } = await supabase
-        .from("clients")
-        .insert({
-          organization_id: organizationId,
-          first_name: firstName.trim(),
-          last_name:
-            lastName.trim() || null,
-          preferred_name:
-            preferredName.trim() || null,
-          assigned_provider_id:
-            assignedProviderId || null,
-          status: "active",
-        })
+     const { data, error } = await supabase
+  .from("clients")
+  .insert({
+    organization_id: organizationId,
+    first_name: firstName.trim(),
+    last_name: lastName.trim() || null,
+    preferred_name: preferredName.trim() || null,
+    assigned_provider_id:
+      assignedProviderId || null,
+    status: "active",
+  })
+  .select("id")
+  .single()
 
       if (error) {
-        throw new Error(error.message)
-      }
+  throw new Error(error.message)
+}
+
+router.push(`/clients/${data.id}`)
 
       setFirstName("")
       setLastName("")
