@@ -27,6 +27,10 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation"
 
 type ClientOption = {
   id: string
@@ -34,6 +38,7 @@ type ClientOption = {
   last_name: string | null
   preferred_name: string | null
   status: string
+  assigned_provider_id: string | null
 }
 
 type ProviderOption = {
@@ -116,7 +121,13 @@ const FRONTLINE_ROLES = [
 ]
 
 export default function AdminSessionsPage() {
-  const [clients, setClients] =
+  const router = useRouter()
+const searchParams = useSearchParams()
+
+const requestedClientId =
+  searchParams.get("client")
+  
+    const [clients, setClients] =
     useState<ClientOption[]>([])
 
   const [providers, setProviders] =
@@ -176,14 +187,15 @@ export default function AdminSessionsPage() {
           sessionResult,
         ] = await Promise.all([
           supabase
-            .from("clients")
-            .select(`
-              id,
-              first_name,
-              last_name,
-              preferred_name,
-              status
-            `)
+  .from("clients")
+  .select(`
+    id,
+    first_name,
+    last_name,
+    preferred_name,
+    status,
+    assigned_provider_id
+  `)
             .eq("status", "active")
             .order("preferred_name", {
               ascending: true,
@@ -335,6 +347,31 @@ export default function AdminSessionsPage() {
         setLocationOptions(loadedLocations)
         setSessions(loadedSessions)
 
+        if (requestedClientId) {
+  const requestedClient =
+    loadedClients.find(
+      (client) =>
+        client.id === requestedClientId
+    )
+
+  if (requestedClient) {
+    setClientId(requestedClient.id)
+
+    if (
+      requestedClient.assigned_provider_id &&
+      loadedProviders.some(
+        (provider) =>
+          provider.id ===
+          requestedClient.assigned_provider_id
+      )
+    ) {
+      setProviderId(
+        requestedClient.assigned_provider_id
+      )
+    }
+  }
+}
+
         setSessionType((currentValue) => {
           if (
             currentValue &&
@@ -371,7 +408,7 @@ export default function AdminSessionsPage() {
 
   useEffect(() => {
     fetchPageData()
-  }, [fetchPageData])
+  }, [requestedClientId])
 
   const sessionTypeNameMap = useMemo(
     () =>
@@ -456,6 +493,11 @@ export default function AdminSessionsPage() {
     sessionTypes.find(
       (item) => item.code === sessionType
     )
+
+    const selectedClient =
+  clients.find(
+    (client) => client.id === clientId
+  ) || null
 
   const applyDefaultEndTime = (
     startValue: string,
@@ -584,8 +626,22 @@ export default function AdminSessionsPage() {
 
       setSuccess(result)
 
-      setClientId("")
-      setProviderId("")
+      if (requestedClientId) {
+  setClientId(requestedClientId)
+
+  const requestedClient =
+    clients.find(
+      (client) =>
+        client.id === requestedClientId
+    )
+
+  setProviderId(
+    requestedClient?.assigned_provider_id || ""
+  )
+} else {
+  setClientId("")
+  setProviderId("")
+}
       setScheduledStart("")
       setScheduledEnd("")
       setSelectedLocation("")
@@ -784,7 +840,28 @@ export default function AdminSessionsPage() {
             Active client targets are copied into
             the session automatically.
           </p>
+{requestedClientId && selectedClient && (
+  <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-blue-50)] p-4">
+    <div className="flex gap-3">
+      <CheckCircle2
+        size={20}
+        className="shrink-0 text-[var(--rj-blue-700)]"
+      />
 
+      <div>
+        <p className="text-sm font-bold text-[var(--rj-blue-700)]">
+          Creating a session for{" "}
+          {getClientName(selectedClient)}
+        </p>
+
+        <p className="rj-caption mt-1">
+          The client and primary worker were selected
+          from the client profile.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
           <form
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
@@ -792,11 +869,31 @@ export default function AdminSessionsPage() {
             <FormField label="Client">
               <select
                 value={clientId}
-                onChange={(event) =>
-                  setClientId(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => {
+  const nextClientId =
+    event.target.value
+
+  setClientId(nextClientId)
+
+  const nextClient =
+    clients.find(
+      (client) =>
+        client.id === nextClientId
+    )
+
+  if (
+    nextClient?.assigned_provider_id &&
+    providers.some(
+      (provider) =>
+        provider.id ===
+        nextClient.assigned_provider_id
+    )
+  ) {
+    setProviderId(
+      nextClient.assigned_provider_id
+    )
+  }
+}}
                 className="rj-input"
                 required
               >
