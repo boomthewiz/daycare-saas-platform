@@ -644,15 +644,25 @@ router.push(`/clients/${data.id}`)
                   </div>
                 </div>
 
-                <span
-                  className={`rj-badge ${
-                    member.status === "active"
-                      ? "rj-badge-success"
-                      : "rj-badge-warning"
-                  }`}
-                >
-                  {formatLabel(member.status)}
-                </span>
+                <div className="flex shrink-0 items-center gap-3">
+  <span
+    className={`rj-badge ${
+      member.status === "active"
+        ? "rj-badge-success"
+        : "rj-badge-warning"
+    }`}
+  >
+    {formatLabel(member.status)}
+  </span>
+
+  <Link
+    href={`/team-management/${member.id}`}
+    className="rj-button rj-button-secondary"
+  >
+    Manage
+    <ArrowRight size={17} />
+  </Link>
+</div>
               </div>
             ))}
           </div>
