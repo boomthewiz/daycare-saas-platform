@@ -1,15 +1,12 @@
 "use client"
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
+  AlertCircle,
+  CalendarDays,
   CheckCircle2,
-  CircleAlert,
+  ChevronRight,
   Clock3,
   FileCheck2,
   FileText,
@@ -25,37 +22,40 @@ import {
 import { supabase } from "@/lib/supabase"
 
 type ReviewStatus =
+  | "draft"
   | "submitted"
   | "returned"
   | "approved"
   | "locked"
 
-type SessionNoteRow = {
+type ReviewRow = {
   id: string
-  organization_id: string
   session_id: string
+  organization_id: string
+  status: ReviewStatus
   author_id: string | null
   reviewed_by: string | null
-  status: ReviewStatus
-  review_notes: string | null
   submitted_at: string | null
   reviewed_at: string | null
   created_at: string
   updated_at: string
+
   sessions: {
     id: string
     client_id: string
     provider_id: string | null
     session_type: string
     status: string
+    attendance_status: string
     scheduled_start: string | null
     scheduled_end: string | null
-    location: string | null
+
     clients: {
       first_name: string
       last_name: string | null
       preferred_name: string | null
     } | null
+
     provider: {
       full_name: string | null
       email: string | null
@@ -63,218 +63,190 @@ type SessionNoteRow = {
   } | null
 }
 
-type StatusFilter =
+type FilterValue =
+  | "all"
   | "submitted"
   | "returned"
   | "approved"
   | "locked"
-  | "all"
 
 export default function ReviewsPage() {
-  const [notes, setNotes] =
-    useState<SessionNoteRow[]>([])
-
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("submitted")
-
-  const [searchTerm, setSearchTerm] = useState("")
-
+  const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [pageError, setPageError] = useState<string | null>(null)
 
-  const [pageError, setPageError] =
-    useState<string | null>(null)
+  const [filter, setFilter] =
+    useState<FilterValue>("submitted")
 
-  const loadReviews = useCallback(
-    async (showRefresh = false) => {
-      if (showRefresh) {
-        setRefreshing(true)
-      } else {
-        setLoading(true)
+  const [search, setSearch] = useState("")
+
+  const loadReviews = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+
+    setPageError(null)
+
+    try {
+      /*
+       * First verify that the current user is actually
+       * allowed to access the review queue.
+       */
+      const { data: canReview, error: permissionError } =
+        await supabase.rpc("can_review_sessions")
+
+      if (permissionError) {
+        throw new Error(permissionError.message)
       }
 
-      setPageError(null)
-
-      try {
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser()
-
-        if (authError) {
-          throw new Error(authError.message)
-        }
-
-        if (!user) {
-          throw new Error(
-            "Your login session could not be found."
-          )
-        }
-
-        const {
-          data: canReview,
-          error: permissionError,
-        } = await supabase.rpc(
-          "can_review_sessions"
+      if (!canReview) {
+        throw new Error(
+          "You do not have permission to access session reviews."
         )
+      }
 
-        if (permissionError) {
-          throw new Error(
-            permissionError.message
-          )
-        }
+      /*
+       * Load review records for the current organization.
+       *
+       * RLS on session_notes is responsible for determining
+       * which records the current reviewer can actually see.
+       */
+      const { data, error } = await supabase
+        .from("session_notes")
+        .select(`
+          id,
+          session_id,
+          organization_id,
+          status,
+          author_id,
+          reviewed_by,
+          submitted_at,
+          reviewed_at,
+          created_at,
+          updated_at,
 
-        if (!canReview) {
-          throw new Error(
-            "You do not have permission to review session documentation."
-          )
-        }
-
-        const { data, error } = await supabase
-          .from("session_notes")
-          .select(`
+          sessions (
             id,
-            organization_id,
-            session_id,
-            author_id,
-            reviewed_by,
+            client_id,
+            provider_id,
+            session_type,
             status,
-            review_notes,
-            submitted_at,
-            reviewed_at,
-            created_at,
-            updated_at,
-            sessions (
-              id,
-              client_id,
-              provider_id,
-              session_type,
-              status,
-              scheduled_start,
-              scheduled_end,
-              location,
-              clients (
-                first_name,
-                last_name,
-                preferred_name
-              ),
-              provider:users!sessions_provider_id_fkey (
-                full_name,
-                email
-              )
+            attendance_status,
+            scheduled_start,
+            scheduled_end,
+
+            clients (
+              first_name,
+              last_name,
+              preferred_name
+            ),
+
+            provider:users!sessions_provider_id_fkey (
+              full_name,
+              email
             )
-          `)
-          .in("status", [
-            "submitted",
-            "returned",
-            "approved",
-            "locked",
-          ])
-          .order("submitted_at", {
-            ascending: false,
-            nullsFirst: false,
-          })
-          .order("updated_at", {
-            ascending: false,
-          })
+          )
+        `)
+        .order("updated_at", {
+          ascending: false,
+        })
 
-        if (error) {
-          throw new Error(error.message)
-        }
-
-        setNotes(
-          (data || []) as unknown as SessionNoteRow[]
-        )
-      } catch (error) {
-        console.error(
-          "Load review queue error:",
-          error
-        )
-
-        setPageError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load the review queue."
-        )
-      } finally {
-        setLoading(false)
-        setRefreshing(false)
+      if (error) {
+        throw new Error(error.message)
       }
-    },
-    []
-  )
+
+      setReviews(
+        (data || []) as unknown as ReviewRow[]
+      )
+    } catch (error) {
+      console.error("Load reviews error:", error)
+
+      setPageError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load the review queue."
+      )
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
     loadReviews()
   }, [loadReviews])
 
-  const submittedCount = notes.filter(
-    (note) => note.status === "submitted"
-  ).length
+  const counts = useMemo(() => {
+    return {
+      all: reviews.length,
 
-  const returnedCount = notes.filter(
-    (note) => note.status === "returned"
-  ).length
+      submitted: reviews.filter(
+        (review) => review.status === "submitted"
+      ).length,
 
-  const approvedCount = notes.filter(
-    (note) => note.status === "approved"
-  ).length
+      returned: reviews.filter(
+        (review) => review.status === "returned"
+      ).length,
 
-  const lockedCount = notes.filter(
-    (note) => note.status === "locked"
-  ).length
+      approved: reviews.filter(
+        (review) => review.status === "approved"
+      ).length,
 
-  const filteredNotes = useMemo(() => {
-    const search =
-      searchTerm.trim().toLowerCase()
+      locked: reviews.filter(
+        (review) => review.status === "locked"
+      ).length,
+    }
+  }, [reviews])
 
-    return notes.filter((note) => {
-      if (
-        statusFilter !== "all" &&
-        note.status !== statusFilter
-      ) {
+  const filteredReviews = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase()
+
+    return reviews.filter((review) => {
+      const session = review.sessions
+
+      const matchesStatus =
+        filter === "all" ||
+        review.status === filter
+
+      if (!matchesStatus) {
         return false
       }
 
-      if (!search) {
+      if (!normalizedSearch) {
         return true
       }
 
-      const session = note.sessions
       const client = session?.clients
-      const provider = session?.provider
 
-      const clientName = client
-        ? (
-            client.preferred_name?.trim() ||
-            [
-              client.first_name,
-              client.last_name,
-            ]
-              .filter(Boolean)
-              .join(" ")
-          )
-        : ""
+      const clientName = [
+        client?.preferred_name || client?.first_name,
+        client?.last_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
 
       const providerName =
-        provider?.full_name ||
-        provider?.email ||
+        session?.provider?.full_name ||
+        session?.provider?.email ||
         ""
 
-      const searchable = [
+      const searchableText = [
         clientName,
         providerName,
         session?.session_type,
-        session?.location,
-        note.status,
+        session?.attendance_status,
+        review.status,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
 
-      return searchable.includes(search)
+      return searchableText.includes(normalizedSearch)
     })
-  }, [notes, searchTerm, statusFilter])
+  }, [reviews, filter, search])
 
   if (loading) {
     return <ReviewsLoading />
@@ -282,26 +254,27 @@ export default function ReviewsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {/* Header */}
       <header className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-border)] bg-white p-6 shadow-[var(--rj-shadow-soft)] sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--rj-lavender-100)] opacity-65" />
-
-        <div className="pointer-events-none absolute -bottom-24 right-32 h-48 w-48 rounded-full bg-[var(--rj-teal-100)] opacity-50" />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--rj-lavender-100)] opacity-60" />
 
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--rj-teal-50)] px-3 py-1.5 text-sm font-bold text-[var(--rj-teal-700)]">
-              <ShieldCheck size={15} />
-              Documentation Review
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-[var(--rj-teal-50)] px-3 py-1.5 text-sm font-bold text-[var(--rj-teal-700)]">
+                <ShieldCheck size={15} />
+                Administration
+              </span>
+            </div>
 
             <h1 className="rj-heading-1 mt-4">
-              Session Review Queue
+              Session Reviews
             </h1>
 
-            <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
-              Review submitted documentation, return notes
-              for correction, and track approved or locked
-              records.
+            <p className="rj-body mt-2 max-w-2xl text-[var(--rj-text-secondary)]">
+              Review submitted session documentation, return
+              notes for correction, approve documentation, and
+              finalize completed records.
             </p>
           </div>
 
@@ -309,15 +282,15 @@ export default function ReviewsPage() {
             type="button"
             onClick={() => loadReviews(true)}
             disabled={refreshing}
-            className="rj-button rj-button-primary"
+            className="rj-button rj-button-secondary shrink-0"
           >
             {refreshing ? (
               <LoaderCircle
-                size={19}
+                size={18}
                 className="animate-spin"
               />
             ) : (
-              <RefreshCw size={19} />
+              <RefreshCw size={18} />
             )}
 
             Refresh
@@ -327,383 +300,284 @@ export default function ReviewsPage() {
 
       {pageError && (
         <div className="rounded-[var(--rj-radius-md)] bg-[var(--rj-danger-soft)] p-4">
-          <div className="flex gap-3">
-            <CircleAlert
+          <div className="flex items-start gap-3">
+            <AlertCircle
               size={21}
-              className="shrink-0 text-[var(--rj-danger)]"
+              className="mt-0.5 shrink-0 text-[var(--rj-danger)]"
             />
 
             <div>
-              <p className="font-bold text-[var(--rj-danger)]">
-                Unable to load review queue
+              <p className="font-bold">
+                Unable to load reviews
               </p>
 
               <p className="rj-caption mt-1">
                 {pageError}
               </p>
+
+              <button
+                type="button"
+                onClick={() => loadReviews()}
+                className="mt-3 text-sm font-bold text-[var(--rj-teal-700)]"
+              >
+                Try again
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <ReviewSummaryCard
-          label="Submitted"
-          value={submittedCount}
-          description="Waiting for review"
+      {/* Summary cards */}
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <ReviewCountCard
+          label="All"
+          value={counts.all}
           icon={FileText}
-          background="var(--rj-blue-100)"
-          foreground="var(--rj-blue-700)"
+          active={filter === "all"}
+          onClick={() => setFilter("all")}
         />
 
-        <ReviewSummaryCard
+        <ReviewCountCard
+          label="Needs Review"
+          value={counts.submitted}
+          icon={ShieldCheck}
+          active={filter === "submitted"}
+          onClick={() => setFilter("submitted")}
+        />
+
+        <ReviewCountCard
           label="Returned"
-          value={returnedCount}
-          description="Needs correction"
+          value={counts.returned}
           icon={RotateCcw}
-          background="var(--rj-warning-soft)"
-          foreground="#926c22"
+          active={filter === "returned"}
+          onClick={() => setFilter("returned")}
         />
 
-        <ReviewSummaryCard
+        <ReviewCountCard
           label="Approved"
-          value={approvedCount}
-          description="Accepted documentation"
+          value={counts.approved}
           icon={CheckCircle2}
-          background="var(--rj-mint-100)"
-          foreground="var(--rj-mint-700)"
+          active={filter === "approved"}
+          onClick={() => setFilter("approved")}
         />
 
-        <ReviewSummaryCard
+        <ReviewCountCard
           label="Locked"
-          value={lockedCount}
-          description="Finalized records"
+          value={counts.locked}
           icon={FileCheck2}
-          background="var(--rj-lavender-100)"
-          foreground="var(--rj-lavender-700)"
+          active={filter === "locked"}
+          onClick={() => setFilter("locked")}
         />
       </section>
 
-      <section className="rj-card p-2">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-          <StatusTab
-            label="Submitted"
-            count={submittedCount}
-            active={statusFilter === "submitted"}
-            onClick={() =>
-              setStatusFilter("submitted")
-            }
-          />
+      {/* Filters */}
+      <section className="rj-card p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <Filter
+              size={19}
+              className="text-[var(--rj-teal-700)]"
+            />
 
-          <StatusTab
-            label="Returned"
-            count={returnedCount}
-            active={statusFilter === "returned"}
-            onClick={() =>
-              setStatusFilter("returned")
-            }
-          />
+            <p className="font-bold">
+              Review Queue
+            </p>
+          </div>
 
-          <StatusTab
-            label="Approved"
-            count={approvedCount}
-            active={statusFilter === "approved"}
-            onClick={() =>
-              setStatusFilter("approved")
-            }
-          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
+              />
 
-          <StatusTab
-            label="Locked"
-            count={lockedCount}
-            active={statusFilter === "locked"}
-            onClick={() =>
-              setStatusFilter("locked")
-            }
-          />
-
-          <StatusTab
-            label="All"
-            count={notes.length}
-            active={statusFilter === "all"}
-            onClick={() =>
-              setStatusFilter("all")
-            }
-          />
-        </div>
-      </section>
-
-      <section className="rj-card overflow-hidden">
-        <div className="border-b border-[var(--rj-border)] p-6">
-          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-            <div>
-              <p className="rj-label">
-                Review Queue
-              </p>
-
-              <h2 className="rj-heading-2 mt-1">
-                {getStatusHeading(statusFilter)}
-              </h2>
-
-              <p className="rj-caption mt-2">
-                {filteredNotes.length} record
-                {filteredNotes.length === 1
-                  ? ""
-                  : "s"}{" "}
-                shown
-              </p>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Search client or provider..."
+                className="rj-input pl-10 sm:w-72"
+              />
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative">
-                <Search
-                  size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                />
+            <select
+              value={filter}
+              onChange={(event) =>
+                setFilter(
+                  event.target.value as FilterValue
+                )
+              }
+              className="rj-input sm:w-48"
+            >
+              <option value="all">
+                All reviews
+              </option>
 
-                <input
-                  type="search"
-                  value={searchTerm}
-                  onChange={(event) =>
-                    setSearchTerm(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search client, worker, location…"
-                  className="rj-input min-w-[260px] pl-11"
-                />
-              </div>
+              <option value="submitted">
+                Needs review
+              </option>
 
-              <div className="flex items-center gap-2 rounded-[var(--rj-radius-md)] bg-[var(--rj-surface-muted)] px-4">
-                <Filter
-                  size={17}
-                  className="text-[var(--rj-text-muted)]"
-                />
+              <option value="returned">
+                Returned
+              </option>
 
-                <span className="text-sm font-semibold text-[var(--rj-text-secondary)]">
-                  {formatLabel(statusFilter)}
-                </span>
-              </div>
-            </div>
+              <option value="approved">
+                Approved
+              </option>
+
+              <option value="locked">
+                Locked
+              </option>
+            </select>
           </div>
         </div>
+      </section>
 
-        {filteredNotes.length === 0 ? (
-          <ReviewEmptyState
-            status={statusFilter}
+      {/* Review list */}
+      <section className="rj-card overflow-hidden">
+        {filteredReviews.length === 0 ? (
+          <EmptyReviews
+            hasSearch={Boolean(search.trim())}
+            filter={filter}
           />
         ) : (
-          <div className="divide-y divide-[var(--rj-border)]">
-            {filteredNotes.map((note) => (
-              <ReviewQueueRow
-                key={note.id}
-                note={note}
-              />
-            ))}
-          </div>
+          <>
+            <div className="hidden border-b border-[var(--rj-border)] bg-[var(--rj-surface-muted)] px-6 py-3 text-xs font-extrabold uppercase tracking-wide text-[var(--rj-text-muted)] lg:grid lg:grid-cols-[minmax(220px,1.4fr)_minmax(160px,1fr)_150px_150px_40px] lg:gap-4">
+              <span>Client</span>
+              <span>Provider</span>
+              <span>Session</span>
+              <span>Status</span>
+              <span />
+            </div>
+
+            <div className="divide-y divide-[var(--rj-border)]">
+              {filteredReviews.map((review) => (
+                <ReviewListItem
+                  key={review.id}
+                  review={review}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
     </div>
   )
 }
 
-function ReviewQueueRow({
-  note,
+function ReviewListItem({
+  review,
 }: {
-  note: SessionNoteRow
+  review: ReviewRow
 }) {
-  const session = note.sessions
+  const session = review.sessions
   const client = session?.clients
-  const provider = session?.provider
 
-  const clientName = client
-    ? (
-        client.preferred_name?.trim() ||
-        [
-          client.first_name,
-          client.last_name,
-        ]
-          .filter(Boolean)
-          .join(" ")
-      )
-    : "Client"
+  const clientName =
+    client?.preferred_name ||
+    [client?.first_name, client?.last_name]
+      .filter(Boolean)
+      .join(" ") ||
+    "Unknown client"
 
   const providerName =
-    provider?.full_name ||
-    provider?.email ||
+    session?.provider?.full_name ||
+    session?.provider?.email ||
     "Unassigned"
 
-  const submittedAge =
-    note.submitted_at
-      ? formatAge(note.submitted_at)
-      : "Not submitted"
-
   return (
-    <article className="p-5 transition-colors hover:bg-[var(--rj-surface-muted)] sm:p-6">
-      <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-bold">
+    <Link
+      href={`/reviews/${review.session_id}`}
+      className="group block p-5 transition hover:bg-[var(--rj-surface-muted)] sm:p-6"
+    >
+      <div className="grid gap-4 lg:grid-cols-[minmax(220px,1.4fr)_minmax(160px,1fr)_150px_150px_40px] lg:items-center lg:gap-4">
+        {/* Client */}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--rj-lavender-100)] text-[var(--rj-lavender-700)]">
+            <UserRound size={20} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="truncate font-extrabold">
               {clientName}
-            </h3>
-
-            <ReviewStatusBadge
-              status={note.status}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <ReviewDetail
-              icon={Clock3}
-              label="Session"
-              value={formatDateRange(
-                session?.scheduled_start || null,
-                session?.scheduled_end || null
-              )}
-            />
-
-            <ReviewDetail
-              icon={UserRound}
-              label="Frontline worker"
-              value={providerName}
-            />
-
-            <ReviewDetail
-              icon={FileText}
-              label="Submitted"
-              value={submittedAge}
-            />
-
-            <ReviewDetail
-              icon={ShieldCheck}
-              label="Session type"
-              value={
-                session?.session_type
-                  ? formatLabel(
-                      session.session_type
-                    )
-                  : "Not specified"
-              }
-            />
-          </div>
-
-          {session?.location && (
-            <p className="rj-caption mt-4">
-              Location: {session.location}
             </p>
-          )}
 
-          {note.status === "returned" &&
-            note.review_notes && (
-              <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-warning-soft)] p-3">
-                <p className="text-sm font-bold text-[#926c22]">
-                  Reviewer feedback
-                </p>
-
-                <p className="rj-caption mt-1">
-                  {note.review_notes}
-                </p>
-              </div>
-            )}
+            <p className="rj-caption mt-1">
+              Documentation review
+            </p>
+          </div>
         </div>
 
-        <div className="shrink-0">
-          <Link
-            href={`/reviews/${note.session_id}`}
-            className="rj-button rj-button-primary"
-          >
-            {note.status === "submitted"
-              ? "Review"
-              : "Open Record"}
-          </Link>
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function ReviewSummaryCard({
-  label,
-  value,
-  description,
-  icon: Icon,
-  background,
-  foreground,
-}: {
-  label: string
-  value: number
-  description: string
-  icon: typeof FileText
-  background: string
-  foreground: string
-}) {
-  return (
-    <article className="rj-card p-5">
-      <div className="flex items-start justify-between gap-4">
+        {/* Provider */}
         <div>
-          <p className="rj-label">
-            {label}
+          <p className="rj-label lg:hidden">
+            Provider
           </p>
 
-          <p className="mt-2 text-3xl font-extrabold">
-            {value}
-          </p>
-
-          <p className="rj-caption mt-1">
-            {description}
+          <p className="mt-1 truncate text-sm font-semibold lg:mt-0">
+            {providerName}
           </p>
         </div>
 
-        <div
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
-          style={{
-            background,
-            color: foreground,
-          }}
-        >
-          <Icon size={22} />
+        {/* Session */}
+        <div>
+          <p className="rj-label lg:hidden">
+            Session
+          </p>
+
+          <div className="mt-1 lg:mt-0">
+            <p className="text-sm font-bold">
+              {formatSessionType(
+                session?.session_type
+              )}
+            </p>
+
+            <p className="rj-caption mt-1">
+              {formatDate(
+                session?.scheduled_start ||
+                  review.created_at
+              )}
+            </p>
+          </div>
+        </div>
+
+        {/* Status */}
+        <div>
+          <p className="rj-label lg:hidden">
+            Status
+          </p>
+
+          <div className="mt-1 lg:mt-0">
+            <ReviewStatusBadge
+              status={review.status}
+            />
+          </div>
+        </div>
+
+        {/* Arrow */}
+        <div className="hidden justify-end lg:flex">
+          <ChevronRight
+            size={21}
+            className="text-[var(--rj-text-muted)] transition group-hover:translate-x-1 group-hover:text-[var(--rj-teal-700)]"
+          />
         </div>
       </div>
-    </article>
+    </Link>
   )
 }
 
-function ReviewDetail({
-  icon: Icon,
+function ReviewCountCard({
   label,
   value,
-}: {
-  icon: typeof FileText
-  label: string
-  value: string
-}) {
-  return (
-    <div className="flex gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--rj-blue-50)] text-[var(--rj-blue-700)]">
-        <Icon size={17} />
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wide text-[var(--rj-text-muted)]">
-          {label}
-        </p>
-
-        <p className="mt-1 truncate text-sm font-semibold text-[var(--rj-text-primary)]">
-          {value}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function StatusTab({
-  label,
-  count,
+  icon: Icon,
   active,
   onClick,
 }: {
   label: string
-  count: number
+  value: number
+  icon: typeof FileText
   active: boolean
   onClick: () => void
 }) {
@@ -711,17 +585,27 @@ function StatusTab({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-14 items-center justify-center gap-3 rounded-[var(--rj-radius-md)] px-4 font-bold transition-colors ${
+      className={`rj-card p-5 text-left transition ${
         active
-          ? "bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]"
-          : "text-[var(--rj-text-secondary)] hover:bg-[var(--rj-surface-muted)]"
+          ? "ring-2 ring-[var(--rj-teal-500)]"
+          : "hover:-translate-y-0.5"
       }`}
     >
-      {label}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="rj-label">
+            {label}
+          </p>
 
-      <span className="rounded-full bg-white px-2 py-0.5 text-xs">
-        {count}
-      </span>
+          <p className="mt-2 text-2xl font-extrabold">
+            {value}
+          </p>
+        </div>
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--rj-teal-50)] text-[var(--rj-teal-700)]">
+          <Icon size={19} />
+        </div>
+      </div>
     </button>
   )
 }
@@ -737,78 +621,77 @@ function ReviewStatusBadge({
       ? "rj-badge-success"
       : status === "returned"
         ? "rj-badge-warning"
-        : "rj-badge-info"
+        : status === "submitted"
+          ? "rj-badge-info"
+          : "rj-badge-warning"
 
   return (
     <span className={`rj-badge ${className}`}>
-      {formatLabel(status)}
+      {status === "submitted"
+        ? "Needs Review"
+        : formatLabel(status)}
     </span>
   )
 }
 
-function ReviewEmptyState({
-  status,
+function EmptyReviews({
+  hasSearch,
+  filter,
 }: {
-  status: StatusFilter
+  hasSearch: boolean
+  filter: FilterValue
 }) {
-  const content = (() => {
-    switch (status) {
-      case "submitted":
-        return {
-          title: "No notes waiting for review",
-          description:
-            "Newly submitted session documentation will appear here.",
-          icon: FileCheck2,
-        }
+  if (hasSearch) {
+    return (
+      <div className="p-10 text-center">
+        <Search
+          size={34}
+          className="mx-auto text-[var(--rj-text-muted)]"
+        />
 
-      case "returned":
-        return {
-          title: "No returned notes",
-          description:
-            "Notes sent back for correction will appear here.",
-          icon: RotateCcw,
-        }
+        <h2 className="rj-heading-3 mt-4">
+          No matching reviews
+        </h2>
 
-      case "approved":
-        return {
-          title: "No approved notes",
-          description:
-            "Approved documentation will appear here.",
-          icon: CheckCircle2,
-        }
+        <p className="rj-caption mt-2">
+          Try changing your search or review filter.
+        </p>
+      </div>
+    )
+  }
 
-      case "locked":
-        return {
-          title: "No locked records",
-          description:
-            "Finalized documentation will appear here.",
-          icon: ShieldCheck,
-        }
+  if (filter === "submitted") {
+    return (
+      <div className="p-10 text-center">
+        <CheckCircle2
+          size={38}
+          className="mx-auto text-[var(--rj-mint-700)]"
+        />
 
-      default:
-        return {
-          title: "No review records",
-          description:
-            "Submitted and reviewed documentation will appear here.",
-          icon: FileText,
-        }
-    }
-  })()
+        <h2 className="rj-heading-3 mt-4">
+          You're all caught up
+        </h2>
 
-  const Icon = content.icon
+        <p className="rj-caption mt-2">
+          There are no submitted session notes waiting for review.
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-12 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--rj-blue-100)] text-[var(--rj-blue-700)]">
-        <Icon size={28} />
-      </div>
+    <div className="p-10 text-center">
+      <FileText
+        size={38}
+        className="mx-auto text-[var(--rj-text-muted)]"
+      />
 
-      <h3 className="rj-heading-3 mt-4">
-        {content.title}
-      </h3>
+      <h2 className="rj-heading-3 mt-4">
+        No reviews found
+      </h2>
 
-      <p className="rj-caption mx-auto mt-2 max-w-md">
-        {content.description}
+      <p className="rj-caption mt-2">
+        There are no session notes in this category.
       </p>
     </div>
   )
@@ -816,47 +699,28 @@ function ReviewEmptyState({
 
 function ReviewsLoading() {
   return (
-    <div className="flex min-h-[65vh] items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--rj-teal-100)]">
-          <LoaderCircle
-            size={30}
-            className="animate-spin text-[var(--rj-teal-700)]"
-          />
-        </div>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div className="rj-card h-48 animate-pulse bg-[var(--rj-surface-muted)]" />
 
-        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-          Loading review queue…
-        </p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="rj-card h-28 animate-pulse bg-[var(--rj-surface-muted)]"
+          />
+        ))}
       </div>
+
+      <div className="rj-card h-96 animate-pulse bg-[var(--rj-surface-muted)]" />
     </div>
   )
 }
 
-function getStatusHeading(
-  status: StatusFilter
-): string {
-  switch (status) {
-    case "submitted":
-      return "Waiting for Review"
-
-    case "returned":
-      return "Returned for Correction"
-
-    case "approved":
-      return "Approved Documentation"
-
-    case "locked":
-      return "Locked Records"
-
-    default:
-      return "All Review Records"
+function formatLabel(value?: string | null) {
+  if (!value) {
+    return "Not specified"
   }
-}
 
-function formatLabel(
-  value: string
-): string {
   return value
     .split("_")
     .map(
@@ -867,89 +731,27 @@ function formatLabel(
     .join(" ")
 }
 
-function formatDateRange(
-  start: string | null,
-  end: string | null
-): string {
-  if (!start) {
-    return "Time not scheduled"
-  }
-
-  const startDate = new Date(start)
-
-  const endDate = end
-    ? new Date(end)
-    : null
-
-  const dateText =
-    new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    }).format(startDate)
-
-  const startTime =
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(startDate)
-
-  const endTime = endDate
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(endDate)
-    : null
-
-  return endTime
-    ? `${dateText} · ${startTime}–${endTime}`
-    : `${dateText} · ${startTime}`
+function formatSessionType(
+  value?: string | null
+) {
+  return formatLabel(value)
 }
 
-function formatAge(
-  value: string
-): string {
-  const timestamp =
-    new Date(value).getTime()
-
-  if (Number.isNaN(timestamp)) {
-    return "Unknown"
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "Date not specified"
   }
 
-  const elapsed =
-    Date.now() - timestamp
-
-  const minutes = Math.floor(
-    elapsed / 60_000
-  )
-
-  if (minutes < 1) {
-    return "Just now"
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`
-  }
-
-  const hours = Math.floor(
-    minutes / 60
-  )
-
-  if (hours < 24) {
-    return `${hours}h ago`
-  }
-
-  const days = Math.floor(
-    hours / 24
-  )
-
-  if (days < 7) {
-    return `${days}d ago`
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value))
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  ).format(new Date(value))
 }
