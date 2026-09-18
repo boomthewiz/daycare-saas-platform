@@ -10,4 +10,7 @@ HTTP 429 responses include Retry-After and a readable wait time. The existing lo
 
 Validation: node --test tests/pin-security.test.cjs; TypeScript and targeted lint checks; supabase/tests/pin_login_limits.sql against the deployed database. The SQL test rolls back synthetic data. Concurrent admission must also be checked using independent transactions.
 
+On September 18, 2026, migration 20260918212259 was applied to Rejoyce App. All 14 route tests, TypeScript, targeted linting and the live SQL tests passed. Ten concurrently dispatched database transactions admitted five attempts and rejected five; the five synthetic reservations were deleted afterward. Security advisor counts remained unchanged. The local build could not complete because the sandbox blocked Google Fonts requests and workspace-root traversal; deployment build verification is required.
+
 Migration history: the earlier CLI-generated 20260918041744_restrict_pin_hash_reads.sql was applied remotely as version 20260918211548. Reconcile this and earlier remote audit migrations before a blanket CLI database push.
+
