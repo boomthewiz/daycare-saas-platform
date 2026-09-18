@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { getPinStatus } from "@/lib/pin-status"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 
@@ -14,50 +14,38 @@ export default function DashboardLayout({
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
+  const [accountError, setAccountError] = useState<string | null>(null)
 
   useEffect(() => {
     const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      // ❌ Not logged in
-      if (!session) {
-        router.push("/login")
-        return
+      try {
+        const status = await getPinStatus()
+        if (!status) {
+          router.replace("/login")
+          return
+        }
+        if (!status.hasPin || status.resetRequired) {
+          router.replace("/set-pin")
+          return
+        }
+        setLoading(false)
+      } catch (error) {
+        setAccountError(error instanceof Error ? error.message : "Unable to check your account.")
       }
-
-      // 🔐 Check PIN
-      const { data: userData, error } = await supabase
-        .from("users")
-        .select("pin_hash")
-        .eq("id", session.user.id)
-        .single()
-
-      if (error) {
-        console.error("User fetch error:", error)
-        return
-      }
-
-      // ❌ No PIN → force setup
-      if (!userData?.pin_hash) {
-        router.push("/set-pin")
-        return
-      }
-
-      const pathname = window.location.pathname
-
-if (!userData?.pin_hash && pathname !== "/set-pin") {
-  router.push("/set-pin")
-  return
-}
-
-      // ✅ Fully authenticated
-      setLoading(false)
     }
 
     checkAuth()
-  }, [])
+  }, [router])
+
+  if (accountError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 p-6">
+        <p role="alert">{accountError}</p>
+        <button onClick={() => window.location.reload()}>Try again</button>
+        <a href="/login">Return to sign in</a>
+      </div>
+    )
+  }
 
   // ⏳ Global loading screen
   if (loading) {

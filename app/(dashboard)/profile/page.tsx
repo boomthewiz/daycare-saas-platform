@@ -26,7 +26,7 @@ export default function ProfilePage() {
 
     const { data, error } = await supabase
       .from("users")
-      .select("*")
+      .select("id, full_name, role")
       .eq("id", user.id)
       .single()
 
@@ -38,7 +38,7 @@ export default function ProfilePage() {
       setProfile(data)
       setFullName(data.full_name || "")
       setEmail(user.email || "")
-      setPhone(data.phone || "")
+      setPhone("")
       setRole(data.role || "teacher")
     }
 

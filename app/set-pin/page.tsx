@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
+import { getPinStatus } from "@/lib/pin-status"
 
 export default function SetPinPage() {
   const router = useRouter()
@@ -11,41 +12,34 @@ export default function SetPinPage() {
   const [confirmPin, setConfirmPin] = useState("")
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [accountError, setAccountError] = useState<string | null>(null)
 
   // 🔐 Ensure user is logged in + check if PIN exists
   useEffect(() => {
     const checkUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        router.push("/login")
-        return
+      try {
+        const status = await getPinStatus()
+        if (!status) {
+          router.replace("/login")
+          return
+        }
+        if (status.hasPin && !status.resetRequired) {
+          router.replace("/dashboard")
+          return
+        }
+        setChecking(false)
+      } catch (error) {
+        setAccountError(error instanceof Error ? error.message : "Unable to check your account.")
       }
-
-      const { data } = await supabase
-        .from("users")
-        .select("pin_hash")
-        .eq("id", user.id)
-        .single()
-
-      // If PIN already exists → skip
-      if (data?.pin_hash) {
-        router.push("/dashboard")
-        return
-      }
-
-      setChecking(false)
     }
 
     checkUser()
-  }, [])
+  }, [router])
 
   const handleSetPin = async () => {
     if (loading) return
 
-    if (pin.length !== 4) {
+    if (!/^\d{4}$/.test(pin)) {
       alert("PIN must be 4 digits")
       return
     }
@@ -86,12 +80,21 @@ export default function SetPinPage() {
       alert("PIN set successfully ✨")
 
       router.push("/dashboard")
-    } catch (error: any) {
-      console.error(error)
-      alert(error.message || "Something went wrong")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Something went wrong")
     }
 
     setLoading(false)
+  }
+
+  if (accountError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+        <p role="alert">{accountError}</p>
+        <button onClick={() => window.location.reload()}>Try again</button>
+        <a href="/login">Return to sign in</a>
+      </div>
+    )
   }
 
   if (checking) {
