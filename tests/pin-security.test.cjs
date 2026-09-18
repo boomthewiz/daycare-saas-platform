@@ -10,6 +10,11 @@ function handler(route, options = {}) {
   const calls = []
   const rows = [...(options.rows || [])]
   const admin = {
+    rpc: async (name, args) => {
+      calls.push(['rpc', name, args])
+      if (options.limitThrows) throw new Error('private backend error')
+      return options.limit || { data: [{ allowed: true, retry_after: 0, attempt_id: 'reserved-attempt' }], error: null }
+    },
     auth: {
       getUser: async token => {
         calls.push(['getUser', token])
@@ -25,7 +30,7 @@ function handler(route, options = {}) {
     from: table => {
       calls.push(['from', table])
       const query = {}
-      for (const method of ['select', 'eq', 'update']) {
+      for (const method of ['select', 'eq', 'update', 'delete']) {
         query[method] = (...args) => { calls.push([method, ...args]); return query }
       }
       query.single = async () => {
@@ -70,6 +75,59 @@ test('PIN status requires a valid bearer token before reading the database', asy
   const h = handler('pin-status', { auth: { data: { user: null }, error: { message: 'invalid' } } })
   assert.equal((await h.GET(request())).status, 401)
   assert.equal(h.calls.some(c => c[0] === 'from'), false)
+})
+
+test('blocked PIN attempts return retry timing without reading accounts or checking PINs', async () => {
+  const h = handler('staff-login', { limit: { data: [{ allowed: false, retry_after: 899, attempt_id: null }], error: null } })
+  const res = await h.POST(request({ username: 'fixture', pin: '1234' }))
+  assert.equal(res.status, 429)
+  assert.equal(res.headers.get('retry-after'), '899')
+  assert.equal(res.headers.get('cache-control'), 'private, no-store')
+  assert.match((await res.json()).error, /15 minutes/)
+  assert.deepEqual(h.calls.map(c => c[0]), ['rpc'])
+})
+
+test('limiter failures and malformed replies never permit a PIN check', async () => {
+  for (const options of [
+    { limitThrows: true },
+    { limit: { data: null, error: { message: 'private backend error' } } },
+    { limit: { data: [], error: null } },
+    { limit: { data: [{ allowed: true, retry_after: 0 }], error: null } },
+    { limit: { data: [{ allowed: 'true', retry_after: 0 }], error: null } },
+  ]) {
+    const h = handler('staff-login', options)
+    const res = await h.POST(request({ username: 'fixture', pin: '1234' }))
+    assert.ok([500, 503].includes(res.status))
+    assert.equal((await res.text()).includes('private backend'), false)
+    assert.deepEqual(h.calls.map(c => c[0]), ['rpc'])
+  }
+})
+
+test('unknown accounts and username case/spacing variants share the limiter path', async () => {
+  const keys = []
+  for (const username of ['fixture', ' FIXTURE ', 'Fixture']) {
+    const h = handler('staff-login', { rows: [row(null)] })
+    assert.equal((await h.POST(request({ username, pin: '1234' }))).status, 401)
+    keys.push(h.calls[0][2].p_account_key)
+    assert.match(keys.at(-1), /^[a-f0-9]{64}$/)
+    assert.equal(h.calls.some(c => c[0] === 'delete'), false)
+  }
+  assert.equal(new Set(keys).size, 1)
+})
+
+test('success releases only its reservation; failed PIN keeps its reservation', async () => {
+  const profile = { id: 'fixture', status: 'active', pin_hash: 'secret', pin_reset_required: false, email: 'fixture@example.invalid' }
+  for (const matches of [false, true]) {
+    const h = handler('staff-login', { rows: [row(profile)], matches })
+    const res = await h.POST(request({ username: 'fixture', pin: '1234' }))
+    assert.equal(res.status, matches ? 200 : 401)
+    assert.equal(h.calls[0][0], 'rpc')
+    assert.equal(h.calls.some(c => c[0] === 'delete'), matches)
+    if (matches) {
+      assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'id' && c[2] === 'reserved-attempt'))
+      assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'account_key' && c[2] === h.calls[0][2].p_account_key))
+    }
+  }
 })
 
 test('PIN status returns only booleans for the verified identity and cannot be cached', async () => {
