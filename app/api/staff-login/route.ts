@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const { username, pin } = await req.json()
 
-    if (!username || !pin) {
+    if (typeof username !== "string" || !username.trim() || typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
       return NextResponse.json(
         { error: "Missing credentials" },
         { status: 400 }
@@ -16,11 +16,11 @@ export async function POST(req: Request) {
     // 1️⃣ Find user
     const { data: user, error } = await supabaseAdmin
       .from("users")
-      .select("id, email, pin_hash")
+      .select("id, email, pin_hash, status, pin_reset_required")
       .eq("username", username)
       .single()
 
-    if (error || !user) {
+    if (error || !user || user.status !== "active" || user.pin_reset_required || !user.pin_hash || !user.email) {
       return NextResponse.json(
         { error: "Invalid login" },
         { status: 401 }
@@ -54,9 +54,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       actionLink: data.properties.action_link,
-    })
-  } catch (err) {
-    console.error(err)
+    }, { headers: { "Cache-Control": "private, no-store" } })
+  } catch {
     return NextResponse.json(
       { error: "Server error" },
       { status: 500 }
