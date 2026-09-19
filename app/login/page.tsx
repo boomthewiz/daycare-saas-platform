@@ -59,14 +59,14 @@ export default function LoginPage() {
       <form onSubmit={event => { event.preventDefault(); void (sent ? verifyCode() : sendCode()) }}>
         {sent ? <>
           <label htmlFor="email-code" className="block text-sm font-medium text-slate-700 mb-2">Email code</label>
-          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
-          <p className="mt-2 text-sm text-slate-500">Use the six-digit email code, not your four-digit PIN.</p>
+          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{8}" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
+          <p className="mt-2 text-sm text-slate-500">Use the eight-digit email code, not your four-digit PIN.</p>
         </> : <>
           <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-2">Email address</label>
           <input id="login-email" key="email" autoFocus required type="email" autoComplete="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300" />
         </>}
         {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-        <button disabled={busy || (sent && code.length !== 6)} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : sent ? "Sign in" : "Send sign-in code"}</button>
+        <button disabled={busy || (sent && code.length !== 8)} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : sent ? "Sign in" : "Send sign-in code"}</button>
       </form>
       {sent && <div className="mt-5 flex flex-col gap-3 text-center text-sm">
         <button disabled={busy || remaining > 0} onClick={() => void sendCode()} className="text-teal-800 underline disabled:text-slate-400">{remaining > 0 ? `Send another code in ${remaining}s` : "Send another code"}</button>
