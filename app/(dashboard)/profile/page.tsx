@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import ProfilePinSettings from "@/components/ProfilePinSettings"
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null)
+  const [profile, setProfile] = useState<{ id: string; full_name: string | null; role: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -72,6 +73,8 @@ export default function ProfilePage() {
   }
 
   useEffect(() => {
+    // This fetch populates state only after awaiting external Auth/database calls.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
   }, [])
 
@@ -188,6 +191,7 @@ export default function ProfilePage() {
             <div className="w-3 h-3 rounded-full bg-purple-300"></div>
           </div>
         </div>
+        <ProfilePinSettings />
       </div>
     </div>
   )

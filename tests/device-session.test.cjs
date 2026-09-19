@@ -137,11 +137,11 @@ test('unknown emails get the same public response without sending a link', async
 
 test('email code establishes trust only for the Auth-verified session', async () => {
   const h = load('email-login/verify', { states: [status('unlocked')] })
-  const response = await h.POST(req({email:' Person@Example.invalid ', code:'12345678', userId:'victim', sessionId:'victim'}))
+  const response = await h.POST(req({email:' Person@Example.invalid ', code:'123456', userId:'victim', sessionId:'victim'}))
   assert.equal(response.status,200)
   assert.equal(response.headers.get('cache-control'),'private, no-store')
   assert.deepEqual(await response.json(), {state:'unlocked',session:{access_token:token,refresh_token:'refresh'}})
-  assert.deepEqual(h.calls.find(c=>c[0]==='otp')[1],{email:'person@example.invalid',token:'12345678',type:'email'})
+  assert.deepEqual(h.calls.find(c=>c[0]==='otp')[1],{email:'person@example.invalid',token:'123456',type:'email'})
   const trust = h.calls.find(c=>c[0]==='manage_device_session')[1]
   assert.equal(trust.p_user_id,userId); assert.equal(trust.p_session_id,sessionId)
   assert.equal(trust.p_action,'complete_email')
@@ -179,9 +179,16 @@ test('inactive accounts or denied trust never receive session tokens', async () 
 })
 
 test('malformed email codes are rejected before authentication work', async () => {
-  for(const code of ['1234','123456','123456789','abcdefgh',12345678]) {
+  for(const code of ['1234','1234567','123456789','abcdefgh',123456]) {
     const h=load('email-login/verify')
     assert.equal((await h.POST(req({email:'person@example.invalid',code}))).status,400)
     assert.deepEqual(h.calls,[])
   }
+})
+
+
+test('previously issued eight-digit codes still reach Auth during rollout', async () => {
+  const h=load('email-login/verify',{states:[status('unlocked')]})
+  assert.equal((await h.POST(req({email:'person@example.invalid',code:'12345678'}))).status,200)
+  assert.equal(h.calls.find(c=>c[0]==='otp')[1].token,'12345678')
 })
