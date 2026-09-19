@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { requireUnlocked } from "@/lib/device-session-server"
 
 export async function POST(req: Request) {
   try {
+    const identity = await requireUnlocked(req)
+    if (!identity) return NextResponse.json({ error: "Sign in and unlock your session." }, { status: 401 })
+    const { data: administrator, error: adminError } = await supabaseAdmin.from("system_admins").select("user_id").eq("user_id", identity.user.id).eq("active", true).maybeSingle()
+    if (adminError || !administrator) return NextResponse.json({ error: "System administrator access required." }, { status: 403 })
     const {
       requestId,
       fullName,
@@ -106,3 +111,4 @@ export async function POST(req: Request) {
     )
   }
 }
+

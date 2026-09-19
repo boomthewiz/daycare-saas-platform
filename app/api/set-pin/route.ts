@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import bcrypt from "bcryptjs"
+import { verifiedIdentity, deviceState } from "@/lib/device-session-server"
 
 export async function POST(req: Request) {
   try {
+    const identity = await verifiedIdentity(req)
+    if (!identity) return NextResponse.json({ error: "Please sign in with your email." }, { status: 401 })
+    const sessionState = await deviceState(identity.user.id, identity.sessionId)
+    if (sessionState.state === "full_login" || sessionState.state === "inactive" || !sessionState.canSetPin) {
+      return NextResponse.json({ error: "Please sign in with your email again before setting or resetting your PIN." }, { status: 401 })
+    }
     const { pin } = await req.json()
 
     if (typeof pin !== "string" || !/^\d{4}$/.test(pin)) {
@@ -63,6 +70,7 @@ export async function POST(req: Request) {
       )
     }
 
+    await deviceState(identity.user.id, identity.sessionId, "unlock")
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json(
@@ -71,3 +79,4 @@ export async function POST(req: Request) {
     )
   }
 }
+

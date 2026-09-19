@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -19,31 +18,17 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    const redirectUrl =
-      selectedRole === "owner"
-        ? "https://www.rejoyceapp.com/dashboard"
-        : "https://www.rejoyceapp.com/dashboard"
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          role: selectedRole,
-        },
-      },
-    })
-
-    setLoading(false)
-
-    if (error) {
-      console.error(error)
-      alert("Login failed")
-    } else {
-      alert(
-        `Magic login link sent for ${selectedRole} access ✨`
-      )
-    }
+    try {
+      const response = await fetch("/api/email-login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Unable to send a link.")
+      alert("If your account is active, a sign-in link is on its way. Open it on this device.")
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Unable to send a link.")
+    } finally { setLoading(false) }
   }
 
   return (
@@ -163,3 +148,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

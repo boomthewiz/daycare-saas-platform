@@ -1,0 +1,29 @@
+# PIN unlock and remembered-device policy
+
+The user-approved policy is a five-minute foreground inactivity/background PIN lock, full email authentication at 30 days, and earlier full authentication after seven days without a successful PIN unlock. The policy is per Supabase browser/device session. Full email sign-in starts both clocks; only a successful PIN unlock restarts the seven-day clock. Token refresh, status polling and ordinary interaction never restart either long clock. PIN setup requires full email authentication within ten minutes.
+
+The screen hides protected content while checking, offline, backgrounded or locked. Actual foreground pointer, keyboard, touch and scroll events renew a short server lease; automatic page/session timers do not. The screen retains its mounted children during PIN locking, preserving React form state. This is not durable autosave: refreshing, closing a tab or changing account can still discard unsaved input. Full sign-in opens a separate tab so the original page can remain open. Sign-out revokes the application session before clearing the local Supabase session.
+
+## Security model
+
+The legacy unauthenticated staff PIN endpoint no longer creates magic links. PIN unlock requires a verified bearer token, its matching live auth.sessions row, a trusted device_sessions record and both unexpired long deadlines. PIN verification uses the persistent five-attempt/15-minute and 20-attempt/24-hour budget, with atomic reservation before bcrypt and deletion of only a successful request's reservation.
+
+Email authentication uses a random one-time proof sent only through the recipient's Supabase email link. Only its SHA-256 hash is stored, bound to the user for one hour; completion also verifies that the Auth session belongs to that user and was created after the challenge. This prevents an ordinary Supabase session or an old deployment's PIN-generated magic link from counting as fresh full authentication. Email requests are separately rate limited and never reveal the proof to the requester. Unsolicited signup is disabled. Allowed redirect origins are explicitly listed; the user confirmed Supabase wildcard redirects for www.rejoyceapp.com, rejoyceapp.com, m.rejoyceapp.com and localhost.
+
+Restrictive policies supplement all 25 existing business tables' tenant/role policies. All 38 authenticated SECURITY DEFINER RPCs retain their existing definitions and authorization, with an added session guard. A private helper checks server timestamps, user status, PIN/reset state and the underlying live Auth session. Server-only session/challenge tables cannot be read or modified by browser roles. The invitation route checks the gate before privileged work. The legacy owner-approval route additionally requires an active system administrator; its older onboarding implementation remains otherwise unchanged.
+
+## Rollout
+
+1. Stage migrations 20260919061400_enforce_pin_session_policy and 20260919062056_expose_session_policy_status. They were applied with enforced=false. RLS/RPC guards preserve prior access while that flag is false.
+2. Deploy the application. The public session-policy endpoint exposes only the enabled boolean. The client checks it before activating the lock screen. Use /dashboard?session-policy-preview=1 to exercise the new UI while database enforcement is still off.
+3. Verify the real email flow from /login and that /auth/confirm establishes a trusted device session. Existing links cannot bootstrap trust. Confirm PIN lock/unlock through the preview URL. Do not enable the global policy until this succeeds.
+4. Enable rejoyce_security.session_policy.enforced using a separately recorded migration. Existing devices without trusted records will need one fresh email sign-in. Other already-open clients pick up the flag on their next status check; database enforcement is immediate.
+
+## Validation
+
+22 automated tests cover identity verification, missing/expired trust, legacy endpoint retirement, rate limits, incorrect/successful PIN behavior, a deadline crossing during bcrypt, proof handling, email enumeration responses and PIN-setup restrictions. supabase/tests/device_session_policy.sql verifies proof binding/replay, locked direct reads and RPCs, denied browser state changes, five-minute lease expiry, heartbeat refusal after expiry, both long deadlines, logout and independent full/PIN clocks; synthetic data is rolled back.
+
+The local production compilation uses mocked font CSS because this workspace blocks Google Fonts and a temporary project-root tracing override. These test settings are not committed or deployed. The normal Vercel build must also pass. Two existing billing/reports placeholder page exports were corrected to satisfy Next.js route typing.
+
+Remaining limits: this does not replace device security, network flood controls or stronger authentication. A holder of an unlocked bearer token can imitate activity until the lease expires or a long deadline is reached. Unsaved drafts are retained only in the mounted page, not persisted. Supabase's own session revocation or shorter configured expiration can require earlier authentication. Other pre-existing commercial-readiness audit findings remain separate work.
+

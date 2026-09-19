@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { requireUnlocked } from "@/lib/device-session-server"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl =
@@ -56,6 +57,9 @@ export async function POST(
   request: Request
 ) {
   try {
+    if (!await requireUnlocked(request)) {
+      return NextResponse.json({ error: "Unlock your session before inviting staff." }, { status: 401 })
+    }
     // =====================================================
     // 1. Verify caller authentication
     // =====================================================
@@ -961,3 +965,4 @@ async function resendExistingInvitation({
     }
   }
 }
+

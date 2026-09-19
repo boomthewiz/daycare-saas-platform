@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Fredoka, Nunito } from "next/font/google"
 import "./globals.css"
+import SessionGuard from "@/components/SessionGuard"
 
 const fredoka = Fredoka({
   subsets: ["latin"],
@@ -53,8 +54,9 @@ export default function RootLayout({
       </head>
 
       <body>
-        {children}
+        <SessionGuard>{children}</SessionGuard>
       </body>
     </html>
   )
 }
+
