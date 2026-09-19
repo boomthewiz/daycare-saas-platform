@@ -26,4 +26,3 @@ Restrictive policies supplement all 25 existing business tables' tenant/role pol
 The local production compilation uses mocked font CSS because this workspace blocks Google Fonts and a temporary project-root tracing override. These test settings are not committed or deployed. The normal Vercel build must also pass. Two existing billing/reports placeholder page exports were corrected to satisfy Next.js route typing.
 
 Remaining limits: this does not replace device security, network flood controls or stronger authentication. A holder of an unlocked bearer token can imitate activity until the lease expires or a long deadline is reached. Unsaved drafts are retained only in the mounted page, not persisted. Supabase's own session revocation or shorter configured expiration can require earlier authentication. Other pre-existing commercial-readiness audit findings remain separate work.
-

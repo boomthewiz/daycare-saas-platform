@@ -178,4 +178,3 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
     </main>}
   </>
 }
-

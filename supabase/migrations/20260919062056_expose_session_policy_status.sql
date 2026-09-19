@@ -5,4 +5,3 @@ AS $function$ SELECT enforced FROM rejoyce_security.session_policy WHERE singlet
 REVOKE ALL ON FUNCTION public.device_policy_enabled() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.device_policy_enabled() TO service_role;
 NOTIFY pgrst, 'reload schema';
-

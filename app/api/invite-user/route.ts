@@ -965,4 +965,3 @@ async function resendExistingInvitation({
     }
   }
 }
-

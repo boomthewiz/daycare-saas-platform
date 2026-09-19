@@ -54,4 +54,3 @@ function ConstructionPage({
 export default function ReportsPage() {
   return <ConstructionPage title="Reports" icon="📊" description="View your organization’s operational reports." />
 }
-

@@ -76,4 +76,3 @@ END
 $test$;
 ROLLBACK;
 SELECT 'PASS: email proof required and single-use; RLS/RPC lock enforced; activity cannot unlock; PIN cannot extend 30 days or revive seven-day inactivity; logout revoked; browser mutation denied' AS result;
-

@@ -68,4 +68,3 @@ export async function POST(request: Request) {
     return handle(request, body.action, body.pin, body.proof)
   } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400, headers }) }
 }
-

@@ -8,4 +8,3 @@ export async function GET() {
     return NextResponse.json({ enabled: data }, { headers: { "Cache-Control": "no-store" } })
   } catch { return NextResponse.json({ error: "Unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } }) }
 }
-

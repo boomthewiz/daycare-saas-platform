@@ -40,4 +40,3 @@ export async function requireUnlocked(request: Request) {
   const status = await deviceState(identity.user.id, identity.sessionId)
   return status.state === "unlocked" ? identity : null
 }
-

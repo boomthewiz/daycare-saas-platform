@@ -133,4 +133,3 @@ test('unknown emails get the same public response without sending a link', async
   assert.deepEqual(await (await h.POST(req({email:'nobody@example.invalid'}))).json(),{success:true})
   assert.equal(h.calls.some(c=>c[0]==='email'),false)
 })
-

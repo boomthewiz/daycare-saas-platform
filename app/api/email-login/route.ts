@@ -42,4 +42,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true }, { headers })
   } catch { return NextResponse.json({ error: "Unable to send a link right now. Please try again." }, { status: 503, headers }) }
 }
-

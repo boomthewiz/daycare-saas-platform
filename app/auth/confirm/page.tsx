@@ -29,4 +29,3 @@ export default function ConfirmEmail() {
     {error && <><p role="alert">{error}</p><a className="inline-block mt-5 underline" href="/login">Request a new link</a></>}
   </div></main>
 }
-

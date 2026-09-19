@@ -15,4 +15,3 @@ export async function sessionRequest(action = "status", pin?: string): Promise<D
   if (!["locked", "unlocked", "setup"].includes(result.state)) throw new Error("Unable to check your session.")
   return result
 }
-

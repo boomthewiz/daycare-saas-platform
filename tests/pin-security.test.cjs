@@ -159,4 +159,3 @@ test('legacy PIN endpoint can never mint a new full-authentication session', asy
   assert.equal(res.status, 401)
   assert.deepEqual(h.calls, [])
 })
-
