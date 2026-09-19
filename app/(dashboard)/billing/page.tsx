@@ -51,4 +51,6 @@ function ConstructionPage({
   )
 }
 
-export default ConstructionPage
+export default function BillingPage() {
+  return <ConstructionPage title="Billing" icon="🧾" description="Manage your organization’s subscription and billing." />
+}
