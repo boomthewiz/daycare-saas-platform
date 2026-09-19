@@ -73,6 +73,8 @@ export default function ProfilePage() {
   }
 
   useEffect(() => {
+    // This fetch populates state only after awaiting external Auth/database calls.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProfile()
   }, [])
 
