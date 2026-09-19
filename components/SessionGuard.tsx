@@ -167,7 +167,7 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
           <label className="sr-only" htmlFor="unlock-pin">Four-digit PIN</label>
           <input id="unlock-pin" autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,""))} className="w-full rounded-xl border p-4 text-center text-2xl tracking-widest" />
           <button disabled={busy || pin.length !== 4} className="mt-4 w-full rounded-xl bg-teal-700 py-3 font-semibold text-white disabled:opacity-50">{busy ? "Checking…" : "Unlock"}</button>
-          <a href="/login" target="_blank" rel="noopener noreferrer" className="block mt-4 text-sm text-slate-500 underline">Forgot PIN? Sign in with email</a>
+          <a href="/login" target="_blank" rel="noopener noreferrer" className="block mt-4 w-full rounded-xl border border-teal-700 py-3 font-semibold text-teal-800">Full account sign-in</a><p className="mt-2 text-xs text-slate-500">Forgot your PIN or switching accounts? Sign in with email in a new tab. Keep this page open to preserve your work.</p>
         </form>}
         {screen === "full_login" && <><p className="text-slate-500 mb-5">For your security, please confirm your email again. This is required after 30 days, or seven days without using your PIN.</p><a href="/login" target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-teal-700 py-3 text-white">Continue with email</a><p className="mt-3 text-sm text-slate-500">Keep this page open to preserve your work.</p></>}
         {screen === "inactive" && <p>Contact your administrator to restore access.</p>}

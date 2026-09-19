@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Your ReJoyce sign-in code</title></head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,sans-serif;color:#1e293b;">
+<table role="presentation" style="width:100%;max-width:480px;margin:0 auto;background:#ffffff;border-radius:20px;border:1px solid #e2e8f0;" cellpadding="0" cellspacing="0">
+<tr><td style="padding:36px 28px;text-align:center;">
+<p style="margin:0 0 24px;color:#0f766e;font-size:24px;font-weight:bold;">ReJoyce</p>
+<h1 style="margin:0 0 16px;font-size:24px;">Let's get you signed in</h1>
+<p style="margin:0 0 24px;line-height:1.6;color:#475569;">Enter this one-time code on the ReJoyce sign-in screen:</p>
+<div style="padding:20px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#115e59;">{{ .Token }}</div>
+<p style="margin:20px 0;line-height:1.6;color:#475569;">This email code is separate from your everyday PIN. Never share either code with anyone.</p>
+<p style="margin:20px 0;line-height:1.6;"><a href="{{ .ConfirmationURL }}" style="color:#0f766e;">Or sign in using this link</a></p>
+<p style="margin:24px 0 0;line-height:1.6;font-size:13px;color:#64748b;">If you didn't request this email, you can ignore it. If the code has expired, request a new one from ReJoyce.</p>
+</td></tr></table>
+</body></html>

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       p_account_key: createHash("sha256").update("email:" + email).digest("hex"),
     })
     if (limitError || typeof limits?.[0]?.allowed !== "boolean") throw new Error("Limiter unavailable")
-    if (!limits[0].allowed) return NextResponse.json({ error: "Please wait before requesting another link." }, { status: 429, headers })
+    if (!limits[0].allowed) return NextResponse.json({ error: "Please wait before requesting another code." }, { status: 429, headers })
     const { data: profile } = await supabaseAdmin.from("users").select("id,status").eq("email", email).single()
     // Give the same response for unknown or inactive addresses.
     if (!profile || profile.status !== "active") return NextResponse.json({ success: true }, { headers })
@@ -36,9 +36,9 @@ export async function POST(request: Request) {
     } })
     if (error) {
       await supabaseAdmin.from("email_login_challenges").delete().eq("proof_hash", proofHash)
-      return NextResponse.json({ error: "Unable to send a link right now. Please wait and try again." }, { status: 503, headers })
+      return NextResponse.json({ error: "Unable to send a code right now. Please wait and try again." }, { status: 503, headers })
     }
     // The proof goes only to the email recipient, never to the requesting browser.
     return NextResponse.json({ success: true }, { headers })
-  } catch { return NextResponse.json({ error: "Unable to send a link right now. Please try again." }, { status: 503, headers }) }
+  } catch { return NextResponse.json({ error: "Unable to send a code right now. Please try again." }, { status: 503, headers }) }
 }
