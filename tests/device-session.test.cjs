@@ -137,11 +137,11 @@ test('unknown emails get the same public response without sending a link', async
 
 test('email code establishes trust only for the Auth-verified session', async () => {
   const h = load('email-login/verify', { states: [status('unlocked')] })
-  const response = await h.POST(req({email:' Person@Example.invalid ', code:'123456', userId:'victim', sessionId:'victim'}))
+  const response = await h.POST(req({email:' Person@Example.invalid ', code:'12345678', userId:'victim', sessionId:'victim'}))
   assert.equal(response.status,200)
   assert.equal(response.headers.get('cache-control'),'private, no-store')
   assert.deepEqual(await response.json(), {state:'unlocked',session:{access_token:token,refresh_token:'refresh'}})
-  assert.deepEqual(h.calls.find(c=>c[0]==='otp')[1],{email:'person@example.invalid',token:'123456',type:'email'})
+  assert.deepEqual(h.calls.find(c=>c[0]==='otp')[1],{email:'person@example.invalid',token:'12345678',type:'email'})
   const trust = h.calls.find(c=>c[0]==='manage_device_session')[1]
   assert.equal(trust.p_user_id,userId); assert.equal(trust.p_session_id,sessionId)
   assert.equal(trust.p_action,'complete_email')
@@ -152,7 +152,7 @@ test('email code establishes trust only for the Auth-verified session', async ()
 
 test('invalid, expired or replayed email codes never establish trust or return tokens', async () => {
   const h=load('email-login/verify',{otp:{data:{user:null,session:null},error:{message:'Expired'}}})
-  const response=await h.POST(req({email:'person@example.invalid',code:'123456'}))
+  const response=await h.POST(req({email:'person@example.invalid',code:'12345678'}))
   assert.equal(response.status,401)
   assert.equal((await response.json()).session,undefined)
   assert.equal(h.calls.some(c=>['insert','manage_device_session','delete'].includes(c[0])),false)
@@ -161,25 +161,25 @@ test('invalid, expired or replayed email codes never establish trust or return t
 test('email OTP cannot bypass admission limits, malformed limits or missing proof storage', async () => {
   for (const limit of [{data:[{allowed:false,retry_after:500}],error:null}, {data:null,error:{}}, {data:[{allowed:true,retry_after:0}],error:null}]) {
     const h=load('email-login/verify',{limit})
-    const response=await h.POST(req({email:'person@example.invalid',code:'123456'}))
+    const response=await h.POST(req({email:'person@example.invalid',code:'12345678'}))
     assert.equal(response.status,limit.data?.[0]?.allowed===false?429:503)
     assert.equal(h.calls.some(c=>c[0]==='otp'),false)
   }
   const h=load('email-login/verify',{challengeError:{message:'Unavailable'}})
-  assert.equal((await h.POST(req({email:'person@example.invalid',code:'123456'}))).status,503)
+  assert.equal((await h.POST(req({email:'person@example.invalid',code:'12345678'}))).status,503)
   assert.equal(h.calls.some(c=>c[0]==='manage_device_session'),false)
 })
 
 test('inactive accounts or denied trust never receive session tokens', async () => {
   for (const state of ['inactive','full_login','locked']) {
     const h=load('email-login/verify',{states:[status(state)]})
-    const response=await h.POST(req({email:'person@example.invalid',code:'123456'}))
+    const response=await h.POST(req({email:'person@example.invalid',code:'12345678'}))
     assert.equal(response.status,401); assert.equal((await response.json()).session,undefined)
   }
 })
 
 test('malformed email codes are rejected before authentication work', async () => {
-  for(const code of ['1234','1234567','abcdef',123456]) {
+  for(const code of ['1234','123456','123456789','abcdefgh',12345678]) {
     const h=load('email-login/verify')
     assert.equal((await h.POST(req({email:'person@example.invalid',code}))).status,400)
     assert.deepEqual(h.calls,[])

@@ -10,8 +10,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     if (typeof body?.email !== "string" || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())
-      || typeof body.code !== "string" || !/^\d{6}$/.test(body.code)) {
-      return NextResponse.json({ error: "Enter your email and six-digit email code." }, { status: 400, headers })
+      || typeof body.code !== "string" || !/^\d{8}$/.test(body.code)) {
+      return NextResponse.json({ error: "Enter your email and eight-digit email code." }, { status: 400, headers })
     }
     const email = body.email.trim().toLowerCase()
     const key = createHash("sha256").update("email-verify:" + email).digest("hex")
