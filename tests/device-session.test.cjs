@@ -192,3 +192,10 @@ test('previously issued eight-digit codes still reach Auth during rollout', asyn
   assert.equal((await h.POST(req({email:'person@example.invalid',code:'12345678'}))).status,200)
   assert.equal(h.calls.find(c=>c[0]==='otp')[1].token,'12345678')
 })
+
+test('verified first-time email sign-in returns required setup before workspace access', async () => {
+  const h=load('email-login/verify',{states:[status('setup')]})
+  const response=await h.POST(req({email:'new@example.invalid',code:'123456'}))
+  assert.equal(response.status,200)
+  assert.equal((await response.json()).state,'setup')
+})
