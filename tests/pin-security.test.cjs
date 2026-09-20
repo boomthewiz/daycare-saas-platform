@@ -159,3 +159,11 @@ test('legacy PIN endpoint can never mint a new full-authentication session', asy
   assert.equal(res.status, 401)
   assert.deepEqual(h.calls, [])
 })
+
+test('required PIN setup allows recent email authentication and rejects expired setup', async () => {
+  const recent=handler('set-pin',{device:{state:'setup',canSetPin:true},rows:[row({status:'active'}),row({id:'verified-user'})]})
+  assert.equal((await recent.POST(request({pin:'1234'}))).status,200)
+  const expired=handler('set-pin',{device:{state:'setup',canSetPin:false}})
+  assert.equal((await expired.POST(request({pin:'1234'}))).status,401)
+  assert.equal(expired.calls.some(c=>c[0]==='hash'||c[0]==='update'),false)
+})
