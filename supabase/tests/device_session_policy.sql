@@ -54,6 +54,22 @@ BEGIN
   result := public.manage_device_session(uid,sid,'unlock');
   IF result->>'state' <> 'unlocked' THEN RAISE EXCEPTION 'PIN unlock failed'; END IF;
   IF (SELECT full_auth_at FROM public.device_sessions WHERE session_id=sid) <> baseline THEN RAISE EXCEPTION 'PIN reset full-auth clock'; END IF;
+  -- First-time setup and administrator-required resets cannot be bypassed.
+  UPDATE public.users SET pin_hash=NULL WHERE id=uid;
+  result := public.manage_device_session(uid,sid,'status');
+  IF result->>'state' <> 'setup' THEN RAISE EXCEPTION 'Missing PIN did not require setup'; END IF;
+  SET LOCAL ROLE authenticated;
+  SELECT count(id) INTO visible FROM public.users WHERE id=uid;
+  IF visible <> 0 OR public.current_organization_id() IS NOT NULL THEN RAISE EXCEPTION 'Missing PIN bypassed protected access'; END IF;
+  RESET ROLE;
+  UPDATE public.users SET pin_hash='synthetic',pin_reset_required=true WHERE id=uid;
+  result := public.manage_device_session(uid,sid,'unlock');
+  IF result->>'state' <> 'setup' THEN RAISE EXCEPTION 'Required PIN reset bypassed'; END IF;
+  SET LOCAL ROLE authenticated;
+  SELECT count(id) INTO visible FROM public.users WHERE id=uid;
+  IF visible <> 0 THEN RAISE EXCEPTION 'Required PIN reset leaked protected data'; END IF;
+  RESET ROLE;
+  UPDATE public.users SET pin_reset_required=false WHERE id=uid;
   UPDATE public.device_sessions SET full_auth_at=clock_timestamp()-interval '30 days',last_pin_at=clock_timestamp() WHERE session_id=sid;
   result := public.manage_device_session(uid,sid,'unlock');
   IF result->>'state' <> 'full_login' THEN RAISE EXCEPTION '30-day limit bypassed'; END IF;
