@@ -9,6 +9,7 @@ import {
   useState,
 } from "react"
 import Link from "next/link"
+import ClientBranches from "@/components/ClientBranches"
 import { useParams, useRouter } from "next/navigation"
 import {
   Activity,
@@ -1358,6 +1359,8 @@ export default function ClientDetailPage() {
           />
         </div>
       </section>
+
+      {activeTab === "overview" && <ClientBranches clientId={clientId} />}
 
       {activeTab === "overview" && (
         <OverviewTab

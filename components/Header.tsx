@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { BranchSelector } from "@/components/BranchProvider"
 
 export default function Header() {
   const pathname = usePathname()
@@ -75,7 +76,8 @@ export default function Header() {
         </div>
 
         {/* Right Side */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <BranchSelector />
 
           {/* 👑 Owner Quick Action */}
           {userRole === "owner" && (

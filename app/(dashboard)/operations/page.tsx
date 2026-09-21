@@ -569,6 +569,7 @@ export default function OperationsPage() {
       )
 
       resetOptionForm()
+      window.dispatchEvent(new Event("rejoyce:branches-changed"))
       await loadOperations()
     } catch (error) {
       console.error(
@@ -618,6 +619,7 @@ export default function OperationsPage() {
         }.`
       )
 
+      window.dispatchEvent(new Event("rejoyce:branches-changed"))
       await loadOperations()
     } catch (error) {
       console.error(
@@ -714,6 +716,7 @@ export default function OperationsPage() {
         "Organization terminology saved."
       )
 
+      window.dispatchEvent(new Event("rejoyce:branches-changed"))
       await loadOperations()
     } catch (error) {
       console.error(
@@ -818,7 +821,7 @@ export default function OperationsPage() {
         />
 
         <SummaryCard
-          label="Locations"
+          label="Branches"
           value={locations.length}
           icon={MapPin}
           background="var(--rj-teal-100)"
@@ -869,7 +872,7 @@ export default function OperationsPage() {
 
           <OperationsTabButton
             active={activeTab === "locations"}
-            label="Locations"
+            label="Branches"
             icon={MapPin}
             onClick={() => {
               resetOptionForm()
@@ -1770,7 +1773,7 @@ function getTabEyebrow(
       return "Scheduling"
 
     case "locations":
-      return "Organization Spaces"
+      return "Company Branches"
 
     case "target-categories":
       return "Programs and Goals"
@@ -1788,7 +1791,7 @@ function getTabTitle(
       return "Session Types"
 
     case "locations":
-      return "Locations"
+      return "Branches"
 
     case "target-categories":
       return "Target Categories"
@@ -1806,7 +1809,7 @@ function getTabDescription(
       return "Define the types of services your organization schedules and their default durations."
 
     case "locations":
-      return "Create reusable rooms, classrooms, clinics, or service locations."
+      return "Add the branches your company operates. Clients can attend more than one branch."
 
     case "target-categories":
       return "Organize client targets into clear program or goal categories."
@@ -1824,7 +1827,7 @@ function getSingularLabel(
       return "Session Type"
 
     case "locations":
-      return "Location"
+      return "Branch"
 
     case "target-categories":
       return "Target Category"
@@ -1842,7 +1845,7 @@ function getNamePlaceholder(
       return "Example: Direct Service"
 
     case "locations":
-      return "Example: Room 104"
+      return "Example: Downtown Branch"
 
     case "target-categories":
       return "Example: Communication"
