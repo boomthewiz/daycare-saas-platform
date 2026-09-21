@@ -25,6 +25,9 @@ import {
 
 import { supabase } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
+import { useBranches } from "@/components/BranchProvider"
+import ClientBranchPicker from "@/components/ClientBranchPicker"
+import { initialClientBranches } from "@/lib/branches"
 
 type Tab = "clients" | "team"
 
@@ -36,6 +39,7 @@ type ClientRecord = {
   status: string
   assigned_provider_id: string | null
   created_at: string
+  client_locations: { location_id: string }[]
 }
 
 type TeamMemberRecord = {
@@ -47,6 +51,9 @@ type TeamMemberRecord = {
 }
 
 export default function PeopleManagementPage() {
+  const branchContext = useBranches()
+  const [clientBranchIds, setClientBranchIds] = useState<string[]>([])
+  const [canManageClients, setCanManageClients] = useState(false)
   const [activeTab, setActiveTab] =
     useState<Tab>("clients")
 
@@ -91,7 +98,7 @@ export default function PeopleManagementPage() {
       setPageError(null)
 
       try {
-        const [clientResult, teamResult] =
+        const [clientResult, teamResult, clientPermission] =
           await Promise.all([
             supabase
               .from("clients")
@@ -102,7 +109,8 @@ export default function PeopleManagementPage() {
                 preferred_name,
                 status,
                 assigned_provider_id,
-                created_at
+                created_at,
+                client_locations(location_id)
               `)
               .order("created_at", {
                 ascending: false,
@@ -121,7 +129,11 @@ export default function PeopleManagementPage() {
                 ascending: true,
                 nullsFirst: false,
               }),
+            supabase.rpc("can_manage_clients"),
           ])
+
+        if (clientPermission.error) throw new Error(clientPermission.error.message)
+        setCanManageClients(clientPermission.data === true)
 
         if (clientResult.error) {
           throw new Error(
@@ -179,14 +191,11 @@ export default function PeopleManagementPage() {
   const filteredClients = useMemo(() => {
     const value = search.trim().toLowerCase()
 
-    if (!value) return clients
-
-    return clients.filter((client) =>
-      getClientName(client)
-        .toLowerCase()
-        .includes(value)
+    return clients.filter(client =>
+      (!branchContext.selectedBranchId || client.client_locations.some(link => link.location_id === branchContext.selectedBranchId))
+      && getClientName(client).toLowerCase().includes(value)
     )
-  }, [clients, search])
+  }, [clients, search, branchContext.selectedBranchId])
 
   const filteredTeam = useMemo(() => {
     const value = search.trim().toLowerCase()
@@ -217,45 +226,26 @@ export default function PeopleManagementPage() {
       return
     }
 
+    if (!clientBranchIds.length) {
+      setPageError("Choose at least one branch for this client.")
+      return
+    }
+
     setSaving(true)
     setPageError(null)
     setSuccessMessage(null)
 
     try {
-      const { data: organizationId, error: orgError } =
-        await supabase.rpc(
-          "current_organization_id"
-        )
-
-      if (orgError) {
-        throw new Error(orgError.message)
-      }
-
-      if (!organizationId) {
-        throw new Error(
-          "Your account is not connected to an organization."
-        )
-      }
-
-     const { data, error } = await supabase
-  .from("clients")
-  .insert({
-    organization_id: organizationId,
-    first_name: firstName.trim(),
-    last_name: lastName.trim() || null,
-    preferred_name: preferredName.trim() || null,
-    assigned_provider_id:
-      assignedProviderId || null,
-    status: "active",
-  })
-  .select("id")
-  .single()
-
-      if (error) {
-  throw new Error(error.message)
-}
-
-router.push(`/clients/${data.id}`)
+      const { data: clientId, error } = await supabase.rpc("create_client_with_locations", {
+        p_first_name: firstName.trim(),
+        p_last_name: lastName.trim() || null,
+        p_preferred_name: preferredName.trim() || null,
+        p_assigned_provider_id: assignedProviderId || null,
+        p_location_ids: clientBranchIds,
+      })
+      if (error) throw new Error(error.message)
+      if (!clientId) throw new Error("The client could not be created. Please retry.")
+      router.push(`/clients/${clientId}`)
 
       setFirstName("")
       setLastName("")
@@ -362,9 +352,11 @@ router.push(`/clients/${data.id}`)
             {activeTab === "clients" ? (
               <button
                 type="button"
-                onClick={() =>
+                disabled={branchContext.loading || !!branchContext.error || !canManageClients}
+                onClick={() => {
+                  if (!showClientForm) setClientBranchIds(initialClientBranches(branchContext.selectedBranchId, branchContext.branches))
                   setShowClientForm(true)
-                }
+                }}
                 className="rj-button rj-button-primary"
               >
                 <Plus size={19} />
@@ -382,6 +374,10 @@ router.push(`/clients/${data.id}`)
           </div>
         </div>
       </header>
+
+      {branchContext.error && <div role="alert" className="rj-card p-4 text-red-700">
+        {branchContext.error} <button type="button" className="underline" onClick={() => void branchContext.reload()}>Retry</button>
+      </div>}
 
       {pageError && (
         <Message
@@ -402,7 +398,7 @@ router.push(`/clients/${data.id}`)
           <TabButton
             active={activeTab === "clients"}
             label="Clients"
-            count={clients.length}
+            count={filteredClients.length}
             icon={Baby}
             onClick={() => setActiveTab("clients")}
           />
@@ -493,10 +489,15 @@ router.push(`/clients/${data.id}`)
                 </select>
               </FormField>
 
+              <div className="md:col-span-2">
+                <ClientBranchPicker branches={branchContext.branches} value={clientBranchIds}
+                  onChange={setClientBranchIds} disabled={saving || branchContext.loading || !!branchContext.error} />
+              </div>
+
               <div className="flex gap-3 md:col-span-2">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || branchContext.loading || !!branchContext.error || !clientBranchIds.length}
                   className="rj-button rj-button-primary"
                 >
                   {saving ? (
@@ -572,6 +573,11 @@ router.push(`/clients/${data.id}`)
                       <h3 className="font-bold">
                         {getClientName(client)}
                       </h3>
+                      <p className="rj-caption mt-1">
+                        {client.client_locations.length
+                          ? client.client_locations.map(link => branchContext.branches.find(branch => branch.id === link.location_id)?.name || "Branch").join(" · ")
+                          : "No branch assigned"}
+                      </p>
 
                       <span
                         className={`rj-badge mt-2 ${

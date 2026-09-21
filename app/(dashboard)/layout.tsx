@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { getPinStatus } from "@/lib/pin-status"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
+import { BranchProvider } from "@/components/BranchProvider"
 
 export default function DashboardLayout({
   children,
@@ -59,6 +60,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <BranchProvider>
     <div className="min-h-screen flex bg-gray-50">
 
       {/* Sidebar stays mounted */}
@@ -75,5 +77,6 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+    </BranchProvider>
   )
 }
