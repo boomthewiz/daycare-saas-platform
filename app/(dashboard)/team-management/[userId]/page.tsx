@@ -70,6 +70,7 @@ type PermissionRecord = {
   can_review_sessions: boolean
   can_view_reports: boolean
   can_manage_billing: boolean
+  can_delegate_permissions: boolean
 }
 
 type ClientRecord = {
@@ -95,6 +96,7 @@ type PermissionKey =
   | "can_review_sessions"
   | "can_view_reports"
   | "can_manage_billing"
+  | "can_delegate_permissions"
 
 const ROLE_OPTIONS: {
   value: Exclude<UserRole, "owner">
@@ -122,6 +124,7 @@ const EMPTY_PERMISSIONS: Omit<
   can_review_sessions: false,
   can_view_reports: false,
   can_manage_billing: false,
+  can_delegate_permissions: false,
 }
 
 export default function ManageTeamMemberPage() {
@@ -147,6 +150,9 @@ export default function ManageTeamMemberPage() {
     useState<UserRole | null>(null)
 
   const [callerCanManageUsers, setCallerCanManageUsers] =
+    useState(false)
+
+  const [callerCanDelegatePermissions, setCallerCanDelegatePermissions] =
     useState(false)
 
   const [fullName, setFullName] = useState("")
@@ -222,7 +228,8 @@ export default function ManageTeamMemberPage() {
         } = await supabase
           .from("user_permissions")
           .select(`
-            can_manage_users
+            can_manage_users,
+            can_delegate_permissions
           `)
           .eq("user_id", user.id)
           .maybeSingle()
@@ -254,6 +261,11 @@ export default function ManageTeamMemberPage() {
 
         setCallerCanManageUsers(
           canManageUsers
+        )
+
+        setCallerCanDelegatePermissions(
+          callerIsOwner || callerProfile.role === "admin" ||
+          Boolean(callerPermissionData?.can_delegate_permissions)
         )
 
         const {
@@ -305,7 +317,8 @@ export default function ManageTeamMemberPage() {
               can_manage_sessions,
               can_review_sessions,
               can_view_reports,
-              can_manage_billing
+              can_manage_billing,
+              can_delegate_permissions
             `)
             .eq("user_id", userId)
             .maybeSingle(),
@@ -429,6 +442,9 @@ export default function ManageTeamMemberPage() {
     callerRole === "owner" ||
     callerRole === "admin"
 
+  const permissionsLocked =
+    accountLocked || !callerCanManageUsers || !callerCanDelegatePermissions
+
   const visibleRoleOptions =
     ROLE_OPTIONS.filter((option) => {
       if (
@@ -537,8 +553,7 @@ export default function ManageTeamMemberPage() {
     if (
       !member ||
       !permissions ||
-      accountLocked ||
-      !callerCanManageUsers
+      permissionsLocked
     ) {
       return
     }
@@ -592,7 +607,8 @@ export default function ManageTeamMemberPage() {
   ) => {
     if (
       !permissions ||
-      accountLocked
+      permissionsLocked ||
+      ((key === "can_delegate_permissions" || key === "can_manage_billing") && !canAssignAdmin)
     ) {
       return
     }
@@ -1196,9 +1212,16 @@ export default function ManageTeamMemberPage() {
 
             <p className="rj-caption mt-3">
               These grants supplement the user’s role.
-              Database RLS remains the final
-              authorization layer.
+              An owner or administrator decides who may
+              change permission grants for other team members.
             </p>
+
+            {!accountLocked && !callerCanDelegatePermissions && (
+              <p className="rj-caption mt-3">
+                Ask an owner or administrator to enable May delegate permissions
+                before changing these grants.
+              </p>
+            )}
 
             {memberIsOwner && (
               <div className="mt-5 rounded-[var(--rj-radius-md)] bg-[var(--rj-success-soft)] p-4">
@@ -1209,7 +1232,7 @@ export default function ManageTeamMemberPage() {
 
                 <p className="rj-caption mt-1">
                   Owner access is not controlled by
-                  user_permissions toggles.
+                  these permission settings.
                 </p>
               </div>
             )}
@@ -1218,13 +1241,22 @@ export default function ManageTeamMemberPage() {
               !memberIsOwner && (
                 <div className="mt-6 space-y-3">
                   <PermissionToggle
+                    label="May delegate permissions"
+                    description="With Manage users, allows editing other team members’ permission grants. Only owners and administrators can change this setting or billing grants."
+                    icon={ShieldCheck}
+                    enabled={permissions.can_delegate_permissions}
+                    disabled={permissionsLocked || !canAssignAdmin}
+                    onClick={() => togglePermission("can_delegate_permissions")}
+                  />
+
+                  <PermissionToggle
                     label="Manage users"
                     description="Invite, edit, and deactivate organization accounts."
                     icon={Users}
                     enabled={
                       permissions.can_manage_users
                     }
-                    disabled={accountLocked}
+                    disabled={permissionsLocked}
                     onClick={() =>
                       togglePermission(
                         "can_manage_users"
@@ -1239,7 +1271,7 @@ export default function ManageTeamMemberPage() {
                     enabled={
                       permissions.can_manage_clients
                     }
-                    disabled={accountLocked}
+                    disabled={permissionsLocked}
                     onClick={() =>
                       togglePermission(
                         "can_manage_clients"
@@ -1254,7 +1286,7 @@ export default function ManageTeamMemberPage() {
                     enabled={
                       permissions.can_manage_sessions
                     }
-                    disabled={accountLocked}
+                    disabled={permissionsLocked}
                     onClick={() =>
                       togglePermission(
                         "can_manage_sessions"
@@ -1269,7 +1301,7 @@ export default function ManageTeamMemberPage() {
                     enabled={
                       permissions.can_review_sessions
                     }
-                    disabled={accountLocked}
+                    disabled={permissionsLocked}
                     onClick={() =>
                       togglePermission(
                         "can_review_sessions"
@@ -1284,7 +1316,7 @@ export default function ManageTeamMemberPage() {
                     enabled={
                       permissions.can_view_reports
                     }
-                    disabled={accountLocked}
+                    disabled={permissionsLocked}
                     onClick={() =>
                       togglePermission(
                         "can_view_reports"
@@ -1300,7 +1332,7 @@ export default function ManageTeamMemberPage() {
                       permissions.can_manage_billing
                     }
                     disabled={
-                      accountLocked ||
+                      permissionsLocked ||
                       !(
                         callerRole ===
                           "owner" ||
@@ -1315,7 +1347,7 @@ export default function ManageTeamMemberPage() {
                     }
                   />
 
-                  {!accountLocked && (
+                  {!permissionsLocked && (
                     <button
                       type="button"
                       onClick={
