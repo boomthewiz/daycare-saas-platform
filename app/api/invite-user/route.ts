@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireUnlocked } from "@/lib/device-session-server"
 import { createClient } from "@supabase/supabase-js"
+import { emptyPermissions } from "@/lib/permissions"
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -629,13 +630,7 @@ export async function POST(
     const defaultPermissions = {
       user_id: invitedUserId,
       organization_id: organizationId,
-      can_manage_users: false,
-      can_manage_clients: false,
-      can_manage_sessions: false,
-      can_review_sessions: false,
-      can_view_reports: false,
-      can_manage_billing: false,
-      can_delegate_permissions: false,
+      ...emptyPermissions(),
     }
 
     const {

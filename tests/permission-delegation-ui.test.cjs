@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
+const permissions = require('./helpers/load-ts.cjs')('lib/permissions.ts')
 
 function harness(role, delegates = false, self = false) {
   const React = require('react')
@@ -37,7 +38,7 @@ function harness(role, delegates = false, self = false) {
   const source = fs.readFileSync(path.resolve(__dirname, '../app/(dashboard)/team-management/[userId]/page.tsx'), 'utf8')
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
-  const mocks = { react, '@/lib/supabase': { supabase }, 'next/navigation': { useParams: () => ({ userId: memberId }) } }
+  const mocks = { react, '@/lib/permissions': permissions, '@/lib/supabase': { supabase }, 'next/navigation': { useParams: () => ({ userId: memberId }) } }
   new Function('require', 'module', 'exports', output)(name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), mod, mod.exports)
   function render() { index = 0; return mod.exports.default() }
   function all(node, predicate, found = []) {

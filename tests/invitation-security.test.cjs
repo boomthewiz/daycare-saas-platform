@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const Module = require('node:module')
 const ts = require('typescript')
+const permissions = require('./helpers/load-ts.cjs')('lib/permissions.ts')
 
 const caller = { id: 'caller', organization_id: 'org', role: 'owner', status: 'active' }
 const target = { id: 'target', organization_id: 'org', role: 'staff', status: 'active', email: 'staff@example.com', full_name: 'Staff' }
@@ -40,6 +41,7 @@ function load(options = {}) {
   mod.paths = module.paths
   let clients = 0
   mod.require = name => name === '@/lib/device-session-server' ? { requireUnlocked: async () => options.unlocked !== false }
+    : name === '@/lib/permissions' ? permissions
     : name === '@supabase/supabase-js' ? { createClient: () => ++clients === 1 ? admin : { auth: { resetPasswordForEmail: async (email, args) => { record('send', { email, ...args }); return { error: options.sendError || null } } } } }
     : require(name)
   mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, filename)

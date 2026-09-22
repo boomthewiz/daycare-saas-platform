@@ -28,11 +28,11 @@ The invitation page/API currently authorize owner, admin, manager and director r
 
 Role assignment already rejects the owner role and reserves assigning admin for owners/admins. Target management does not impose a full hierarchy: a user manager can modify a non-owner administrator if the resulting role is assignable. This behavior has not been changed without a product decision.
 
-Broader customizable permissions and initial PIN onboarding verification (issue #9) remain outside this patch.
+The [permission settings foundation](permissions-foundation.md) centralizes grant definitions, defaults, normalization, and editor checks. Broader customization rules and initial PIN onboarding verification (issue #9) remain pending.
 
 ## Validation
 
-- `node --test tests/*.test.cjs`: 49 passing tests, including 12 invitation and four delegation UI regression tests.
+- `node --test tests/*.test.cjs`: 52 passing tests, including invitation, delegation UI, and permission foundation regressions.
 - `node node_modules/typescript/bin/tsc --noEmit --incremental false`: passed.
 - `node node_modules/eslint/bin/eslint.js app/api/invite-user/route.ts`: passed.
 - `supabase/tests/billing_permission_delegation.sql`: reproduced the pre-fix manager billing grant, then passed after the migration. Covers manager/director/staff, owner/admin, grant/revoke, INSERT/UPDATE/UPSERT, recipient reassignment, unchanged billing grants, and nonbilling saves. Synthetic records and JWT settings roll back; no email is sent.
