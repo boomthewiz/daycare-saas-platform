@@ -5,7 +5,7 @@ const path = require('node:path')
 const ts = require('typescript')
 const permissions = require('./helpers/load-ts.cjs')('lib/permissions.ts')
 
-function harness(role, delegates = false, self = false) {
+function harness(role, delegates = false, self = false, memberRole = 'staff') {
   const React = require('react')
   const values = [], memos = [], effectDeps = [], calls = []
   let index = 0, effects = []
@@ -22,7 +22,7 @@ function harness(role, delegates = false, self = false) {
     from(table) {
       let id
       const result = () => ({ error: null, data: table === 'users'
-        ? { id, role: id === 'caller' ? role : 'staff', organization_id: 'org', status: 'active', full_name: 'Example', email: 'example@example.com' }
+        ? { id, role: id === 'caller' ? role : memberRole, organization_id: 'org', status: 'active', full_name: 'Example', email: 'example@example.com' }
         : table === 'user_permissions'
           ? { user_id: id, organization_id: 'org', can_manage_users: id === 'caller', can_delegate_permissions: id === 'caller' && delegates, can_manage_billing: false, can_view_reports: false }
           : [] })
@@ -101,4 +101,15 @@ test('delegation does not unlock self-permission editing', async () => {
   assert.equal(h.toggle(tree, 'May delegate permissions').props.disabled, true)
   assert.equal(h.toggle(tree, 'View reports').props.disabled, true)
   assert.equal(h.save(tree), undefined)
+})
+
+test('administrator grants stay locked for delegated managers and editable for administrators', async () => {
+  const manager = harness('manager', true, false, 'admin')
+  const locked = await manager.ready()
+  assert.equal(manager.toggle(locked, 'View reports').props.disabled, true)
+  assert.equal(manager.save(locked), undefined)
+  const admin = harness('admin', false, false, 'admin')
+  const editable = await admin.ready()
+  assert.equal(admin.toggle(editable, 'View reports').props.disabled, false)
+  assert.ok(admin.save(editable))
 })

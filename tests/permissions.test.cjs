@@ -38,4 +38,6 @@ test('editor checks preserve explicit delegation and sensitive grant restriction
     assert.equal(canEditPermission({ ...editor, role: 'admin', ...change }, 'can_manage_users'), false)
   }
   assert.equal(canEditPermission({ ...editor, role: 'owner' }, 'unknown_permission'), false)
+  assert.equal(canEditPermission({ ...editor, canDelegatePermissions: true, targetIsAdmin: true }, 'can_manage_users'), false)
+  assert.equal(canEditPermission({ ...editor, role: 'admin', targetIsAdmin: true }, 'can_manage_users'), true)
 })

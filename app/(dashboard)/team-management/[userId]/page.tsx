@@ -410,7 +410,8 @@ export default function ManageTeamMemberPage() {
     member?.role === "owner"
 
   const accountLocked =
-    Boolean(memberIsOwner || isSelf)
+    Boolean(memberIsOwner || isSelf ||
+      (member?.role === "admin" && callerRole !== "owner" && callerRole !== "admin"))
 
   const canAssignAdmin =
     callerRole === "owner" ||
@@ -425,6 +426,7 @@ export default function ManageTeamMemberPage() {
     canDelegatePermissions: callerCanDelegatePermissions,
     isSelf,
     targetIsOwner: memberIsOwner,
+    targetIsAdmin: member?.role === "admin",
   }
 
   const visibleRoleOptions =
@@ -924,6 +926,15 @@ export default function ManageTeamMemberPage() {
           success
           message={successMessage}
         />
+      )}
+
+      {member.role === "admin" && !canAssignAdmin && (
+        <div className="rj-card p-4">
+          <p className="font-bold">Administrator account protected</p>
+          <p className="rj-caption mt-1">
+            Only an owner or administrator can change this account or its permissions.
+          </p>
+        </div>
       )}
 
       {memberIsOwner && (

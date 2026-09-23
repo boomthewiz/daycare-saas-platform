@@ -16,4 +16,4 @@ For each new capability, first define the product rule, add its database storage
 
 Future organization presets or role templates can feed the same grant model after their precedence and delegation rules are approved. This change does not activate presets, custom roles, implicit inheritance, or a generic permission-writing endpoint. Existing legacy navigation-only flags in `config/navigation.ts` are not promoted to enforceable capabilities by this catalog.
 
-The invitation authorization choice (role, Manage users, or both) and broader role hierarchy remain pending. PIN onboarding verification remains tracked separately in issue #9.
+Invitations require an active owner or an active user with Manage users. Only owners/admins may manage administrator accounts. PIN onboarding verification remains tracked separately in issue #9.

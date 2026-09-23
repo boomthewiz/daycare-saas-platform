@@ -30,6 +30,7 @@ function load(options = {}) {
         q[method] = (...args) => { record(method, args); return q }
       }
       q.single = async () => ({ data: { ...caller, ...options.caller }, error: null })
+      q.maybeSingle = async () => ({ data: options.grants === undefined ? { can_manage_users: false } : options.grants, error: options.grantsError || null })
       q.limit = async () => ({ data: options.targets === undefined ? [target] : options.targets, error: null })
       q.then = (resolve, reject) => Promise.resolve({ error: null }).then(resolve, reject)
       return q
@@ -73,7 +74,7 @@ test('resend sends once to verified account without changing its profile or gene
 
 test('resend authorizes stored admin role even when submitted role says staff', async () => {
   for (const role of ['manager', 'director']) {
-    const h = load({ caller: { role }, targets: [{ ...target, role: 'admin' }] })
+    const h = load({ caller: { role }, grants: { can_manage_users: true }, targets: [{ ...target, role: 'admin' }] })
     assert.equal((await h.post()).status, 403)
     assert.equal(h.calls.some(c => c[0] === 'getUserById' || c[0] === 'send'), false)
   }
@@ -139,4 +140,26 @@ test('new invitations still create one profile and default permissions', async (
   assert.equal((await h.post({ resend: false })).status, 200)
   assert.equal(h.calls.filter(c => c[0] === 'invite').length, 1)
   assert.equal(h.calls.filter(c => c[0] === 'upsert').length, 2)
+})
+
+test('every non-owner role needs an explicit current Manage users grant for invite and resend', async () => {
+  for (const role of ['admin', 'manager', 'director', 'teacher', 'staff']) {
+    for (const resend of [false, true]) {
+      const options = { caller: { role }, targets: resend ? [target] : [] }
+      for (const grants of [null, {}, { can_manage_users: false }, { can_manage_users: 'true' }]) {
+        const h = load({ ...options, grants })
+        assert.equal((await h.post({ resend })).status, 403)
+        assert.equal(h.calls.some(c => ['send', 'invite'].includes(c[0])), false)
+      }
+      const h = load({ ...options, grants: { can_manage_users: true } })
+      assert.equal((await h.post({ resend })).status, 200)
+      assert.ok(h.calls.some(c => c[0] === 'eq' && c[1][0] === 'organization_id' && c[1][1] === 'org'))
+    }
+  }
+})
+
+test('permission lookup failures deny invitations even when the returned grant is true', async () => {
+  const h = load({ caller: { role: 'admin' }, grants: { can_manage_users: true }, grantsError: {} })
+  assert.equal((await h.post()).status, 403)
+  assert.equal(h.calls.some(c => c[0] === 'send'), false)
 })

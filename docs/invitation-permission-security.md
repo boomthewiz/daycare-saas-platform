@@ -20,19 +20,18 @@ Owners/admins now control **May delegate permissions** on the team member page. 
 
 Only owners/admins can grant or revoke delegation authority. Approved delegates can edit other nonbilling grants, including Manage users, but cannot pass on delegation authority or change billing. Self, owner-account, tenant and session restrictions remain enforced. Revocation is evaluated from current database state rather than a stale JWT claim.
 
-Migration `20260922220541` is applied to the backend. Existing managers have delegation disabled until an owner/admin enables it. The UI changes require deployment of this branch.
+Migration `20260922220541` is applied to the backend. Existing managers have delegation disabled until an owner/admin enables it. The UI changes are included in PR #13.
 
-## Product decisions still pending
+## Approved invitation and administrator rules
 
-The invitation page/API currently authorize owner, admin, manager and director roles. Database team management instead requires `can_manage_users` (owners bypass the flag). Aligning these affects which accounts may invite and requires a product decision.
+Active owners can invite without a permission flag. Every other active account requires an explicit current Manage users grant for the same organization. The page uses the database authorization helper; the API checks the current stored grant and fails closed on lookup errors. Both new invitations and resends follow this rule.
 
-Role assignment already rejects the owner role and reserves assigning admin for owners/admins. Target management does not impose a full hierarchy: a user manager can modify a non-owner administrator if the resulting role is assignable. This behavior has not been changed without a product decision.
+Only owners/admins can manage existing administrator accounts. Migration `20260923163950` enforces this through the existing target-management helper, protecting profile, role, status, PIN-reset and permission writes. The UI disables the same actions. Owners remain protected and self-management restrictions remain unchanged. Assigning the admin role still requires owner/admin authority.
 
-The [permission settings foundation](permissions-foundation.md) centralizes grant definitions, defaults, normalization, and editor checks. Broader customization rules and initial PIN onboarding verification (issue #9) remain pending.
-
+The [permission settings foundation](permissions-foundation.md) centralizes grant definitions, defaults, normalization, and editor checks. Broader customization features and initial PIN onboarding verification (issue #9) are separate future work. No policy decision remains open for this security phase.
 ## Validation
 
-- `node --test tests/*.test.cjs`: 52 passing tests, including invitation, delegation UI, and permission foundation regressions.
+- `node --test tests/*.test.cjs`: 55 passing tests, including invitation, delegation UI, and permission foundation regressions.
 - `node node_modules/typescript/bin/tsc --noEmit --incremental false`: passed.
 - `node node_modules/eslint/bin/eslint.js app/api/invite-user/route.ts`: passed.
 - `supabase/tests/billing_permission_delegation.sql`: reproduced the pre-fix manager billing grant, then passed after the migration. Covers manager/director/staff, owner/admin, grant/revoke, INSERT/UPDATE/UPSERT, recipient reassignment, unchanged billing grants, and nonbilling saves. Synthetic records and JWT settings roll back; no email is sent.
@@ -40,3 +39,5 @@ The [permission settings foundation](permissions-foundation.md) centralizes gran
 - Security advisor reports no finding for the new trigger. Existing warnings remain for [authenticated security-definer RPCs](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). Unrelated RPCs were not expanded into this review.
 
 Email delivery and browser acceptance of a real invitation were not tested; the route tests mock Auth/email operations.
+
+- Administrator protection database regression passed for profile, demotion, deactivation, PIN reset, UPDATE and UPSERT permission writes; authorized owner/admin management also passed. All fixtures rolled back.

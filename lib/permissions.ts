@@ -1,7 +1,7 @@
 /** Supported per-user grants. Adding a key also requires database enforcement. */
 export const permissionDefinitions = [
   { key: "can_delegate_permissions", label: "May delegate permissions", description: "With Manage users, allows editing other team members’ permission grants. Only owners and administrators can change this setting or billing grants.", grantAuthority: "owner_admin" },
-  { key: "can_manage_users", label: "Manage users", description: "Edit and deactivate organization accounts. Invitation access also follows the invitation policy.", grantAuthority: "delegate" },
+  { key: "can_manage_users", label: "Manage users", description: "Invite, edit, and deactivate organization accounts. Only owners and administrators can manage administrators.", grantAuthority: "delegate" },
   { key: "can_manage_clients", label: "Manage clients", description: "Create and edit client profiles, targets, and behaviors.", grantAuthority: "delegate" },
   { key: "can_manage_sessions", label: "Manage sessions", description: "Create, prepare, edit, and assign sessions.", grantAuthority: "delegate" },
   { key: "can_review_sessions", label: "Review session notes", description: "Review submitted documentation and return or approve notes.", grantAuthority: "delegate" },
@@ -33,6 +33,7 @@ export type PermissionEditor = {
   canDelegatePermissions: boolean
   isSelf: boolean
   targetIsOwner: boolean
+  targetIsAdmin?: boolean
 }
 
 /** UI affordances only. RLS and database triggers authorize every actual write. */
@@ -40,5 +41,6 @@ export function canEditPermission(editor: PermissionEditor, key: string): boolea
   const definition = permissionDefinitions.find(permission => permission.key === key)
   if (!definition || editor.isSelf || editor.targetIsOwner || !editor.canManageUsers) return false
   if (editor.role === "owner" || editor.role === "admin") return true
+  if (editor.targetIsAdmin) return false
   return editor.canDelegatePermissions && definition.grantAuthority === "delegate"
 }

@@ -39,13 +39,6 @@ const ALLOWED_ROLES = [
 type AllowedRole =
   (typeof ALLOWED_ROLES)[number]
 
-const ADMIN_ROLES = [
-  "owner",
-  "admin",
-  "manager",
-  "director",
-]
-
 type InviteRequestBody = {
   fullName?: unknown
   email?: unknown
@@ -170,22 +163,6 @@ export async function POST(
     }
 
     if (
-      !ADMIN_ROLES.includes(
-        callerProfile.role
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to invite team members.",
-        },
-        {
-          status: 403,
-        }
-      )
-    }
-
-    if (
       !callerProfile.organization_id
     ) {
       return NextResponse.json(
@@ -199,6 +176,20 @@ export async function POST(
       )
     }
 
+    if (callerProfile.role !== "owner") {
+      const { data: grants, error: grantsError } = await supabaseAdmin
+        .from("user_permissions")
+        .select("can_manage_users")
+        .eq("user_id", callerId)
+        .eq("organization_id", callerProfile.organization_id)
+        .maybeSingle()
+      if (grantsError || grants?.can_manage_users !== true) {
+        return NextResponse.json(
+          { error: "You do not have permission to invite team members." },
+          { status: 403 }
+        )
+      }
+    }
     // =====================================================
     // 3. Parse and validate request
     // =====================================================
