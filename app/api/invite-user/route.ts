@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireUnlocked } from "@/lib/device-session-server"
 import { createClient } from "@supabase/supabase-js"
+import { emptyPermissions } from "@/lib/permissions"
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -37,13 +38,6 @@ const ALLOWED_ROLES = [
 
 type AllowedRole =
   (typeof ALLOWED_ROLES)[number]
-
-const ADMIN_ROLES = [
-  "owner",
-  "admin",
-  "manager",
-  "director",
-]
 
 type InviteRequestBody = {
   fullName?: unknown
@@ -169,22 +163,6 @@ export async function POST(
     }
 
     if (
-      !ADMIN_ROLES.includes(
-        callerProfile.role
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "You do not have permission to invite team members.",
-        },
-        {
-          status: 403,
-        }
-      )
-    }
-
-    if (
       !callerProfile.organization_id
     ) {
       return NextResponse.json(
@@ -198,6 +176,20 @@ export async function POST(
       )
     }
 
+    if (callerProfile.role !== "owner") {
+      const { data: grants, error: grantsError } = await supabaseAdmin
+        .from("user_permissions")
+        .select("can_manage_users")
+        .eq("user_id", callerId)
+        .eq("organization_id", callerProfile.organization_id)
+        .maybeSingle()
+      if (grantsError || grants?.can_manage_users !== true) {
+        return NextResponse.json(
+          { error: "You do not have permission to invite team members." },
+          { status: 403 }
+        )
+      }
+    }
     // =====================================================
     // 3. Parse and validate request
     // =====================================================
@@ -327,7 +319,8 @@ export async function POST(
         role,
         status
       `)
-      .ilike("email", email)
+      // ILIKE treats percent and underscore as wildcards, even in valid emails.
+      .ilike("email", email.replace(/[\\%_]/g, "\\$&"))
       .limit(2)
 
     if (existingPublicUserError) {
@@ -351,6 +344,13 @@ export async function POST(
      * This should normally return zero or one row because
      * we created a case-insensitive unique email index.
      */
+    if (existingPublicUsers && existingPublicUsers.length > 1) {
+      return NextResponse.json(
+        { error: "Unable to uniquely identify this account. Contact ReJoyce support." },
+        { status: 409 }
+      )
+    }
+
     const existingPublicUser =
       existingPublicUsers?.[0] || null
 
@@ -395,6 +395,19 @@ export async function POST(
         )
       }
 
+      // Authorize the stored target, never the role supplied by the browser.
+      if (
+        existingPublicUser.id === callerId ||
+        existingPublicUser.role === "owner" ||
+        (existingPublicUser.role === "admin" &&
+          !["owner", "admin"].includes(callerProfile.role))
+      ) {
+        return NextResponse.json(
+          { error: "You do not have permission to resend this account's invitation." },
+          { status: 403 }
+        )
+      }
+
       /*
        * Resend path.
        *
@@ -407,13 +420,6 @@ export async function POST(
           userId:
             existingPublicUser.id,
           email,
-          fullName:
-            existingPublicUser.full_name ||
-            fullName,
-          role:
-            existingPublicUser.role ||
-            role,
-          organizationId,
         })
 
       if (!resendResult.ok) {
@@ -444,6 +450,13 @@ export async function POST(
         {
           status: 200,
         }
+      )
+    }
+
+    if (resend) {
+      return NextResponse.json(
+        { error: "No existing organization account was found for this invitation." },
+        { status: 404 }
       )
     }
 
@@ -608,12 +621,7 @@ export async function POST(
     const defaultPermissions = {
       user_id: invitedUserId,
       organization_id: organizationId,
-      can_manage_users: false,
-      can_manage_clients: false,
-      can_manage_sessions: false,
-      can_review_sessions: false,
-      can_view_reports: false,
-      can_manage_billing: false,
+      ...emptyPermissions(),
     }
 
     const {
@@ -748,27 +756,23 @@ async function findAuthUserByEmail(
     if (
       data.users.length < perPage
     ) {
-      break
+      return null
     }
 
     page += 1
   }
 
-  return null
+  throw new Error(
+    "Unable to finish checking whether this email is already tied to a ReJoyce login."
+  )
 }
 
 async function resendExistingInvitation({
   userId,
   email,
-  fullName,
-  role,
-  organizationId,
 }: {
   userId: string
   email: string
-  fullName: string
-  role: string
-  organizationId: string
 }): Promise<
   | {
       ok: true
@@ -823,57 +827,7 @@ async function resendExistingInvitation({
       }
     }
 
-    /*
-     * Supabase inviteUserByEmail may reject an address
-     * that already represents an established user.
-     *
-     * Generate a recovery/magic-link style action
-     * for the existing login instead.
-     *
-     * This lets the user re-enter the account setup
-     * flow without attempting to create a duplicate
-     * Auth account.
-     */
-    const {
-      data: linkData,
-      error: linkError,
-    } =
-      await supabaseAdmin.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: {
-          redirectTo: siteUrl
-            ? `${siteUrl}/set-pin`
-            : undefined,
-        },
-      })
-
-    if (linkError) {
-      console.error(
-        "Resend account link error:",
-        linkError
-      )
-
-      return {
-        ok: false,
-        status: 400,
-        error:
-          "Unable to resend the account setup link.",
-      }
-    }
-
-    /*
-     * generateLink() generates the action link but does
-     * not itself send your custom email.
-     *
-     * If your current Supabase email workflow already
-     * sends recovery emails elsewhere, replace this
-     * helper with that route.
-     *
-     * For now, try Supabase's password-reset email,
-     * which sends through your configured Auth email
-     * provider.
-     */
+    // Send one setup email through Auth; generating a link separately does not send it.
     const userClient = createClient(
       supabaseUrl,
       process.env
@@ -912,40 +866,7 @@ async function resendExistingInvitation({
       }
     }
 
-    /*
-     * Keep the public profile synchronized. We don't
-     * change organization ownership here.
-     */
-    const {
-      error: profileError,
-    } = await supabaseAdmin
-      .from("users")
-      .update({
-        full_name: fullName,
-        role,
-        organization_id:
-          organizationId,
-      })
-      .eq("id", userId)
-      .eq(
-        "organization_id",
-        organizationId
-      )
-
-    if (profileError) {
-      console.warn(
-        "Profile refresh during resend failed:",
-        profileError.message
-      )
-    }
-
-    /*
-     * linkData exists mainly as confirmation that Auth
-     * could generate a valid action for the account.
-     * Do not return its URL to the browser.
-     */
-    void linkData
-
+    // Resending must not overwrite a concurrent profile or role change.
     return {
       ok: true,
     }

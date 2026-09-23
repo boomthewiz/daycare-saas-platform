@@ -201,19 +201,10 @@ export default function InviteTeamMemberPage() {
           )
         }
 
-        if (
-          ![
-            "owner",
-            "admin",
-            "manager",
-            "director",
-          ].includes(profile.role)
-        ) {
-          throw new Error(
-            "You do not have permission to invite team members."
-          )
+        const { data: canInvite, error: accessError } = await supabase.rpc("can_manage_users")
+        if (accessError || canInvite !== true || profile.status !== "active") {
+          throw new Error("You do not have permission to invite team members.")
         }
-
         if (!profile.organization_id) {
           throw new Error(
             "Your account is not connected to an organization."
