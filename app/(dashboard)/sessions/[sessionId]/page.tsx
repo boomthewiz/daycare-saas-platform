@@ -8,7 +8,7 @@ import {
   useState,
 } from "react"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import {
   ArrowDown,
   ArrowLeft,
@@ -31,7 +31,6 @@ import {
   Save,
   Sparkles,
   Trash2,
-  UserRound,
   Users,
   XCircle,
 } from "lucide-react"
@@ -238,7 +237,6 @@ const ATTENDANCE_STATUSES: {
 
 export default function AdminSessionDetailPage() {
   const params = useParams<{ sessionId: string }>()
-  const router = useRouter()
 
   const sessionId = params.sessionId
 
@@ -595,17 +593,17 @@ export default function AdminSessionDetailPage() {
     ).length
 
   const hasStarted = Boolean(session?.started_at)
+  const historical = !!session && ['completed','canceled','client_absent','provider_absent','no_show'].includes(session.status)
 
-  const canEditPreparation =
-    session?.status === "scheduled" ||
-    session?.status === "confirmed"
+  const canEditPreparation = !hasStarted && !historical &&
+    (session?.status === "scheduled" || session?.status === "confirmed")
 
   const handleSaveSession = async (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault()
 
-    if (!session) return
+    if (!session || historical) return
 
     if (
       !providerId ||
@@ -656,6 +654,8 @@ export default function AdminSessionDetailPage() {
           was_supervised: wasSupervised,
         })
         .eq("id", sessionId)
+        .eq("updated_at", session.updated_at)
+        .select("id").single()
 
       if (error) {
         throw new Error(error.message)
@@ -826,6 +826,7 @@ export default function AdminSessionDetailPage() {
         .from("session_targets")
         .delete()
         .eq("id", target.id)
+        .select("id").single()
 
       if (error) {
         throw new Error(error.message)
@@ -886,47 +887,11 @@ export default function AdminSessionDetailPage() {
     setSuccessMessage(null)
 
     try {
-      /*
-       * Use temporary sort order to avoid collisions while
-       * swapping two rows.
-       */
-      const temporarySortOrder = -1000000
-
-      const { error: temporaryError } =
-        await supabase
-          .from("session_targets")
-          .update({
-            sort_order: temporarySortOrder,
-          })
-          .eq("id", currentTarget.id)
-
-      if (temporaryError) {
-        throw new Error(temporaryError.message)
-      }
-
-      const { error: otherError } =
-        await supabase
-          .from("session_targets")
-          .update({
-            sort_order: currentTarget.sort_order,
-          })
-          .eq("id", otherTarget.id)
-
-      if (otherError) {
-        throw new Error(otherError.message)
-      }
-
-      const { error: currentError } =
-        await supabase
-          .from("session_targets")
-          .update({
-            sort_order: otherTarget.sort_order,
-          })
-          .eq("id", currentTarget.id)
-
-      if (currentError) {
-        throw new Error(currentError.message)
-      }
+      const { error } = await supabase.rpc('swap_session_targets', {
+        p_session_id: sessionId, p_first: currentTarget.id, p_second: otherTarget.id,
+        p_first_order: currentTarget.sort_order, p_second_order: otherTarget.sort_order,
+      })
+      if (error) throw new Error(error.message)
 
       await loadPage()
     } catch (error) {
@@ -968,6 +933,8 @@ export default function AdminSessionDetailPage() {
           attendance_status: "canceled",
         })
         .eq("id", session.id)
+        .eq("updated_at", session.updated_at)
+        .select("id").single()
 
       if (error) {
         throw new Error(error.message)
@@ -1214,7 +1181,7 @@ export default function AdminSessionDetailPage() {
                 }
                 className="rj-input"
                 required
-                disabled={hasStarted}
+                disabled={hasStarted || historical}
               >
                 <option value="">
                   Select a team member
@@ -1241,7 +1208,7 @@ export default function AdminSessionDetailPage() {
                   setSessionType(event.target.value)
                 }
                 className="rj-input"
-                disabled={hasStarted}
+                disabled={hasStarted || historical}
               >
                 {SESSION_TYPES.map((type) => (
                   <option
@@ -1271,7 +1238,7 @@ export default function AdminSessionDetailPage() {
                   }
                   className="rj-input pl-11"
                   required
-                  disabled={hasStarted}
+                  disabled={hasStarted || historical}
                 />
               </div>
             </FormField>
@@ -1293,7 +1260,7 @@ export default function AdminSessionDetailPage() {
                   }
                   className="rj-input pl-11"
                   required
-                  disabled={hasStarted}
+                  disabled={hasStarted || historical}
                 />
               </div>
             </FormField>
@@ -1308,6 +1275,7 @@ export default function AdminSessionDetailPage() {
                 <input
                   type="text"
                   value={location}
+                  disabled={historical}
                   onChange={(event) =>
                     setLocation(event.target.value)
                   }
@@ -1320,6 +1288,7 @@ export default function AdminSessionDetailPage() {
             <FormField label="Session status">
               <select
                 value={status}
+                disabled={hasStarted || historical}
                 onChange={(event) =>
                   setStatus(
                     event.target.value as SessionStatus
@@ -1327,7 +1296,7 @@ export default function AdminSessionDetailPage() {
                 }
                 className="rj-input"
               >
-                {SESSION_STATUSES.map((option) => (
+                {SESSION_STATUSES.filter(option => option.value === session.status || !["in_progress","paused","completed"].includes(option.value)).map((option) => (
                   <option
                     key={option.value}
                     value={option.value}
@@ -1341,6 +1310,7 @@ export default function AdminSessionDetailPage() {
             <FormField label="Attendance">
               <select
                 value={attendanceStatus}
+                disabled={historical}
                 onChange={(event) =>
                   setAttendanceStatus(
                     event.target
@@ -1366,6 +1336,7 @@ export default function AdminSessionDetailPage() {
               <input
                 type="checkbox"
                 checked={wasSupervised}
+                disabled={historical}
                 onChange={(event) =>
                   setWasSupervised(
                     event.target.checked
@@ -1387,7 +1358,7 @@ export default function AdminSessionDetailPage() {
 
             <button
               type="submit"
-              disabled={savingSession}
+              disabled={savingSession || historical}
               className="rj-button rj-button-primary w-full"
             >
               {savingSession ? (
@@ -1410,7 +1381,7 @@ export default function AdminSessionDetailPage() {
               <button
                 type="button"
                 onClick={handleCancelSession}
-                disabled={savingSession}
+                disabled={savingSession || historical}
                 className="rj-button rj-button-danger mt-3 w-full"
               >
                 <XCircle size={19} />
@@ -1762,6 +1733,7 @@ export default function AdminSessionDetailPage() {
             )}
           </section>
 
+          <Link href={`/reviews/${sessionId}`} className="rj-button rj-button-secondary">Open note and history</Link>
           {/* Session Timeline */}
           <section className="rj-card p-6">
             <p className="rj-label">

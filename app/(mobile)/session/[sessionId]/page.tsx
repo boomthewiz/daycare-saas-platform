@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -10,14 +11,12 @@ import {
   CircleAlert,
   Clock3,
   LoaderCircle,
-  Mic,
   Minus,
   Pause,
   Play,
   Plus,
   RotateCcw,
   Sparkles,
-  Square,
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
@@ -134,12 +133,11 @@ export default function ActiveSessionPage() {
     null
   )
 
-  const [voiceNote, setVoiceNote] = useState("")
-  const [isRecording, setIsRecording] = useState(false)
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   const [loading, setLoading] = useState(true)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
   const [pageError, setPageError] = useState<string | null>(null)
 
   const [sessionActionLoading, setSessionActionLoading] =
@@ -377,6 +375,7 @@ export default function ActiveSessionPage() {
         }))
 
       setBehaviors(behaviorsWithCounts)
+      setWorkspaceReady(true)
 
       /*
        * Keep the existing active target when possible.
@@ -404,6 +403,7 @@ export default function ActiveSessionPage() {
         )
       })
     } catch (error) {
+      setWorkspaceReady(false)
       console.error("Load session workspace error:", error)
 
       setPageError(
@@ -484,13 +484,12 @@ export default function ActiveSessionPage() {
   )
 
   const sessionIsRunning =
-    session?.status === "in_progress"
+    workspaceReady && session?.status === "in_progress"
 
-  const sessionIsPaused = session?.status === "paused"
+  const sessionIsPaused = workspaceReady && session?.status === "paused"
 
   const sessionHasStarted =
-    sessionIsRunning ||
-    sessionIsPaused ||
+    Boolean(session?.started_at) ||
     session?.status === "completed"
 
   const runSessionAction = async (
@@ -499,7 +498,7 @@ export default function ActiveSessionPage() {
       | "pause_assigned_session"
       | "resume_assigned_session"
   ) => {
-    if (!sessionId || sessionActionLoading) return
+    if (!workspaceReady || !sessionId || sessionActionLoading) return
 
     setSessionActionLoading(true)
     setPageError(null)
@@ -515,6 +514,7 @@ export default function ActiveSessionPage() {
 
       await fetchSessionWorkspace()
     } catch (error) {
+      setWorkspaceReady(false)
       console.error(`${functionName} error:`, error)
 
       setPageError(
@@ -559,6 +559,7 @@ export default function ActiveSessionPage() {
 
       await fetchSessionWorkspace()
     } catch (error) {
+      setWorkspaceReady(false)
       console.error("Record target response error:", error)
 
       setPageError(
@@ -585,20 +586,6 @@ export default function ActiveSessionPage() {
     setSavingBehaviorId(behaviorId)
     setPageError(null)
 
-    /*
-     * Optimistic update keeps the button feeling immediate.
-     */
-    setBehaviors((currentBehaviors) =>
-      currentBehaviors.map((behavior) =>
-        behavior.id === behaviorId
-          ? {
-              ...behavior,
-              count: behavior.count + 1,
-            }
-          : behavior
-      )
-    )
-
     try {
       const { error } = await supabase.rpc(
         "record_behavior_event",
@@ -614,13 +601,12 @@ export default function ActiveSessionPage() {
       if (error) {
         throw new Error(error.message)
       }
+      await fetchSessionWorkspace()
     } catch (error) {
       console.error("Record behavior event error:", error)
 
-      /*
-       * Restore database truth if the optimistic save failed.
-       */
       await fetchSessionWorkspace()
+      setWorkspaceReady(false)
 
       setPageError(
         error instanceof Error
@@ -652,17 +638,6 @@ export default function ActiveSessionPage() {
     setSavingBehaviorId(behaviorId)
     setPageError(null)
 
-    setBehaviors((currentBehaviors) =>
-      currentBehaviors.map((item) =>
-        item.id === behaviorId
-          ? {
-              ...item,
-              count: Math.max(0, item.count - 1),
-            }
-          : item
-      )
-    )
-
     try {
       const { error } = await supabase.rpc(
         "undo_latest_behavior_event",
@@ -675,10 +650,12 @@ export default function ActiveSessionPage() {
       if (error) {
         throw new Error(error.message)
       }
+      await fetchSessionWorkspace()
     } catch (error) {
       console.error("Undo behavior event error:", error)
 
       await fetchSessionWorkspace()
+      setWorkspaceReady(false)
 
       setPageError(
         error instanceof Error
@@ -692,9 +669,9 @@ export default function ActiveSessionPage() {
 
   const handleFinishSession = async () => {
     if (
-      !sessionId ||
+      !workspaceReady || !sessionId ||
       sessionActionLoading ||
-      !sessionHasStarted
+      !sessionHasStarted || savingTargetId || savingBehaviorId
     ) {
       return
     }
@@ -703,27 +680,6 @@ export default function ActiveSessionPage() {
     setPageError(null)
 
     try {
-      /*
-       * Save the typed addendum before completing.
-       * Empty text is allowed here because the structured
-       * session data remains available for the note screen.
-       */
-      if (voiceNote.trim()) {
-        const { error: noteError } = await supabase.rpc(
-          "save_assigned_session_note_draft",
-          {
-            requested_session_id: sessionId,
-            requested_therapist_addendum:
-              voiceNote.trim(),
-            requested_final_note: null,
-          }
-        )
-
-        if (noteError) {
-          throw new Error(noteError.message)
-        }
-      }
-
       const { error: finishError } = await supabase.rpc(
         "finish_assigned_session",
         {
@@ -737,6 +693,7 @@ export default function ActiveSessionPage() {
 
       router.push(`/session/${sessionId}/complete`)
     } catch (error) {
+      await fetchSessionWorkspace()
       console.error("Finish session error:", error)
 
       setPageError(
@@ -834,7 +791,7 @@ export default function ActiveSessionPage() {
 
             <button
               type="button"
-              disabled={sessionActionLoading}
+              disabled={sessionActionLoading || !workspaceReady}
               onClick={() => {
                 if (sessionIsPaused) {
                   runSessionAction(
@@ -885,6 +842,7 @@ export default function ActiveSessionPage() {
         </header>
 
         <div className="space-y-5 px-5 py-6">
+          {!workspaceReady && <div role="alert" className="rj-card p-4"><p>Session data needs to be refreshed before another action. Check the latest recorded counts before repeating an entry.</p><button className="rj-button rj-button-secondary mt-3" onClick={()=>void fetchSessionWorkspace()}>Refresh session data</button></div>}
           {pageError && (
             <div className="rounded-[var(--rj-radius-md)] bg-[var(--rj-danger-soft)] p-4">
               <div className="flex gap-3">
@@ -917,7 +875,7 @@ export default function ActiveSessionPage() {
 
               <button
                 type="button"
-                disabled={sessionActionLoading}
+                disabled={sessionActionLoading || !workspaceReady}
                 onClick={() =>
                   runSessionAction(
                     "start_assigned_session"
@@ -1233,6 +1191,7 @@ export default function ActiveSessionPage() {
                           onClick={() =>
                             decreaseBehavior(behavior.id)
                           }
+                          aria-label={`Undo ${behavior.name} event`}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-white disabled:opacity-40"
                         >
                           <Minus size={20} />
@@ -1258,6 +1217,7 @@ export default function ActiveSessionPage() {
                           onClick={() =>
                             increaseBehavior(behavior.id)
                           }
+                          aria-label={`Record ${behavior.name} event`}
                           className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--rj-danger)] text-white disabled:opacity-40"
                         >
                           <Plus
@@ -1274,48 +1234,9 @@ export default function ActiveSessionPage() {
           </section>
 
           <section className="rj-card p-5">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setIsRecording((current) => !current)
-                }
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white ${
-                  isRecording
-                    ? "bg-[var(--rj-danger)]"
-                    : "bg-[var(--rj-teal-500)]"
-                }`}
-              >
-                {isRecording ? (
-                  <Square
-                    size={21}
-                    fill="currentColor"
-                  />
-                ) : (
-                  <Mic size={25} />
-                )}
-              </button>
-
-              <div>
-                <h2 className="rj-heading-3">
-                  Voice addendum
-                </h2>
-
-                <p className="rj-caption mt-0.5">
-                  Optional, but recommended
-                </p>
-              </div>
-            </div>
-
-            <textarea
-              value={voiceNote}
-              onChange={(event) =>
-                setVoiceNote(event.target.value)
-              }
-              rows={3}
-              placeholder="Type a quick session detail…"
-              className="rj-input mt-4 resize-none"
-            />
+            <h2 className="rj-heading-3">Session notes</h2>
+            <p className="rj-caption mt-2">Save observations and draft documentation during the session. Submission becomes available after completion.</p>
+            <Link href={`/session/${sessionId}/complete`} className="rj-button rj-button-secondary mt-4">Open session notes</Link>
           </section>
         </div>
 
@@ -1338,7 +1259,7 @@ export default function ActiveSessionPage() {
               onClick={handleFinishSession}
               disabled={
                 sessionActionLoading ||
-                !sessionHasStarted ||
+                !workspaceReady || !!savingTargetId || !!savingBehaviorId || !sessionHasStarted ||
                 session?.status === "completed"
               }
               className="rj-button rj-button-primary shrink-0 px-5"

@@ -4,10 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   AlertCircle,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   FileCheck2,
   FileText,
   Filter,
@@ -80,8 +78,9 @@ export default function ReviewsPage() {
     useState<FilterValue>("submitted")
 
   const [search, setSearch] = useState("")
+  const [moreAvailable, setMoreAvailable] = useState(false)
 
-  const loadReviews = useCallback(async (isRefresh = false) => {
+  const loadReviews = useCallback(async (isRefresh = false, offset = 0) => {
     if (isRefresh) {
       setRefreshing(true)
     } else {
@@ -102,7 +101,10 @@ export default function ReviewsPage() {
         throw new Error(permissionError.message)
       }
 
-      if (!canReview) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: account } = user ? await supabase.from('users').select('role,status').eq('id',user.id).single() : {data:null}
+      const noteAdmin = account?.status === 'active' && ['owner','admin'].includes(account.role)
+      if (!canReview && !noteAdmin) {
         throw new Error(
           "You do not have permission to access session reviews."
         )
@@ -153,15 +155,18 @@ export default function ReviewsPage() {
         .order("updated_at", {
           ascending: false,
         })
+        .order("id")
+        .range(offset, offset + 99)
 
       if (error) {
         throw new Error(error.message)
       }
 
-      setReviews(
-        (data || []) as unknown as ReviewRow[]
-      )
+      const page = (data || []) as unknown as ReviewRow[]
+      setReviews(previous => offset === 0 ? page : [...previous, ...page.filter(row => !previous.some(old => old.id === row.id))])
+      setMoreAvailable(page.length === 100)
     } catch (error) {
+      setReviews([])
       console.error("Load reviews error:", error)
 
       setPageError(
@@ -371,6 +376,8 @@ export default function ReviewsPage() {
       </section>
 
       {/* Filters */}
+      <p className="rj-caption">Counts and search cover the {reviews.length} loaded notes.</p>
+      {moreAvailable && <button className="rj-button rj-button-secondary" disabled={refreshing} onClick={() => loadReviews(true, reviews.length)}>Load older notes</button>}
       <section className="rj-card p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
@@ -669,7 +676,7 @@ function EmptyReviews({
         />
 
         <h2 className="rj-heading-3 mt-4">
-          You're all caught up
+          You are all caught up
         </h2>
 
         <p className="rj-caption mt-2">

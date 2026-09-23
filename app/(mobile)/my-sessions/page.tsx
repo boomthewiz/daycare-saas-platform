@@ -425,6 +425,7 @@ export default function MySessionsPage() {
           />
 
           {/* Completed */}
+          <Link href="/my-sessions/history" className="rj-button rj-button-secondary">Browse all session history</Link>
           <SessionSection
             title="Recently Completed"
             description="Open a completed session to finish or review its note"
