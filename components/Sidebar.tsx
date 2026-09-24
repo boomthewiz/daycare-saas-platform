@@ -41,6 +41,7 @@ export default function Sidebar() {
     useState(true)
 
   const [isOwner, setIsOwner] = useState(false)
+  const [isNoteAdmin, setIsNoteAdmin] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -83,6 +84,7 @@ export default function Sidebar() {
 
         if (mounted) {
           setIsOwner(owner)
+          setIsNoteAdmin(owner || userData?.role === "admin")
         }
 
         /*
@@ -181,6 +183,7 @@ export default function Sidebar() {
     }
 
     return navigationItems.filter((item) => {
+      if (item.href === "/reviews" && isNoteAdmin) return true
       /*
        * Public-to-authenticated-user navigation.
        */
@@ -193,7 +196,7 @@ export default function Sidebar() {
        */
       return permissions[item.permission] === true
     })
-  }, [permissions, loadingPermissions])
+  }, [permissions, loadingPermissions, isNoteAdmin])
 
   return (
     <aside

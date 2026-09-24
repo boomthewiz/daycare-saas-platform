@@ -299,31 +299,31 @@ BEGIN
     PERFORM public.record_target_response((g->>'session_targets')::uuid,'independent',NULL,'Synthetic response');
     PERFORM public.record_behavior_event(own_session,(g->>'client_behaviors')::uuid,NULL,NULL,'Synthetic event');
     PERFORM public.finish_assigned_session(own_session);
-    PERFORM public.save_assigned_session_note_draft(own_session,'Synthetic addendum','Synthetic final note');
-    PERFORM public.submit_assigned_session_note(own_session);
+    PERFORM public.mutate_session_note(own_session,'save',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),'Synthetic final note','Synthetic addendum',null);
+    PERFORM public.mutate_session_note(own_session,'submit',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),(SELECT final_note FROM public.session_notes WHERE session_id=own_session),(SELECT therapist_addendum FROM public.session_notes WHERE session_id=own_session),null);
     BEGIN
-      PERFORM public.save_assigned_session_note_draft(own_session,'overwrite','overwrite');
+      PERFORM public.mutate_session_note(own_session,'save',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),'overwrite','overwrite',null);
       RAISE EXCEPTION USING ERRCODE='ZX002',MESSAGE='Submitted note edit allowed';
     EXCEPTION WHEN SQLSTATE 'P0001' THEN
-      IF SQLERRM<>'This session note can no longer be edited' THEN RAISE; END IF;
+      IF SQLERRM<>'This note is read-only' THEN RAISE; END IF;
     END;
     RESET ROLE;
     PERFORM set_config('request.jwt.claim.sub',g->>'owner',true);
     PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',g->>'owner','session_id',g->>'auth_session','role','authenticated')::text,true);
     SET LOCAL ROLE authenticated;
-    PERFORM public.return_session_note_for_correction((g->>'session_notes')::uuid,'Synthetic correction request');
+    PERFORM public.mutate_session_note(own_session,'return',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),null,null,'Synthetic correction request');
     RESET ROLE;
     PERFORM set_config('request.jwt.claim.sub',provider::text,true);
     PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',provider,'session_id',sid,'role','authenticated')::text,true);
     SET LOCAL ROLE authenticated;
-    PERFORM public.save_assigned_session_note_draft(own_session,'Corrected addendum','Corrected note');
-    PERFORM public.submit_assigned_session_note(own_session);
+    PERFORM public.mutate_session_note(own_session,'save',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),'Corrected note','Corrected addendum',null);
+    PERFORM public.mutate_session_note(own_session,'submit',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),(SELECT final_note FROM public.session_notes WHERE session_id=own_session),(SELECT therapist_addendum FROM public.session_notes WHERE session_id=own_session),null);
     RESET ROLE;
     PERFORM set_config('request.jwt.claim.sub',g->>'owner',true);
     PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',g->>'owner','session_id',g->>'auth_session','role','authenticated')::text,true);
     SET LOCAL ROLE authenticated;
-    PERFORM public.approve_session_note((g->>'session_notes')::uuid,'Synthetic approval');
-    PERFORM public.lock_session_note((g->>'session_notes')::uuid);
+    PERFORM public.mutate_session_note(own_session,'approve',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),null,null,'Synthetic approval');
+    PERFORM public.mutate_session_note(own_session,'lock',(SELECT version FROM public.session_notes WHERE session_id=own_session),gen_random_uuid(),null,null,null);
     RESET ROLE;
     IF NOT EXISTS(SELECT 1 FROM public.session_notes WHERE id=(g->>'session_notes')::uuid AND status='locked')
       THEN RAISE EXCEPTION 'Lifecycle did not reach locked note'; END IF;
@@ -367,6 +367,12 @@ BEGIN
     IF EXISTS(SELECT 1 FROM public.tasks WHERE id=(g->>'tasks')::uuid)
       OR EXISTS(SELECT 1 FROM public.task_completions WHERE task_id=(g->>'tasks')::uuid)
       THEN RAISE EXCEPTION 'Classroom/task completion cascade failed'; END IF;
+    BEGIN
+      DELETE FROM public.sessions WHERE id=own_session;
+      RAISE EXCEPTION 'Session history was deleted by cascade';
+    EXCEPTION WHEN foreign_key_violation THEN NULL; END;
+    -- Administrative fixture cleanup only, then test the pre-existing child FKs.
+    DELETE FROM public.session_note_history WHERE session_id=own_session;
     DELETE FROM public.sessions WHERE id=own_session;
     IF EXISTS(SELECT 1 FROM public.session_targets WHERE session_id=own_session)
       OR EXISTS(SELECT 1 FROM public.session_notes WHERE session_id=own_session)
