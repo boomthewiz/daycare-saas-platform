@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { sessionRequest } from "@/lib/device-session-client"
 import type { DeviceState } from "@/lib/device-session-server"
+import SubscriptionBanner from "@/components/SubscriptionBanner"
 
 const IDLE = 5 * 60 * 1000
 const publicPaths = new Set(["/login", "/auth/confirm", "/set-pin", "/request-access", "/onboarding", "/onboarding-owner"])
@@ -153,7 +154,7 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
   if (enabled === false) return <>{children}</>
   const covered = screen !== "unlocked" || curtain
   return <>
-    {mounted && <div key={identity} hidden={covered} inert={covered}>{children}</div>}
+    {mounted && <div key={identity} hidden={covered} inert={covered}><SubscriptionBanner />{children}</div>}
     {!covered && <div className="fixed bottom-3 right-3 z-40 flex gap-2 rounded-full bg-white p-2 shadow border border-slate-200">
       <button className="px-3 py-1 text-sm text-slate-600" onClick={lock}>Lock</button>
       <button className="px-3 py-1 text-sm text-slate-600" onClick={signOut} disabled={busy}>Sign out</button>

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 
 export async function POST() {
   return NextResponse.json({
-    message: "Stripe webhook route is ready for event handling",
-    success: true,
-  })
+    error: "Subscription event processing is not configured.",
+  }, { status: 503, headers: { "Cache-Control": "no-store" } })
 }

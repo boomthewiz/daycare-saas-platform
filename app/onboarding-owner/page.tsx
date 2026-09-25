@@ -1,159 +1,83 @@
 "use client"
-
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import { launchPlan } from "@/lib/subscription-plan"
 
 export default function OwnerOnboardingPage() {
-  const router = useRouter()
-
-  // 👑 Owner onboarding form state
-  const [daycareName, setDaycareName] = useState("")
-  const [classroomCount, setClassroomCount] = useState("")
-  const [staffSize, setStaffSize] = useState("")
-  const [phone, setPhone] = useState("")
-  const [billingEmail, setBillingEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  // ✨ Continue to subscription setup
-  const handleContinue = async () => {
-    if (!daycareName || !billingEmail) {
-      alert("Please complete the required fields")
-      return
-    }
-
-    setLoading(true)
-
-    // Later:
-    // Save owner onboarding data to Supabase here
-
-    // Next step:
-    // Redirect to Stripe checkout route
-    router.push("/dashboard")
-
-    setLoading(false)
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-yellow-100 p-6">
-      <div className="max-w-2xl mx-auto">
-
-        {/* 🫧 Header Card */}
-        <div className="bg-white rounded-3xl shadow-xl p-8 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">
-            👑 Welcome, Owner!
-          </h1>
-
-          <p className="text-gray-500 mt-2">
-            Let’s set up your daycare in under 60 seconds ✨
-          </p>
-        </div>
-
-        {/* 🌈 Onboarding Form */}
-        <div className="bg-white rounded-3xl shadow-xl p-8">
-
-          {/* Daycare Name */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Daycare Name *
-            </label>
-
-            <input
-              type="text"
-              value={daycareName}
-              onChange={(e) => setDaycareName(e.target.value)}
-              placeholder="Little Learners Academy"
-              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300"
-            />
-          </div>
-
-          {/* Classroom Count */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Number of Classrooms
-            </label>
-
-            <select
-              value={classroomCount}
-              onChange={(e) => setClassroomCount(e.target.value)}
-              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            >
-              <option value="">Select amount</option>
-              <option value="1-3">1–3</option>
-              <option value="4-7">4–7</option>
-              <option value="8-15">8–15</option>
-              <option value="15+">15+</option>
-            </select>
-          </div>
-
-          {/* Staff Size */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Staff Size
-            </label>
-
-            <select
-              value={staffSize}
-              onChange={(e) => setStaffSize(e.target.value)}
-              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-            >
-              <option value="">Select amount</option>
-              <option value="1-5">1–5</option>
-              <option value="6-15">6–15</option>
-              <option value="16-30">16–30</option>
-              <option value="30+">30+</option>
-            </select>
-          </div>
-
-          {/* Phone */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Contact Phone
-            </label>
-
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(555) 555-5555"
-              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-300"
-            />
-          </div>
-
-          {/* Billing Email */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Billing Contact Email *
-            </label>
-
-            <input
-              type="email"
-              value={billingEmail}
-              onChange={(e) => setBillingEmail(e.target.value)}
-              placeholder="owner@daycare.com"
-              className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300"
-            />
-          </div>
-
-          {/* ✨ Continue Button */}
-          <button
-            onClick={handleContinue}
-            disabled={loading}
-            className="w-full py-4 rounded-2xl font-semibold text-white text-lg shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400"
-          >
-            {loading
-              ? "Saving Setup..."
-              : "✨ Continue to Subscription"}
-          </button>
-
-          {/* 🎈 Bubble Footer */}
-          <div className="flex justify-center gap-3 mt-8">
-            <div className="w-4 h-4 rounded-full bg-pink-300"></div>
-            <div className="w-3 h-3 rounded-full bg-blue-300"></div>
-            <div className="w-5 h-5 rounded-full bg-yellow-300"></div>
-            <div className="w-3 h-3 rounded-full bg-purple-300"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+ const [available,setAvailable]=useState<boolean|null>(null)
+ const [needsVerification,setNeedsVerification]=useState(false)
+ const inFlight=useRef(false)
+ const [step,setStep]=useState<"email"|"code"|"organization">("email")
+ const [email,setEmail]=useState(""),[code,setCode]=useState("")
+ const [name,setName]=useState(""),[fullName,setFullName]=useState(""),[branchName,setBranchName]=useState(""),[organizationType,setOrganizationType]=useState("")
+ const [busy,setBusy]=useState(false),[error,setError]=useState(""),[resendAt,setResendAt]=useState(0),[remaining,setRemaining]=useState(0)
+ useEffect(()=>{
+  const tick=()=>setRemaining(Math.max(0,Math.ceil((resendAt-Date.now())/1000)))
+  tick();const timer=window.setInterval(tick,1000);return()=>window.clearInterval(timer)
+ },[resendAt])
+ useEffect(()=>{
+  let active=true
+  let enabled=false
+  void (async()=>{
+   const availability=await fetch("/api/organization-signup",{cache:"no-store"})
+   const config=await availability.json()
+   if(!active)return
+   enabled=availability.ok&&config.enabled===true
+   if(!availability.ok||config.enabled!==true)return
+   const {data:{session}}=await supabase.auth.getSession()
+   if(!session)return
+   const response=await fetch("/api/device-session",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"})
+   const result=await response.json()
+   if(active&&response.ok&&["setup","unlocked"].includes(result.state)&&result.canSetPin){setEmail(session.user.email||"");setStep("organization")}
+  })().catch(()=>{}).finally(()=>{if(active)setAvailable(enabled)})
+  return()=>{active=false}
+ },[])
+ async function perform(action:"send"|"verify"|"create"){
+  if(!available||inFlight.current||(action==="send"&&remaining>0))return
+  inFlight.current=true
+  setBusy(true);setError("")
+  try{
+   const {data:{session}}=await supabase.auth.getSession()
+   const response=await fetch(action==="verify"?"/api/email-login/verify":"/api/organization-signup",{
+    method:"POST",headers:{"Content-Type":"application/json",...(action==="create"&&session?{Authorization:"Bearer "+session.access_token}:{})},
+    body:JSON.stringify(action==="verify"?{email,code}:{action,email,name,fullName,branchName,organizationType})
+   })
+   const result=await response.json()
+   if(action==="create"&&response.status===401)setNeedsVerification(true)
+   if(!response.ok)throw new Error(result.error||"Unable to continue. Please try again.")
+   if(action==="send"){setEmail(email.trim().toLowerCase());setStep("code");setCode("");setResendAt(Date.now()+60000)}
+   else if(action==="verify"){
+    const {error:sessionError}=await supabase.auth.setSession(result.session)
+    if(sessionError)throw new Error("Unable to save your sign-in. Request a new code.")
+    if(result.hasOrganization)window.location.assign(result.state==="setup"?"/set-pin":"/dashboard")
+    else {setNeedsVerification(false);setStep("organization")}
+   }else window.location.assign(result.destination)
+  }catch(cause){setError(cause instanceof Error?cause.message:"Unable to continue.")}
+  finally{inFlight.current=false;setBusy(false)}
+ }
+ if(available!==true)return <main className="min-h-screen bg-slate-50 px-4 py-10"><section className="mx-auto max-w-xl rounded-3xl border bg-white p-9"><h1 className="text-3xl font-bold">Create your organization</h1><p role="status" className="mt-4">{available===null?"Checking signup availability…":"Organization signup is not available yet. Please check back later."}</p><Link href="/login" className="mt-6 inline-block text-teal-800 underline">Sign in to an existing account</Link></section></main>
+ return <main className="min-h-screen bg-slate-50 px-4 py-10"><section className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-9 shadow-sm">
+  <p className="font-semibold text-teal-700">ReJoyce</p><h1 className="mt-3 text-3xl font-bold text-slate-900">Create your organization</h1>
+  <p className="mt-3 text-slate-600">{launchPlan.trialDays} days free. No credit card required. You become the owner of your organization.</p>
+  <p className="mt-3 text-sm text-slate-600">Then $79 USD/month including one service provider, plus $29 per additional provider. Administrative-only accounts are included. You choose when to subscribe.</p>
+  <p className="mt-2 text-sm text-slate-600">Without a subscription, your records remain available to read after the trial.</p>
+  <form className="mt-7 space-y-4" onSubmit={event=>{event.preventDefault();void perform(step==="email"?"send":step==="code"?"verify":"create")}}>
+   {step==="email"&&<label className="block text-sm font-medium">Email address<input required type="email" autoComplete="email" maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} disabled={busy} className="rj-input mt-2 w-full"/></label>}
+   {step==="code"&&<><p className="text-sm text-slate-600">Enter the email code sent to {email}.</p><label className="block text-sm font-medium">Email code<input required autoComplete="one-time-code" inputMode="numeric" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))} disabled={busy} className="rj-input mt-2 w-full"/></label></>}
+   {step==="organization"&&<>
+    <p className="text-sm text-teal-800">Email verified: {email}</p>
+    <label className="block text-sm font-medium">Your full name<input required autoComplete="name" maxLength={160} value={fullName} onChange={e=>setFullName(e.target.value)} disabled={busy} className="rj-input mt-2 w-full"/></label>
+    <label className="block text-sm font-medium">Organization name<input required autoComplete="organization" maxLength={160} value={name} onChange={e=>setName(e.target.value)} disabled={busy} className="rj-input mt-2 w-full"/></label>
+    <label className="block text-sm font-medium">Organization type<select required value={organizationType} onChange={e=>setOrganizationType(e.target.value)} disabled={busy} className="rj-input mt-2 w-full"><option value="">Select type</option>{["Childcare Center","School","Therapy Practice","Assisted Living","Healthcare","Other"].map(type=><option key={type}>{type}</option>)}</select></label>
+    <label className="block text-sm font-medium">First branch name<input required maxLength={160} value={branchName} onChange={e=>setBranchName(e.target.value)} disabled={busy} placeholder="For example, Main location" className="rj-input mt-2 w-full"/></label>
+    <p className="text-sm text-slate-500">Your trial starts when your organization is created. You can add more branches and invite staff from your workspace.</p>
+   </>}
+   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
+   <button disabled={busy||(step==="organization"&&needsVerification)} className="rj-button rj-button-primary w-full">{busy?"Please wait…":step==="email"?"Send verification code":step==="code"?"Verify email":"Create organization and start trial"}</button>
+  </form>
+  {step==="organization"&&needsVerification&&<div className="mt-4 text-sm"><p>Your organization details will stay here while you verify your email again.</p><button disabled={busy||remaining>0} onClick={()=>void perform("send")} className="mt-2 text-teal-800 underline disabled:opacity-50">{remaining?"Request a new code in "+remaining+"s":"Verify email again"}</button></div>}
+  {step==="code"&&<div className="mt-4 flex flex-col gap-3 text-sm"><button disabled={busy||remaining>0} onClick={()=>void perform("send")} className="text-teal-800 underline disabled:opacity-50">{remaining?"Resend in "+remaining+"s":"Resend code"}</button><button disabled={busy} onClick={()=>{setStep("email");setCode("");setError("")}} className="underline">Use a different email</button></div>}
+  <p className="mt-7 text-center text-sm text-slate-600">Already have an organization? <Link href="/login" className="text-teal-800 underline">Sign in</Link></p>
+ </section></main>
 }

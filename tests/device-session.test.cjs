@@ -140,7 +140,7 @@ test('email code establishes trust only for the Auth-verified session', async ()
   const response = await h.POST(req({email:' Person@Example.invalid ', code:'123456', userId:'victim', sessionId:'victim'}))
   assert.equal(response.status,200)
   assert.equal(response.headers.get('cache-control'),'private, no-store')
-  assert.deepEqual(await response.json(), {state:'unlocked',session:{access_token:token,refresh_token:'refresh'}})
+  assert.deepEqual(await response.json(), {state:'unlocked',hasOrganization:false,session:{access_token:token,refresh_token:'refresh'}})
   assert.deepEqual(h.calls.find(c=>c[0]==='otp')[1],{email:'person@example.invalid',token:'123456',type:'email'})
   const trust = h.calls.find(c=>c[0]==='manage_device_session')[1]
   assert.equal(trust.p_user_id,userId); assert.equal(trust.p_session_id,sessionId)

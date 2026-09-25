@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   FormEvent,
   useCallback,
@@ -862,7 +864,7 @@ const requestedClientId =
     </div>
   </div>
 )}
-          <form
+          <SubscriptionWriteControls><form
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
@@ -1123,7 +1125,7 @@ const requestedClientId =
                 ? "Preparing session…"
                 : "Create Session"}
             </button>
-          </form>
+          </form></SubscriptionWriteControls>
 
           {clients.length === 0 && (
             <EmptyRequirement

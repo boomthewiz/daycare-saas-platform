@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   FormEvent,
   useCallback,
@@ -1169,7 +1171,7 @@ export default function AdminSessionDetailPage() {
             </div>
           </div>
 
-          <form
+          <SubscriptionWriteControls><form
             onSubmit={handleSaveSession}
             className="mt-6 space-y-5"
           >
@@ -1374,11 +1376,11 @@ export default function AdminSessionDetailPage() {
                 ? "Saving…"
                 : "Save Session"}
             </button>
-          </form>
+          </form></SubscriptionWriteControls>
 
           {!hasStarted &&
             session.status !== "canceled" && (
-              <button
+              <SubscriptionWriteControls><button
                 type="button"
                 onClick={handleCancelSession}
                 disabled={savingSession || historical}
@@ -1386,7 +1388,7 @@ export default function AdminSessionDetailPage() {
               >
                 <XCircle size={19} />
                 Cancel Session
-              </button>
+              </button></SubscriptionWriteControls>
             )}
 
           {hasStarted && (
@@ -1420,7 +1422,7 @@ export default function AdminSessionDetailPage() {
                 </div>
 
                 {canEditPreparation && (
-                  <button
+                  <SubscriptionWriteControls><button
                     type="button"
                     onClick={
                       handlePrepareActiveTargets
@@ -1438,7 +1440,7 @@ export default function AdminSessionDetailPage() {
                     )}
 
                     Sync Active Targets
-                  </button>
+                  </button></SubscriptionWriteControls>
                 )}
               </div>
             </div>
@@ -1459,7 +1461,7 @@ export default function AdminSessionDetailPage() {
                 </p>
 
                 {canEditPreparation && (
-                  <button
+                  <SubscriptionWriteControls><button
                     type="button"
                     onClick={
                       handlePrepareActiveTargets
@@ -1469,7 +1471,7 @@ export default function AdminSessionDetailPage() {
                   >
                     <Sparkles size={19} />
                     Prepare Targets
-                  </button>
+                  </button></SubscriptionWriteControls>
                 )}
               </div>
             ) : (
@@ -1560,7 +1562,7 @@ export default function AdminSessionDetailPage() {
 
                           {canEditPreparation && (
                             <div className="flex shrink-0 gap-2">
-                              <button
+                              <SubscriptionWriteControls><button
                                 type="button"
                                 onClick={() =>
                                   moveTarget(
@@ -1576,9 +1578,9 @@ export default function AdminSessionDetailPage() {
                                 className="rj-icon-button disabled:opacity-35"
                               >
                                 <ArrowUp size={18} />
-                              </button>
+                              </button></SubscriptionWriteControls>
 
-                              <button
+                              <SubscriptionWriteControls><button
                                 type="button"
                                 onClick={() =>
                                   moveTarget(
@@ -1596,9 +1598,9 @@ export default function AdminSessionDetailPage() {
                                 className="rj-icon-button disabled:opacity-35"
                               >
                                 <ArrowDown size={18} />
-                              </button>
+                              </button></SubscriptionWriteControls>
 
-                              <button
+                              <SubscriptionWriteControls><button
                                 type="button"
                                 onClick={() =>
                                   removeTargetFromSession(
@@ -1620,7 +1622,7 @@ export default function AdminSessionDetailPage() {
                                 ) : (
                                   <Trash2 size={18} />
                                 )}
-                              </button>
+                              </button></SubscriptionWriteControls>
                             </div>
                           )}
                         </div>
@@ -1705,7 +1707,7 @@ export default function AdminSessionDetailPage() {
                       )}
                     </div>
 
-                    <button
+                    <SubscriptionWriteControls><button
                       type="button"
                       onClick={() =>
                         addTargetToSession(target)
@@ -1726,7 +1728,7 @@ export default function AdminSessionDetailPage() {
                       )}
 
                       Add
-                    </button>
+                    </button></SubscriptionWriteControls>
                   </article>
                 ))}
               </div>

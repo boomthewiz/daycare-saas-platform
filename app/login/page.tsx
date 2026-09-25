@@ -47,7 +47,7 @@ export default function LoginPage() {
       const { error: sessionError } = await supabase.auth.setSession(result.session)
       if (sessionError) throw new Error("Unable to save your sign-in. Please request a new code.")
       const destination = new URLSearchParams(window.location.search).get("next") === "/profile" ? "/profile" : "/dashboard"
-      window.location.assign(result.state === "setup" ? "/set-pin" : destination)
+      window.location.assign(result.hasOrganization === false ? "/onboarding-owner" : result.state === "setup" ? "/set-pin" : destination)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to sign in.") }
     finally { setBusy(false) }
   }
@@ -73,7 +73,7 @@ export default function LoginPage() {
         <button disabled={busy || remaining > 0} onClick={() => void sendCode()} className="text-teal-800 underline disabled:text-slate-400">{remaining > 0 ? `Send another code in ${remaining}s` : "Send another code"}</button>
         <button disabled={busy} onClick={() => { setSent(false); setCode(""); setError(""); setResendAt(0) }} className="text-slate-600 underline">Use a different email</button>
       </div>}
-      <div className="mt-8 text-center text-sm text-slate-600"><p>Need to register your organization?</p><Link href="/request-access" className="inline-block mt-2 font-semibold text-teal-800 underline">Request owner access</Link></div>
+      <div className="mt-8 text-center text-sm text-slate-600"><p>New to ReJoyce?</p><Link href="/onboarding-owner" className="inline-block mt-2 font-semibold text-teal-800 underline">Create an organization — 30 days free</Link></div>
     </section>
   </main>
 }
