@@ -47,13 +47,17 @@ The user approved finishing sessions already underway when the trial expires and
 
 ## Release blocker: subscription checkout
 
+Stripe integration is intentionally deferred while onboarding development continues. No Stripe account, key, card, or checkout is needed for local onboarding and trial testing. Public signup defaults off: keep `SELF_SERVICE_SIGNUP_ENABLED` unset or `false` in production. Set it to exactly `true` only in the private test environment after applying the migration there. The server checks the switch before email delivery and organization creation; changing browser state cannot bypass it. The onboarding page reads availability from a no-store endpoint and hides its form when signup is closed.
+
+If email verification expires while entering organization details, the page offers verification again and retains the entered details in memory. A page reload still clears those details. Subscription checkout remains visibly unavailable; no fake paid subscription is created for testing.
+
 The repository has no working Stripe integration or local Stripe configuration. The old checkout and webhook endpoints returned success without doing anything; they now return 503 until real payment handling is implemented. Do not launch self-service signup until paid activation, payment failure, cancellation, provider-seat changes, duplicate event processing, and Stripe test-mode acceptance are complete. No customer should reach the end of a trial without a working subscription route.
 
 Supabase email signup must be enabled, and both signup-confirmation and sign-in email templates must contain the email token. Verify delivery with a user-authorized test account before release; automated tests must not email real users.
 
 ## Validation of the draft
 
-- 70 application tests pass, including signup identity binding, rate limiting, membership conflicts, trial deadlines and provider pricing. No test sent an email.
+- 71 application tests pass, including the default-off release switch, signup identity binding, rate limiting, membership conflicts, trial deadlines and provider pricing. No test sent an email.
 - TypeScript and the production build pass with synthetic environment values.
 - Focused lint has no errors; the two existing internal-navigation warnings in SessionGuard remain.
 - The migration, new onboarding/expiry checks, lifecycle regression and tenant regression pass together in a rolled-back database transaction.

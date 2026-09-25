@@ -4,7 +4,14 @@ import { createClient } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { verifiedIdentity, deviceState, privateHeaders as headers } from "@/lib/device-session-server"
 
+export async function GET() {
+  return NextResponse.json({ enabled: process.env.SELF_SERVICE_SIGNUP_ENABLED === "true" }, { headers })
+}
+
 export async function POST(request: Request) {
+  if (process.env.SELF_SERVICE_SIGNUP_ENABLED !== "true") {
+    return NextResponse.json({ error: "Organization signup is not available yet. Please check back later." }, { status: 503, headers })
+  }
   try {
     const body = await request.json()
     if (body.action === "send") {

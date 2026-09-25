@@ -14,9 +14,30 @@ function load(options={}) {
   calls.push([name,args]);return name==='reserve_pin_login_attempt'?{data:[{allowed:options.allowed!==false}],error:options.limitError||null}:{data:'created-org',error:options.createError||null}
  }}}:name==='@supabase/supabase-js'?{createClient:()=>({auth:{signInWithOtp:async(args)=>{calls.push(['send',args]);return {error:options.sendError||null}}}})}:require(name)
  mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,filename)
- return {calls,post:body=>mod.exports.POST(new Request('https://www.rejoyceapp.com/api/organization-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}))}
+ async function invoke(action){
+  const previous=process.env.SELF_SERVICE_SIGNUP_ENABLED
+  if(options.enabled===null)delete process.env.SELF_SERVICE_SIGNUP_ENABLED
+  else process.env.SELF_SERVICE_SIGNUP_ENABLED=options.enabled??'true'
+  try{return await action()}finally{
+   if(previous===undefined)delete process.env.SELF_SERVICE_SIGNUP_ENABLED
+   else process.env.SELF_SERVICE_SIGNUP_ENABLED=previous
+  }
+ }
+ return {calls,get:()=>invoke(()=>mod.exports.GET()),post:body=>invoke(()=>mod.exports.POST(new Request('https://www.rejoyceapp.com/api/organization-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})))}
 }
 const create={action:'create',name:'Organization',fullName:'Owner',branchName:'Main',organizationType:'Other'}
+test('signup defaults closed and rejects both email and creation without side effects',async()=>{
+ for(const enabled of [null,'false','TRUE','1']){
+  const h=load({enabled})
+  const availability=await h.get()
+  assert.equal((await availability.json()).enabled,false)
+  assert.match(availability.headers.get('Cache-Control'),/no-store/)
+  assert.equal((await h.post({action:'send',email:'synthetic@example.invalid'})).status,503)
+  assert.equal((await h.post(create)).status,503)
+  assert.deepEqual(h.calls,[])
+ }
+ assert.equal((await (await load().get()).json()).enabled,true)
+})
 test('signup validates and rate-limits before requesting an email',async()=>{
  const bad=load();assert.equal((await bad.post({action:'send',email:'invalid'})).status,400);assert.equal(bad.calls.length,0)
  for(const options of [{allowed:false},{limitError:{message:'offline'}}]){

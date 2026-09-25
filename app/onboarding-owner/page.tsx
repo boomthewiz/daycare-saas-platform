@@ -1,10 +1,13 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { launchPlan } from "@/lib/subscription-plan"
 
 export default function OwnerOnboardingPage() {
+ const [available,setAvailable]=useState<boolean|null>(null)
+ const [needsVerification,setNeedsVerification]=useState(false)
+ const inFlight=useRef(false)
  const [step,setStep]=useState<"email"|"code"|"organization">("email")
  const [email,setEmail]=useState(""),[code,setCode]=useState("")
  const [name,setName]=useState(""),[fullName,setFullName]=useState(""),[branchName,setBranchName]=useState(""),[organizationType,setOrganizationType]=useState("")
@@ -15,17 +18,24 @@ export default function OwnerOnboardingPage() {
  },[resendAt])
  useEffect(()=>{
   let active=true
+  let enabled=false
   void (async()=>{
+   const availability=await fetch("/api/organization-signup",{cache:"no-store"})
+   const config=await availability.json()
+   if(!active)return
+   enabled=availability.ok&&config.enabled===true
+   if(!availability.ok||config.enabled!==true)return
    const {data:{session}}=await supabase.auth.getSession()
    if(!session)return
    const response=await fetch("/api/device-session",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"})
    const result=await response.json()
    if(active&&response.ok&&["setup","unlocked"].includes(result.state)&&result.canSetPin){setEmail(session.user.email||"");setStep("organization")}
-  })().catch(()=>{})
+  })().catch(()=>{}).finally(()=>{if(active)setAvailable(enabled)})
   return()=>{active=false}
  },[])
  async function perform(action:"send"|"verify"|"create"){
-  if(busy||(action==="send"&&remaining>0))return
+  if(!available||inFlight.current||(action==="send"&&remaining>0))return
+  inFlight.current=true
   setBusy(true);setError("")
   try{
    const {data:{session}}=await supabase.auth.getSession()
@@ -34,17 +44,19 @@ export default function OwnerOnboardingPage() {
     body:JSON.stringify(action==="verify"?{email,code}:{action,email,name,fullName,branchName,organizationType})
    })
    const result=await response.json()
+   if(action==="create"&&response.status===401)setNeedsVerification(true)
    if(!response.ok)throw new Error(result.error||"Unable to continue. Please try again.")
    if(action==="send"){setEmail(email.trim().toLowerCase());setStep("code");setCode("");setResendAt(Date.now()+60000)}
    else if(action==="verify"){
     const {error:sessionError}=await supabase.auth.setSession(result.session)
     if(sessionError)throw new Error("Unable to save your sign-in. Request a new code.")
     if(result.hasOrganization)window.location.assign(result.state==="setup"?"/set-pin":"/dashboard")
-    else setStep("organization")
+    else {setNeedsVerification(false);setStep("organization")}
    }else window.location.assign(result.destination)
   }catch(cause){setError(cause instanceof Error?cause.message:"Unable to continue.")}
-  finally{setBusy(false)}
+  finally{inFlight.current=false;setBusy(false)}
  }
+ if(available!==true)return <main className="min-h-screen bg-slate-50 px-4 py-10"><section className="mx-auto max-w-xl rounded-3xl border bg-white p-9"><h1 className="text-3xl font-bold">Create your organization</h1><p role="status" className="mt-4">{available===null?"Checking signup availability…":"Organization signup is not available yet. Please check back later."}</p><Link href="/login" className="mt-6 inline-block text-teal-800 underline">Sign in to an existing account</Link></section></main>
  return <main className="min-h-screen bg-slate-50 px-4 py-10"><section className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-9 shadow-sm">
   <p className="font-semibold text-teal-700">ReJoyce</p><h1 className="mt-3 text-3xl font-bold text-slate-900">Create your organization</h1>
   <p className="mt-3 text-slate-600">{launchPlan.trialDays} days free. No credit card required. You become the owner of your organization.</p>
@@ -62,8 +74,9 @@ export default function OwnerOnboardingPage() {
     <p className="text-sm text-slate-500">Your trial starts when your organization is created. You can add more branches and invite staff from your workspace.</p>
    </>}
    {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-   <button disabled={busy} className="rj-button rj-button-primary w-full">{busy?"Please wait…":step==="email"?"Send verification code":step==="code"?"Verify email":"Create organization and start trial"}</button>
+   <button disabled={busy||(step==="organization"&&needsVerification)} className="rj-button rj-button-primary w-full">{busy?"Please wait…":step==="email"?"Send verification code":step==="code"?"Verify email":"Create organization and start trial"}</button>
   </form>
+  {step==="organization"&&needsVerification&&<div className="mt-4 text-sm"><p>Your organization details will stay here while you verify your email again.</p><button disabled={busy||remaining>0} onClick={()=>void perform("send")} className="mt-2 text-teal-800 underline disabled:opacity-50">{remaining?"Request a new code in "+remaining+"s":"Verify email again"}</button></div>}
   {step==="code"&&<div className="mt-4 flex flex-col gap-3 text-sm"><button disabled={busy||remaining>0} onClick={()=>void perform("send")} className="text-teal-800 underline disabled:opacity-50">{remaining?"Resend in "+remaining+"s":"Resend code"}</button><button disabled={busy} onClick={()=>{setStep("email");setCode("");setError("")}} className="underline">Use a different email</button></div>}
   <p className="mt-7 text-center text-sm text-slate-600">Already have an organization? <Link href="/login" className="text-teal-800 underline">Sign in</Link></p>
  </section></main>
