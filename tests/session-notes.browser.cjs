@@ -21,6 +21,7 @@ const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base6
    const url=new URL(route.request().url()), path=url.pathname
    let data=[]
    if(path==='/auth/v1/user') data=user
+   else if(path.endsWith('/rpc/subscription_access')) data={managed:false,canWrite:true,canFinishSession:true,serverNow:stamp}
    else if(path.endsWith('/rpc/is_frontline_staff')) data=role==='teacher'
    else if(path.endsWith('/rpc/can_review_sessions')) data=role==='manager'||role==='owner'
    else if(path.endsWith('/rpc/mutate_session_note')) {

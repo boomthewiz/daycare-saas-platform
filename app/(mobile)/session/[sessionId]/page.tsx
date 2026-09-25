@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useSubscriptionAccess } from "@/lib/use-subscription-access"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -122,6 +123,7 @@ export default function ActiveSessionPage() {
   const params = useParams<{ sessionId: string }>()
 
   const sessionId = params.sessionId
+  const { access: subscription, error: subscriptionError } = useSubscriptionAccess(sessionId)
 
   const [session, setSession] = useState<SessionRecord | null>(null)
   const [client, setClient] = useState<ClientRecord | null>(null)
@@ -484,9 +486,9 @@ export default function ActiveSessionPage() {
   )
 
   const sessionIsRunning =
-    workspaceReady && session?.status === "in_progress"
+    workspaceReady && subscription?.canFinishSession === true && session?.status === "in_progress"
 
-  const sessionIsPaused = workspaceReady && session?.status === "paused"
+  const sessionIsPaused = workspaceReady && subscription?.canFinishSession === true && session?.status === "paused"
 
   const sessionHasStarted =
     Boolean(session?.started_at) ||
@@ -499,6 +501,7 @@ export default function ActiveSessionPage() {
       | "resume_assigned_session"
   ) => {
     if (!workspaceReady || !sessionId || sessionActionLoading) return
+    if (functionName === 'start_assigned_session' ? !subscription?.canWrite : !subscription?.canFinishSession) return
 
     setSessionActionLoading(true)
     setPageError(null)
@@ -669,7 +672,7 @@ export default function ActiveSessionPage() {
 
   const handleFinishSession = async () => {
     if (
-      !workspaceReady || !sessionId ||
+      !workspaceReady || !subscription?.canFinishSession || !sessionId ||
       sessionActionLoading ||
       !sessionHasStarted || savingTargetId || savingBehaviorId
     ) {
@@ -791,7 +794,7 @@ export default function ActiveSessionPage() {
 
             <button
               type="button"
-              disabled={sessionActionLoading || !workspaceReady}
+              disabled={sessionActionLoading || !workspaceReady || !(sessionHasStarted ? subscription?.canFinishSession : subscription?.canWrite)}
               onClick={() => {
                 if (sessionIsPaused) {
                   runSessionAction(
@@ -858,6 +861,8 @@ export default function ActiveSessionPage() {
             </div>
           )}
 
+          {subscriptionError && <p role="alert" className="rj-card p-4">{subscriptionError}</p>}
+          {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? 'Your trial has ended. You may finish this session and submit its note.' : 'Your organization has read-only access. Subscribe before starting a new session.'}</p>}
           {!sessionHasStarted && (
             <section className="rj-card p-6 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]">
@@ -875,7 +880,7 @@ export default function ActiveSessionPage() {
 
               <button
                 type="button"
-                disabled={sessionActionLoading || !workspaceReady}
+                disabled={sessionActionLoading || !workspaceReady || !subscription?.canWrite}
                 onClick={() =>
                   runSessionAction(
                     "start_assigned_session"
@@ -1259,7 +1264,7 @@ export default function ActiveSessionPage() {
               onClick={handleFinishSession}
               disabled={
                 sessionActionLoading ||
-                !workspaceReady || !!savingTargetId || !!savingBehaviorId || !sessionHasStarted ||
+                !workspaceReady || !subscription?.canFinishSession || !!savingTargetId || !!savingBehaviorId || !sessionHasStarted ||
                 session?.status === "completed"
               }
               className="rj-button rj-button-primary shrink-0 px-5"

@@ -51,9 +51,13 @@ export async function POST(
   request: Request
 ) {
   try {
-    if (!await requireUnlocked(request)) {
+    const identity = await requireUnlocked(request)
+    if (!identity) {
       return NextResponse.json({ error: "Unlock your session before inviting staff." }, { status: 401 })
     }
+    const { data: canWrite, error: accessError } = await supabaseAdmin.rpc("organization_write_access", { p_user_id: identity.user.id })
+    if (accessError) return NextResponse.json({ error: "Unable to check organization access. Please try again." }, { status: 503 })
+    if (canWrite !== true) return NextResponse.json({ error: "Your organization has read-only access. Subscribe before inviting staff." }, { status: 403 })
     // =====================================================
     // 1. Verify caller authentication
     // =====================================================
