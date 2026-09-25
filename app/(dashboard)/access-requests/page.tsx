@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 export default function AccessRequestsPage() {
   const [requests, setRequests] = useState<any[]>([])
@@ -206,7 +207,7 @@ export default function AccessRequestsPage() {
 
                   {/* Right Side */}
                   {request.status === "pending" && (
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <SubscriptionWriteControls><div className="flex flex-col sm:flex-row gap-3">
 
                       <button
                         onClick={() => handleApprove(request)}
@@ -227,7 +228,7 @@ export default function AccessRequestsPage() {
                       >
                         ❌ Reject
                       </button>
-                    </div>
+                    </div></SubscriptionWriteControls>
                   )}
                 </div>
               </div>

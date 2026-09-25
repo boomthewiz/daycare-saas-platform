@@ -7,6 +7,7 @@ const sessionId='11111111-1111-4111-8111-111111111111'
 const userId='22222222-2222-4222-8222-222222222222'
 const stamp='2026-09-23T12:00:00Z'
 let role='teacher', sessionStatus='in_progress', note=null, failOnce=false, failRefresh=false, history=[],remarks=[],requestIds=[]
+let subscription={managed:false,canWrite:true,canFinishSession:true,serverNow:stamp}
 const user={id:userId,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
 const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:userId,exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.synthetic'
 ;(async()=>{
@@ -21,7 +22,8 @@ const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base6
    const url=new URL(route.request().url()), path=url.pathname
    let data=[]
    if(path==='/auth/v1/user') data=user
-   else if(path.endsWith('/rpc/subscription_access')) data={managed:false,canWrite:true,canFinishSession:true,serverNow:stamp}
+   else if(path.endsWith('/rpc/subscription_access')) data=subscription
+   else if(path.endsWith('/rpc/finish_assigned_session')) {sessionStatus='completed';data=true}
    else if(path.endsWith('/rpc/is_frontline_staff')) data=role==='teacher'
    else if(path.endsWith('/rpc/can_review_sessions')) data=role==='manager'||role==='owner'
    else if(path.endsWith('/rpc/mutate_session_note')) {
@@ -38,7 +40,7 @@ const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base6
     const body=route.request().postDataJSON();data={id:'remark',author_name:'Synthetic admin',body:body.p_body,created_at:stamp};remarks.push(data)
    } else if(path.endsWith('/rpc/record_behavior_event')) {await route.fulfill({status:503,json:{message:'Synthetic collection failure'}});return}
    else if(path.endsWith('/sessions')) {
-    data={id:sessionId,client_id:sessionId,provider_id:userId,status:sessionStatus,session_type:'direct_therapy',scheduled_start:stamp,started_at:stamp,total_paused_seconds:0,completed_at:sessionStatus==='completed'?stamp:null,clients:{first_name:'Synthetic client',last_name:null,preferred_name:null},session_notes:note?{status:note.status}:null}
+    data={id:sessionId,client_id:sessionId,provider_id:userId,status:sessionStatus,session_type:'direct_therapy',scheduled_start:stamp,started_at:sessionStatus==='scheduled'?null:stamp,total_paused_seconds:0,completed_at:sessionStatus==='completed'?stamp:null,clients:{first_name:'Synthetic client',last_name:null,preferred_name:null},session_notes:note?{status:note.status}:null}
     if(url.searchParams.get('select')?.includes('session_notes(status)')) data=[data]
    }
    else if(path.endsWith('/clients')) data={id:sessionId,first_name:'Synthetic client',preferred_name:null}
@@ -129,7 +131,33 @@ const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base6
   await page.getByRole('link',{name:/Synthetic client/}).click()
   await page.getByRole('heading',{name:'Session documentation'}).waitFor()
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'Provider note screen must fit the mobile viewport')
-  console.log('PASS: mobile draft, completion gate, failed-save preservation, retry identity, provider correction, reviewer/admin controls, remarks, confirmed-write refresh failure, collection failure recovery, historical navigation')
+  subscription={managed:true,canWrite:false,canFinishSession:false,serverNow:stamp,trialEndsAt:stamp}
+  sessionStatus='scheduled';note=null
+  await page.goto(`${base}/session/${sessionId}`)
+  await page.getByText('Your organization has read-only access. Subscribe before starting a new session.').waitFor()
+  assert.equal(await page.getByRole('button',{name:'Start session',exact:true}).isDisabled(),true)
+  subscription.canFinishSession=true;sessionStatus='in_progress'
+  await page.goto(`${base}/session/${sessionId}/complete`)
+  await page.getByRole('button',{name:'Save draft',exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Submit for review',exact:true}).count(),0)
+  await page.getByLabel('Final note',{exact:true}).fill('Trial exception documentation')
+  await page.getByRole('button',{name:'Save draft',exact:true}).click()
+  await page.getByText('Change saved.',{exact:true}).waitFor()
+  await page.goto(`${base}/session/${sessionId}`)
+  await page.getByText('Your trial has ended. You may finish this session and submit its note.').waitFor()
+  assert.equal(await page.getByRole('button',{name:'Pause session',exact:true}).isEnabled(),true)
+  await page.getByRole('button',{name:'Finish',exact:true}).click()
+  await page.getByRole('button',{name:'Submit for review',exact:true}).click()
+  await page.getByText('Change saved.',{exact:true}).waitFor()
+  assert.equal(note.status,'submitted')
+  role='owner';subscription.canFinishSession=false
+  await page.goto(`${base}/reviews/${sessionId}`)
+  await page.getByText('This record is read-only until your organization subscribes.').waitFor()
+  assert.equal(await page.getByRole('button',{name:'Approve note',exact:true}).count(),0)
+  assert.equal(await page.getByRole('button',{name:/Append remark/}).count(),0)
+  assert.equal(await page.getByLabel('Final note',{exact:true}).inputValue(),'Trial exception documentation')
+  await page.getByRole('heading',{name:/history/i}).waitFor()
+  console.log('PASS: lifecycle regression plus expired-trial start blocking, in-progress draft, finish and submit exception, read-only review and history')
  } catch(error) { if(page) console.error((await page.locator('body').innerText()).slice(0,7000)); throw error }
  finally {await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1})

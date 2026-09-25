@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import ProfilePinSettings from "@/components/ProfilePinSettings"
@@ -121,12 +123,12 @@ export default function ProfilePage() {
               Full Name
             </label>
 
-            <input
+            <SubscriptionWriteControls><input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300"
-            />
+            /></SubscriptionWriteControls>
           </div>
 
           {/* Email */}
@@ -149,13 +151,13 @@ export default function ProfilePage() {
               Contact Phone
             </label>
 
-            <input
+            <SubscriptionWriteControls><input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(555) 555-5555"
               className="w-full p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
+            /></SubscriptionWriteControls>
           </div>
 
           {/* Role */}
@@ -173,7 +175,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Save Button */}
-          <button
+          <SubscriptionWriteControls><button
             onClick={handleSave}
             disabled={saving}
             className="w-full py-4 rounded-2xl font-semibold text-white text-lg shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400"
@@ -181,7 +183,7 @@ export default function ProfilePage() {
             {saving
               ? "Saving..."
               : "✨ Save Profile"}
-          </button>
+          </button></SubscriptionWriteControls>
 
           {/* Bubble Footer */}
           <div className="flex justify-center gap-3 mt-8">

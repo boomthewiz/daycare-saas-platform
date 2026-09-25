@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useBranches } from "@/components/BranchProvider"
@@ -58,10 +60,10 @@ export default function ClientBranches({ clientId }: { clientId: string }) {
     </div>}
     {message && <p role="status" className="text-sm text-teal-800">{message}</p>}
     {loading || branchLoading ? <p>Loading branches…</p> : <>
-      <ClientBranchPicker branches={branches} value={selected} disabled={!canEdit || saving || !!branchError}
-        onChange={ids => { setSelected(ids); setMessage(""); setError(null) }} />
-      {canEdit && <button type="button" onClick={() => void save()} disabled={saving || !selected.length || !!branchError || !ready}
-        className="rj-button rj-button-primary">{saving ? "Saving…" : "Save branches"}</button>}
+      <SubscriptionWriteControls><ClientBranchPicker branches={branches} value={selected} disabled={!canEdit || saving || !!branchError}
+        onChange={ids => { setSelected(ids); setMessage(""); setError(null) }} /></SubscriptionWriteControls>
+      {canEdit && <SubscriptionWriteControls><button type="button" onClick={() => void save()} disabled={saving || !selected.length || !!branchError || !ready}
+        className="rj-button rj-button-primary">{saving ? "Saving…" : "Save branches"}</button></SubscriptionWriteControls>}
     </>}
   </section>
 }

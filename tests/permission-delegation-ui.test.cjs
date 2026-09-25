@@ -39,6 +39,7 @@ function harness(role, delegates = false, self = false, memberRole = 'staff') {
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   const mod = { exports: {} }
   const mocks = { react, '@/lib/permissions': permissions, '@/lib/supabase': { supabase }, 'next/navigation': { useParams: () => ({ userId: memberId }) } }
+  mocks['@/components/SubscriptionWriteControls'] = { default: ({ children }) => children }
   new Function('require', 'module', 'exports', output)(name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), mod, mod.exports)
   function render() { index = 0; return mod.exports.default() }
   function all(node, predicate, found = []) {

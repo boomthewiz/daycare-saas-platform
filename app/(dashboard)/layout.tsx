@@ -6,6 +6,7 @@ import { getPinStatus } from "@/lib/pin-status"
 import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 import { BranchProvider } from "@/components/BranchProvider"
+import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
 
 export default function DashboardLayout({
   children,
@@ -73,7 +74,7 @@ export default function DashboardLayout({
 
         {/* Page content changes */}
         <main className="min-w-0 flex-1 p-3 sm:p-6">
-          {children}
+          <SubscriptionWriteProvider>{children}</SubscriptionWriteProvider>
         </main>
       </div>
     </div>

@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
@@ -168,7 +170,7 @@ export default function TasksPage() {
                 </div>
 
                 {/* Right Side */}
-                <button
+                <SubscriptionWriteControls><button
                   onClick={() => toggleComplete(task)}
                   className={`px-6 py-3 rounded-2xl font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 ${
                     task.completed
@@ -179,7 +181,7 @@ export default function TasksPage() {
                   {task.completed
                     ? "✅ Done"
                     : "✨ Complete"}
-                </button>
+                </button></SubscriptionWriteControls>
               </div>
             ))}
           </div>

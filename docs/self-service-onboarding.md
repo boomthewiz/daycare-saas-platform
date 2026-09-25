@@ -43,6 +43,8 @@ The user approved finishing sessions already underway when the trial expires and
 - Added server-only atomic organization/owner/first-branch creation after email verification, with safe identical retries and existing-membership protection.
 - Added a new-organization subscription record and database write triggers, including the session-finishing exception. Existing organizations are not enrolled into new billing terms.
 - Added email-code onboarding, a trial banner, and note/session action restrictions. Browser code cannot activate a subscription or extend trial dates.
+- Management editing controls now share a read-only boundary for operations, client profiles/branches/targets/behaviors, team invitations/accounts/permissions, scheduling/preparation, tasks and profile changes. Search, record navigation, history and PIN recovery stay available. The boundary disables forms already open when access expires without clearing their entered values.
+- Access checks refresh at the server-reported entitlement deadline, on window focus and tab visibility, and periodically. Failed checks disable editing until a successful retry; stale responses cannot restore access for a different session.
 - Production is unchanged. The migration and tests were exercised inside a rolled-back transaction.
 
 ## Release blocker: subscription checkout
@@ -61,4 +63,9 @@ Supabase email signup must be enabled, and both signup-confirmation and sign-in 
 - TypeScript and the production build pass with synthetic environment values.
 - Focused lint has no errors; the two existing internal-navigation warnings in SessionGuard remain.
 - The migration, new onboarding/expiry checks, lifecycle regression and tenant regression pass together in a rolled-back database transaction.
-- Browser fixture data has been updated for the new access check. The browser interaction suite and real email/Stripe acceptance remain release checks; do not treat the unit/database checks as end-to-end acceptance.
+- Three browser suites pass against the local application with synthetic email/auth/database responses: organization-onboarding.browser.cjs, subscription-management.browser.cjs and session-notes.browser.cjs. Coverage includes closed signup, invalid email codes, expired verification with preserved details, failed-create retries, PIN destination, existing-member routing, management read-only controls with browsing retained, account recovery, active/legacy access, expiration with an open form, access-check failure/retry, and the complete session/note lifecycle including the trial-finishing exception.
+- Real email delivery and an integrated signup smoke test against a private environment with the migration installed remain pending. Browser fixtures validate the UI and request flow; the rolled-back database checks separately validate database behavior. Neither proves delivery of a real email or replaces private-environment acceptance.
+
+## Remaining non-payment acceptance
+
+Use an explicitly authorized test email account to verify code delivery, invalid/expired code behavior, owner creation with the first branch, and PIN setup against a private test environment. Keep public signup disabled and do not apply the migration to production for this check. Record the results before marking onboarding ready apart from Stripe.
