@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   FormEvent,
   useCallback,
@@ -350,7 +352,7 @@ export default function PeopleManagementPage() {
             </button>
 
             {activeTab === "clients" ? (
-              <button
+              <SubscriptionWriteControls><button
                 type="button"
                 disabled={branchContext.loading || !!branchContext.error || !canManageClients}
                 onClick={() => {
@@ -361,15 +363,15 @@ export default function PeopleManagementPage() {
               >
                 <Plus size={19} />
                 Add Client
-              </button>
+              </button></SubscriptionWriteControls>
             ) : (
-              <Link
+              <SubscriptionWriteControls><Link
                 href="/team-management/invite"
                 className="rj-button rj-button-primary"
               >
                 <MailPlus size={19} />
                 Invite Team Member
-              </Link>
+              </Link></SubscriptionWriteControls>
             )}
           </div>
         </div>
@@ -425,7 +427,7 @@ export default function PeopleManagementPage() {
               configured after the profile is created.
             </p>
 
-            <form
+            <SubscriptionWriteControls><form
               onSubmit={createClient}
               className="mt-6 grid gap-5 md:grid-cols-2"
             >
@@ -522,7 +524,7 @@ export default function PeopleManagementPage() {
                   Cancel
                 </button>
               </div>
-            </form>
+            </form></SubscriptionWriteControls>
           </section>
         )}
 
@@ -601,7 +603,7 @@ export default function PeopleManagementPage() {
                     </Link>
 
                     {client.status === "active" && (
-                      <button
+                      <SubscriptionWriteControls><button
                         type="button"
                         onClick={() =>
                           archiveClient(client.id)
@@ -609,7 +611,7 @@ export default function PeopleManagementPage() {
                         className="rj-icon-button text-[var(--rj-danger)]"
                       >
                         <Archive size={18} />
-                      </button>
+                      </button></SubscriptionWriteControls>
                     )}
                   </div>
                 </div>

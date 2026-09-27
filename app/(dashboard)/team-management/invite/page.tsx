@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   type FormEvent,
   useEffect,
@@ -510,7 +512,7 @@ const handleInvite = async (
             </div>
           </div>
 
-          <form
+          <SubscriptionWriteControls><form
             onSubmit={handleInvite}
             className="mt-8 space-y-6"
           >
@@ -692,7 +694,7 @@ const handleInvite = async (
                 ? "Sending Invitation…"
                 : "Invite Team Member"}
             </button>
-          </form>
+          </form></SubscriptionWriteControls>
         </section>
 
         <aside className="space-y-5">

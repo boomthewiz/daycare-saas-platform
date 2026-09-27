@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   FormEvent,
   useCallback,
@@ -930,14 +932,14 @@ export default function OperationsPage() {
                 </p>
               </div>
 
-              <button
+              <SubscriptionWriteControls><button
                 type="button"
                 onClick={openCreateForm}
                 className="rj-button rj-button-primary"
               >
                 <Plus size={19} />
                 Add {getSingularLabel(activeTab)}
-              </button>
+              </button></SubscriptionWriteControls>
             </div>
           </section>
 
@@ -1000,14 +1002,14 @@ export default function OperationsPage() {
                   .
                 </p>
 
-                <button
+                <SubscriptionWriteControls><button
                   type="button"
                   onClick={openCreateForm}
                   className="rj-button rj-button-primary mt-6"
                 >
                   <Plus size={19} />
                   Add Option
-                </button>
+                </button></SubscriptionWriteControls>
               </div>
             ) : (
               <div className="divide-y divide-[var(--rj-border)]">
@@ -1108,7 +1110,7 @@ function OptionForm({
         </button>
       </div>
 
-      <form
+      <SubscriptionWriteControls><form
         onSubmit={onSubmit}
         className="mt-6 grid gap-5 md:grid-cols-2"
       >
@@ -1228,7 +1230,7 @@ function OptionForm({
             Cancel
           </button>
         </div>
-      </form>
+      </form></SubscriptionWriteControls>
     </section>
   )
 }
@@ -1306,16 +1308,16 @@ function OptionRow({
       </div>
 
       <div className="flex shrink-0 gap-3">
-        <button
+        <SubscriptionWriteControls><button
           type="button"
           onClick={onEdit}
           className="rj-button rj-button-secondary"
         >
           <Pencil size={17} />
           Edit
-        </button>
+        </button></SubscriptionWriteControls>
 
-        <button
+        <SubscriptionWriteControls><button
           type="button"
           onClick={onToggle}
           disabled={updating}
@@ -1339,7 +1341,7 @@ function OptionRow({
           {item.active
             ? "Deactivate"
             : "Activate"}
-        </button>
+        </button></SubscriptionWriteControls>
       </div>
     </article>
   )
@@ -1395,7 +1397,7 @@ function TerminologyForm({
         or “Child.”
       </p>
 
-      <form
+      <SubscriptionWriteControls><form
         onSubmit={onSubmit}
         className="mt-8 space-y-8"
       >
@@ -1531,7 +1533,7 @@ function TerminologyForm({
             ? "Saving…"
             : "Save Terminology"}
         </button>
-      </form>
+      </form></SubscriptionWriteControls>
     </section>
   )
 }

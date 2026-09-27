@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { noteActions, noteFailure, type NoteAction, type SessionNote } from '@/lib/session-notes'
+import { useSubscriptionAccess } from '@/lib/use-subscription-access'
 
 type Session = { id: string; provider_id: string | null; status: string; session_type: string; started_at: string | null; completed_at: string | null; scheduled_start: string | null; clients?: {first_name:string;last_name:string|null;preferred_name:string|null}|null }
 type Identity = { userId: string; frontline: boolean; reviewer: boolean; admin: boolean }
@@ -15,6 +16,7 @@ const date = (value: string | null) => value ? new Date(value).toLocaleString() 
 const label = (value: string) => value.replaceAll('_', ' ')
 
 export default function SessionNoteWorkspace({ sessionId, review = false }: { sessionId: string; review?: boolean }) {
+  const { access: subscription, error: subscriptionError } = useSubscriptionAccess(sessionId)
   const [session, setSession] = useState<Session | null>(null)
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [note, setNote] = useState<SessionNote | null>(null)
@@ -151,7 +153,7 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
       ].join('\n'))
     } catch(cause) { setError(noteFailure(cause)) } finally { setBusy(false) }
   }
-  const actions = loaded && identity && session ? noteActions(note, {...identity, providerId:session.provider_id,sessionStatus:session.status}) : []
+  const actions = loaded && identity && session ? noteActions(note, {...identity, providerId:session.provider_id,sessionStatus:session.status}).filter(action => subscription?.canWrite || (subscription?.canFinishSession && ['save','submit'].includes(action))) : []
   const editable = actions.includes('save')
   const disabled = busy || !!pending || !loaded
   if (loading) return <p role="status" className="p-6">Loading session documentation…</p>
@@ -166,6 +168,8 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
       <button className="rj-button rj-button-secondary mt-4" disabled={busy} onClick={reload}>Reload saved record</button>
     </header>
     {error && <div role="alert" className="rj-card p-4 text-[var(--rj-danger)]">{error}</div>}
+    {subscriptionError && <p role="alert" className="rj-card p-4">{subscriptionError}</p>}
+    {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? 'The trial has ended. You may finish this session’s documentation and submit its note.' : 'This record is read-only until your organization subscribes.'}</p>}
     {message && <p role="status" className="rj-card p-4">{message}</p>}
     {pending && <div className="rj-card p-4"><p>The last request needs confirmation. Retry checks the same request without duplicating it. You can select and copy your text below.</p><button disabled={busy} onClick={()=>void execute(pending)} className="rj-button rj-button-primary mt-3">Retry last request</button></div>}
     {loaded && <>
@@ -188,7 +192,7 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
       </section>}
       <section className="rj-card space-y-4 p-6"><h2 className="rj-heading-2">Remarks</h2>
         <p>Separate additions from owners and admins. Remarks never alter the original note or its timestamps.</p>
-        {identity?.admin && note && <><label className="block" htmlFor="note-remark">Add a remark</label><textarea id="note-remark" className="rj-input mt-2 w-full" rows={3} maxLength={20000} readOnly={disabled} value={remark} onChange={e=>setRemark(e.target.value)} /><button disabled={disabled||!remark.trim()} className="rj-button rj-button-primary" onClick={()=>void execute({kind:'remark',args:{p_session_id:sessionId,p_body:remark,p_operation_id:crypto.randomUUID()}})}>Append remark</button></>}
+        {identity?.admin && note && subscription?.canWrite && <><label className="block" htmlFor="note-remark">Add a remark</label><textarea id="note-remark" className="rj-input mt-2 w-full" rows={3} maxLength={20000} readOnly={disabled} value={remark} onChange={e=>setRemark(e.target.value)} /><button disabled={disabled||!remark.trim()} className="rj-button rj-button-primary" onClick={()=>void execute({kind:'remark',args:{p_session_id:sessionId,p_body:remark,p_operation_id:crypto.randomUUID()}})}>Append remark</button></>}
         {!remarks.length && <p>No remarks yet.</p>}
         {remarks.map(item=><article key={item.id} className="border-t pt-3"><p className="font-bold">{item.author_name} · {date(item.created_at)}</p><p className="whitespace-pre-wrap">{item.body}</p></article>)}
         {moreRemarks && <button disabled={busy} onClick={()=>void loadMore('remarks')}>Load older remarks</button>}

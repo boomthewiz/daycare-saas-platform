@@ -51,6 +51,7 @@ function harness(selectedBranchId = "north") {
   }
   function ClientBranchPicker() { return null }
   const Component = loadTs("app/(dashboard)/team-management/page.tsx", {
+    "@/components/SubscriptionWriteControls": { default: ({ children }) => children },
     react:mockReact,
     "@/lib/supabase":{supabase},
     "next/navigation":{useRouter:() => ({push:route => routes.push(route)})},

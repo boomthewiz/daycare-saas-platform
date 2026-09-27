@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   type FormEvent,
   type ReactNode,
@@ -1241,15 +1243,15 @@ export default function ClientDetailPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
+            <SubscriptionWriteControls><Link
               href={`/sessions?client=${client.id}`}
               className="rj-button rj-button-primary"
             >
               <CalendarDays size={19} />
               Create Session
-            </Link>
+            </Link></SubscriptionWriteControls>
 
-            <button
+            <SubscriptionWriteControls><button
               type="button"
               onClick={archiveClient}
               disabled={
@@ -1260,7 +1262,7 @@ export default function ClientDetailPage() {
             >
               <Archive size={18} />
               Archive Client
-            </button>
+            </button></SubscriptionWriteControls>
           </div>
         </div>
       </header>
@@ -1414,14 +1416,14 @@ export default function ClientDetailPage() {
                   </p>
                 </div>
 
-                <button
+                <SubscriptionWriteControls><button
                   type="button"
                   onClick={openCreateTargetForm}
                   className="rj-button rj-button-primary"
                 >
                   <Plus size={19} />
                   Add Target
-                </button>
+                </button></SubscriptionWriteControls>
               </div>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -1552,14 +1554,14 @@ export default function ClientDetailPage() {
                 </p>
               </div>
 
-              <button
+              <SubscriptionWriteControls><button
                 type="button"
                 onClick={openCreateBehaviorForm}
                 className="rj-button rj-button-primary"
               >
                 <Plus size={19} />
                 Add Behavior
-              </button>
+              </button></SubscriptionWriteControls>
             </div>
 
             {behaviors.length === 0 ? (
@@ -1656,7 +1658,7 @@ function OverviewTab({
         </div>
       </div>
 
-      <form
+      <SubscriptionWriteControls><form
         onSubmit={onSubmit}
         className="mt-8 grid gap-5 md:grid-cols-2"
       >
@@ -1775,7 +1777,7 @@ function OverviewTab({
               : "Save Profile"}
           </button>
         </div>
-      </form>
+      </form></SubscriptionWriteControls>
     </section>
   )
 }
@@ -1826,7 +1828,7 @@ function TargetForm({
         </button>
       </div>
 
-      <form
+      <SubscriptionWriteControls><form
         onSubmit={onSubmit}
         className="mt-6 grid gap-5 md:grid-cols-2"
       >
@@ -1982,7 +1984,7 @@ function TargetForm({
             Cancel
           </button>
         </div>
-      </form>
+      </form></SubscriptionWriteControls>
     </section>
   )
 }
@@ -2078,7 +2080,7 @@ function TargetRow({
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
-          <button
+          <SubscriptionWriteControls><button
             type="button"
             onClick={onMoveUp}
             disabled={index === 0 || updating}
@@ -2086,9 +2088,9 @@ function TargetRow({
             aria-label={`Move ${target.title} up`}
           >
             <ArrowUp size={18} />
-          </button>
+          </button></SubscriptionWriteControls>
 
-          <button
+          <SubscriptionWriteControls><button
             type="button"
             onClick={onMoveDown}
             disabled={
@@ -2098,9 +2100,9 @@ function TargetRow({
             aria-label={`Move ${target.title} down`}
           >
             <ArrowDown size={18} />
-          </button>
+          </button></SubscriptionWriteControls>
 
-          <button
+          <SubscriptionWriteControls><button
             type="button"
             onClick={onEdit}
             disabled={updating}
@@ -2108,9 +2110,9 @@ function TargetRow({
             aria-label={`Edit ${target.title}`}
           >
             <Edit3 size={18} />
-          </button>
+          </button></SubscriptionWriteControls>
 
-          <select
+          <SubscriptionWriteControls><select
             value={target.status}
             onChange={(event) =>
               onStatusChange(
@@ -2134,7 +2136,7 @@ function TargetRow({
             <option value="discontinued">
               Discontinued
             </option>
-          </select>
+          </select></SubscriptionWriteControls>
         </div>
       </div>
     </article>
@@ -2191,7 +2193,7 @@ function BehaviorForm({
         </button>
       </div>
 
-      <form
+      <SubscriptionWriteControls><form
         onSubmit={onSubmit}
         className="mt-6 grid gap-5 md:grid-cols-2"
       >
@@ -2289,7 +2291,7 @@ function BehaviorForm({
             Cancel
           </button>
         </div>
-      </form>
+      </form></SubscriptionWriteControls>
     </section>
   )
 }
@@ -2352,7 +2354,7 @@ function BehaviorRow({
       </div>
 
       <div className="flex shrink-0 gap-3">
-        <button
+        <SubscriptionWriteControls><button
           type="button"
           onClick={onEdit}
           disabled={updating}
@@ -2360,9 +2362,9 @@ function BehaviorRow({
         >
           <Edit3 size={17} />
           Edit
-        </button>
+        </button></SubscriptionWriteControls>
 
-        <button
+        <SubscriptionWriteControls><button
           type="button"
           onClick={onToggle}
           disabled={updating}
@@ -2382,7 +2384,7 @@ function BehaviorRow({
           {behavior.active
             ? "Deactivate"
             : "Reactivate"}
-        </button>
+        </button></SubscriptionWriteControls>
       </div>
     </article>
   )
@@ -2426,13 +2428,13 @@ function SessionsTab({
           </p>
         </div>
 
-        <Link
+        <SubscriptionWriteControls><Link
           href={`/sessions?client=${clientId}`}
           className="rj-button rj-button-primary"
         >
           <Plus size={19} />
           Create Session
-        </Link>
+        </Link></SubscriptionWriteControls>
       </div>
 
       {sessions.length === 0 ? (
@@ -2658,24 +2660,24 @@ function EmptyState({
       </p>
 
       {actionLabel && onAction && (
-        <button
+        <SubscriptionWriteControls><button
           type="button"
           onClick={onAction}
           className="rj-button rj-button-primary mt-6"
         >
           <Plus size={18} />
           {actionLabel}
-        </button>
+        </button></SubscriptionWriteControls>
       )}
 
       {actionLabel && actionHref && (
-        <Link
+        <SubscriptionWriteControls><Link
           href={actionHref}
           className="rj-button rj-button-primary mt-6"
         >
           <Plus size={18} />
           {actionLabel}
-        </Link>
+        </Link></SubscriptionWriteControls>
       )}
     </div>
   )

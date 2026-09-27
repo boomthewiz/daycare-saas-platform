@@ -28,6 +28,7 @@ export function noteActions(note: SessionNote | null, context: {
 
 export function noteFailure(error: unknown): string {
   const failure = error as { code?: string; message?: string }
+  if (failure?.code === 'P4020') return 'Your trial has ended. This record is read-only until your organization subscribes. Your unsaved text is still here.'
   if (failure?.code === '40001') return 'Someone changed this note. Your text is still here. Copy any unsaved text, then reload before making another change.'
   if (failure?.code === '42501') return 'Your access may have changed or your device may be locked. Unlock or sign in again, then reload. Your unsaved text is still here.'
   return failure?.message || 'The request could not be confirmed. Your text is still here. Retry the same request to check its outcome safely.'

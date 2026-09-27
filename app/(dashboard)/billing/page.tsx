@@ -1,56 +1,17 @@
 "use client"
-
-type ConstructionPageProps = {
-  title: string
-  icon: string
-  description: string
-}
-
-function ConstructionPage({
-  title,
-  icon,
-  description,
-}: ConstructionPageProps) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-yellow-100 p-6">
-      <div className="max-w-3xl mx-auto">
-
-        {/* 🫧 Header Card */}
-        <div className="bg-white rounded-3xl shadow-xl p-10 text-center">
-
-          <div className="text-6xl mb-4">
-            {icon}
-          </div>
-
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">
-            {title}
-          </h1>
-
-          <p className="text-gray-500 text-lg mb-6">
-            {description}
-          </p>
-
-          <div className="inline-block px-6 py-3 rounded-2xl bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-white font-semibold shadow-lg">
-            🚧 Feature Under Construction
-          </div>
-
-          <p className="text-sm text-gray-400 mt-6">
-            This section is being built as part of the ReJoyce Workflow System
-          </p>
-
-          {/* 🎈 Bubble Footer */}
-          <div className="flex justify-center gap-3 mt-8">
-            <div className="w-4 h-4 rounded-full bg-pink-300"></div>
-            <div className="w-3 h-3 rounded-full bg-blue-300"></div>
-            <div className="w-5 h-5 rounded-full bg-yellow-300"></div>
-            <div className="w-3 h-3 rounded-full bg-purple-300"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import { useSubscriptionAccess } from "@/lib/use-subscription-access"
+import { launchPlan } from "@/lib/subscription-plan"
 
 export default function BillingPage() {
-  return <ConstructionPage title="Billing" icon="🧾" description="Manage your organization’s subscription and billing." />
+ const {access,error,refresh}=useSubscriptionAccess()
+ if(error)return <section className="rj-card p-6"><p role="alert">{error}</p><button className="rj-button rj-button-secondary mt-4" onClick={()=>void refresh()}>Try again</button></section>
+ if(!access)return <p role="status">Loading subscription…</p>
+ if(access.managed&&!access.canManageBilling)return <p role="alert">Billing access is required. Contact your organization owner.</p>
+ return <section className="rj-card mx-auto max-w-2xl space-y-5 p-6">
+  <h1 className="rj-heading-1">Organization subscription</h1>
+  {access.managed ? <><p>Your trial ends {new Date(access.trialEndsAt!).toLocaleString()}.</p><p>{access.canWrite?"Your organization currently has access to its workspace.":"Your organization has read-only access. Sessions underway when the trial ended may be finished and their notes submitted."}</p></> : <p>Your organization’s existing access has not changed. No new trial or subscription has been activated.</p>}
+  <div className="rounded-xl bg-slate-50 p-5"><p className="text-2xl font-bold">${launchPlan.baseAmountCents/100} USD/month</p><p className="mt-2">Includes one service provider. Additional providers are ${launchPlan.additionalProviderAmountCents/100} each per month. Administrative-only accounts are included.</p><p className="mt-2">{launchPlan.trialDays} days free for new organizations. No card is required until you choose to subscribe.</p></div>
+  <p role="status">Subscription checkout is temporarily unavailable. Please try again later. No payment has been taken.</p>
+  <button disabled className="rj-button rj-button-primary">Subscribe</button>
+ </section>
 }

@@ -14,6 +14,7 @@ function load(options = {}) {
   const calls = []
   const record = (name, value) => calls.push([name, value])
   const admin = {
+    rpc: async () => ({ data: options.canWrite !== false, error: options.accessError || null }),
     auth: {
       getUser: async () => ({ data: { user: options.unauthenticated ? null : { id: caller.id } }, error: null }),
       admin: {
@@ -41,7 +42,7 @@ function load(options = {}) {
   mod.filename = filename
   mod.paths = module.paths
   let clients = 0
-  mod.require = name => name === '@/lib/device-session-server' ? { requireUnlocked: async () => options.unlocked !== false }
+  mod.require = name => name === '@/lib/device-session-server' ? { requireUnlocked: async () => options.unlocked === false ? null : {user:{id:caller.id}} }
     : name === '@/lib/permissions' ? permissions
     : name === '@supabase/supabase-js' ? { createClient: () => ++clients === 1 ? admin : { auth: { resetPasswordForEmail: async (email, args) => { record('send', { email, ...args }); return { error: options.sendError || null } } } } }
     : require(name)
@@ -70,6 +71,14 @@ test('resend sends once to verified account without changing its profile or gene
   assert.deepEqual(h.calls.filter(c => c[0] === 'getUserById'), [['getUserById', 'target']])
   assert.equal(h.calls.filter(c => c[0] === 'send').length, 1)
   assert.equal(h.calls.some(c => ['upsert', 'update', 'invite', 'generateLink'].includes(c[0])), false)
+})
+
+test('expired organization and access-check failure never send an invitation', async () => {
+  for (const options of [{canWrite:false},{accessError:{message:'offline'}}]) {
+    const h=load(options)
+    assert.ok([403,503].includes((await h.post()).status))
+    assert.equal(h.calls.some(c=>['send','invite','generateLink'].includes(c[0])),false)
+  }
 })
 
 test('resend authorizes stored admin role even when submitted role says staff', async () => {

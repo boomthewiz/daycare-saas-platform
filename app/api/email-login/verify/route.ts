@@ -43,7 +43,9 @@ export async function POST(request: Request) {
     finally { await supabaseAdmin.from("email_login_challenges").delete().eq("proof_hash", proofHash) }
     if (status.state !== "unlocked" && status.state !== "setup") return NextResponse.json({ error: "Unable to sign in. Contact your administrator if this continues." }, { status: 401, headers })
     await supabaseAdmin.from("pin_login_attempts").delete().eq("id", attempt.attempt_id).eq("account_key", key)
-    return NextResponse.json({ state: status.state, session: {
+    const { data: profile, error: profileError } = await supabaseAdmin.from("users").select("organization_id").eq("id", identity.user.id).single()
+    if (profileError || !profile) throw new Error("Profile unavailable")
+    return NextResponse.json({ state: status.state, hasOrganization: !!profile.organization_id, session: {
       access_token: data.session.access_token, refresh_token: data.session.refresh_token,
     } }, { headers })
   } catch { return NextResponse.json({ error: "Unable to finish signing in. Please request a new code and try again." }, { status: 503, headers }) }

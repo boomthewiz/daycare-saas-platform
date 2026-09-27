@@ -1,5 +1,7 @@
 "use client"
 
+import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+
 import {
   type FormEvent,
   useCallback,
@@ -885,7 +887,7 @@ export default function ManageTeamMemberPage() {
 
           {!accountLocked && (
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button
+              <SubscriptionWriteControls><button
                 type="button"
                 onClick={resendInvitation}
                 disabled={
@@ -896,7 +898,7 @@ export default function ManageTeamMemberPage() {
               >
                 <Send size={18} />
                 Resend Setup Email
-              </button>
+              </button></SubscriptionWriteControls>
 
               <button
                 type="button"
@@ -1014,7 +1016,7 @@ export default function ManageTeamMemberPage() {
               </div>
             </div>
 
-            <form
+            <SubscriptionWriteControls><form
               onSubmit={saveProfile}
               className="mt-6 space-y-5"
             >
@@ -1121,7 +1123,7 @@ export default function ManageTeamMemberPage() {
                   Save Profile
                 </button>
               )}
-            </form>
+            </form></SubscriptionWriteControls>
           </section>
 
           <section className="rj-card p-6">
@@ -1151,7 +1153,7 @@ export default function ManageTeamMemberPage() {
               </div>
 
               {!accountLocked && (
-                <button
+                <SubscriptionWriteControls><button
                   type="button"
                   onClick={
                     toggleAccountStatus
@@ -1178,7 +1180,7 @@ export default function ManageTeamMemberPage() {
                       size={25}
                     />
                   )}
-                </button>
+                </button></SubscriptionWriteControls>
               )}
             </div>
           </section>
@@ -1233,7 +1235,7 @@ export default function ManageTeamMemberPage() {
               !memberIsOwner && (
                 <div className="mt-6 space-y-3">
                   {permissionDefinitions.map(permission => (
-                    <PermissionToggle
+                    <SubscriptionWriteControls key={permission.key}><PermissionToggle
                       key={permission.key}
                       label={permission.label}
                       description={permission.description}
@@ -1241,10 +1243,10 @@ export default function ManageTeamMemberPage() {
                       enabled={permissions[permission.key]}
                       disabled={!canEditPermission(permissionEditor, permission.key)}
                       onClick={() => togglePermission(permission.key)}
-                    />
+                    /></SubscriptionWriteControls>
                   ))}
                   {!permissionsLocked && (
-                    <button
+                    <SubscriptionWriteControls><button
                       type="button"
                       onClick={
                         savePermissions
@@ -1264,7 +1266,7 @@ export default function ManageTeamMemberPage() {
                       )}
 
                       Save Permissions
-                    </button>
+                    </button></SubscriptionWriteControls>
                   )}
                 </div>
               )}
