@@ -27,9 +27,11 @@ export default function OwnerOnboardingPage() {
    if(!availability.ok||config.enabled!==true)return
    const {data:{session}}=await supabase.auth.getSession()
    if(!session)return
-   const response=await fetch("/api/device-session",{headers:{Authorization:"Bearer "+session.access_token},cache:"no-store"})
+   const response=await fetch("/api/organization-signup",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},body:JSON.stringify({action:"status"}),cache:"no-store"})
    const result=await response.json()
-   if(active&&response.ok&&["setup","unlocked"].includes(result.state)&&result.canSetPin){setEmail(session.user.email||"");setStep("organization")}
+   if(!active||!response.ok)return
+   if(result.destination){window.location.assign(result.destination);return}
+   if(result.canCreate&&result.email){setEmail(result.email);setStep("organization")}
   })().catch(()=>{}).finally(()=>{if(active)setAvailable(enabled)})
   return()=>{active=false}
  },[])

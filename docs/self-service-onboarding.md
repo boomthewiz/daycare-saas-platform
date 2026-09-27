@@ -43,6 +43,8 @@ The user approved finishing sessions already underway when the trial expires and
 - Added server-only atomic organization/owner/first-branch creation after email verification, with safe identical retries and existing-membership protection.
 - Added a new-organization subscription record and database write triggers, including the session-finishing exception. Existing organizations are not enrolled into new billing terms.
 - Added email-code onboarding, a trial banner, and note/session action restrictions. Browser code cannot activate a subscription or extend trial dates.
+- Reopening signup checks the verified account's membership on the server. Existing members continue to PIN setup or their workspace; recently verified accounts without an organization resume the creation form. Failed membership checks require email verification instead of assuming the account is new.
+- Creation verifies that the form's email matches the authenticated account, preventing a sign-in change in another tab from creating an organization for a different account. A database-level verification expiry returns the reverification response and preserves entered fields.
 - Management editing controls now share a read-only boundary for operations, client profiles/branches/targets/behaviors, team invitations/accounts/permissions, scheduling/preparation, tasks and profile changes. Search, record navigation, history and PIN recovery stay available. The boundary disables forms already open when access expires without clearing their entered values.
 - Access checks refresh at the server-reported entitlement deadline, on window focus and tab visibility, and periodically. Failed checks disable editing until a successful retry; stale responses cannot restore access for a different session.
 - Production is unchanged. The migration and tests were exercised inside a rolled-back transaction.
@@ -59,7 +61,7 @@ Supabase email signup must be enabled, and both signup-confirmation and sign-in 
 
 ## Validation of the draft
 
-- 71 application tests pass, including the default-off release switch, signup identity binding, rate limiting, membership conflicts, trial deadlines and provider pricing. No test sent an email.
+- 75 application tests pass, including the default-off release switch, signup identity binding, account switching, saved-session membership checks, database verification expiry, rate limiting, membership conflicts, trial deadlines and provider pricing. No test sent an email.
 - TypeScript and the production build pass with synthetic environment values.
 - Focused lint has no errors; the two existing internal-navigation warnings in SessionGuard remain.
 - The migration, new onboarding/expiry checks, lifecycle regression and tenant regression pass together in a rolled-back database transaction.
@@ -67,5 +69,9 @@ Supabase email signup must be enabled, and both signup-confirmation and sign-in 
 - Real email delivery and an integrated signup smoke test against a private environment with the migration installed remain pending. Browser fixtures validate the UI and request flow; the rolled-back database checks separately validate database behavior. Neither proves delivery of a real email or replaces private-environment acceptance.
 
 ## Remaining non-payment acceptance
+
+On September 26, Supabase's project and branch listings confirmed that the temporary `rejoyce-signup-test-20260925` environment no longer exists. Only the production Rejoyce App project and its default main branch remain. No saved cleanup automation was found locally. No new paid environment was created. Docker is unavailable on this machine, so integrated local Supabase acceptance could not run here.
+
+The onboarding browser suite was rerun after the recovery changes and passes, including verified new-owner resume, existing-member routing with a saved session, and failed membership lookup. All 75 application tests, TypeScript and focused lint pass. The current production-build attempt was blocked by unavailable Google Fonts downloads (Fredoka and Nunito); the successful build listed above is from the earlier session. The other browser suites and database validation listed above are earlier results; they were not rerun for this route/UI-only change. The temporary local browser-test server was stopped after verification.
 
 Use an explicitly authorized test email account to verify code delivery, invalid/expired code behavior, owner creation with the first branch, and PIN setup against a private test environment. Keep public signup disabled and do not apply the migration to production for this check. Record the results before marking onboarding ready apart from Stripe.

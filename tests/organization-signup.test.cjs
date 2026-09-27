@@ -8,11 +8,13 @@ function load(options={}) {
  const mod=new Module(filename,module);mod.filename=filename;mod.paths=module.paths
  mod.require=name=>name==='@/lib/device-session-server'?{
   privateHeaders:{'Cache-Control':'private, no-store'},
-  verifiedIdentity:async()=>options.noIdentity?null:{user:{id:'verified-user'},sessionId:'verified-session'},
+  verifiedIdentity:async()=>options.noIdentity?null:{user:{id:'verified-user',email:'synthetic@example.invalid'},sessionId:'verified-session'},
   deviceState:async()=>options.state||{state:'setup',canSetPin:true}
  }:name==='@/lib/supabase-admin'?{supabaseAdmin:{rpc:async(name,args)=>{
   calls.push([name,args]);return name==='reserve_pin_login_attempt'?{data:[{allowed:options.allowed!==false}],error:options.limitError||null}:{data:'created-org',error:options.createError||null}
- }}}:name==='@supabase/supabase-js'?{createClient:()=>({auth:{signInWithOtp:async(args)=>{calls.push(['send',args]);return {error:options.sendError||null}}}})}:require(name)
+ },from:table=>({select:columns=>({eq:(key,value)=>({single:async()=>{
+  calls.push(['profile',{table,columns,key,value}]);return {data:options.profileError?null:{organization_id:options.organizationId||null},error:options.profileError||null}
+ }})})})}}:name==='@supabase/supabase-js'?{createClient:()=>({auth:{signInWithOtp:async(args)=>{calls.push(['send',args]);return {error:options.sendError||null}}}})}:require(name)
  mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,filename)
  async function invoke(action){
   const previous=process.env.SELF_SERVICE_SIGNUP_ENABLED
@@ -25,7 +27,7 @@ function load(options={}) {
  }
  return {calls,get:()=>invoke(()=>mod.exports.GET()),post:body=>invoke(()=>mod.exports.POST(new Request('https://www.rejoyceapp.com/api/organization-signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})))}
 }
-const create={action:'create',name:'Organization',fullName:'Owner',branchName:'Main',organizationType:'Other'}
+const create={action:'create',email:'synthetic@example.invalid',name:'Organization',fullName:'Owner',branchName:'Main',organizationType:'Other'}
 test('signup defaults closed and rejects both email and creation without side effects',async()=>{
  for(const enabled of [null,'false','TRUE','1']){
   const h=load({enabled})
@@ -34,9 +36,40 @@ test('signup defaults closed and rejects both email and creation without side ef
   assert.match(availability.headers.get('Cache-Control'),/no-store/)
   assert.equal((await h.post({action:'send',email:'synthetic@example.invalid'})).status,503)
   assert.equal((await h.post(create)).status,503)
+  assert.equal((await h.post({action:'status'})).status,503)
   assert.deepEqual(h.calls,[])
  }
  assert.equal((await (await load().get()).json()).enabled,true)
+})
+test('creation rejects an account switch without calling the creation function',async()=>{
+ for(const email of ['different@example.invalid',undefined,null]){
+  const h=load();const response=await h.post({...create,email})
+  assert.equal(response.status,401);assert.match((await response.json()).error,/account changed/);assert.deepEqual(h.calls,[])
+ }
+ assert.equal((await load().post({...create,email:' Synthetic@Example.invalid '})).status,200)
+})
+test('database verification expiry requests reverification rather than an unavailable-service retry',async()=>{
+ const response=await load({createError:{code:'42501'}}).post(create)
+ assert.equal(response.status,401);assert.match((await response.json()).error,/Verify your email again/)
+})
+test('signup resume routes existing members and only permits a recently verified new owner',async()=>{
+ for(const state of [{state:'setup',canSetPin:true},{state:'unlocked',canSetPin:false}]){
+  const h=load({organizationId:'existing-org',state});const response=await h.post({action:'status',userId:'someone-else'})
+  assert.equal(response.status,200);assert.match(response.headers.get('Cache-Control'),/no-store/)
+  assert.equal((await response.json()).destination,state.state==='setup'?'/set-pin':'/dashboard')
+  assert.deepEqual(h.calls,[['profile',{table:'users',columns:'organization_id',key:'id',value:'verified-user'}]])
+ }
+ assert.deepEqual(await (await load().post({action:'status'})).json(),{email:create.email,canCreate:true,destination:null})
+ assert.equal((await (await load({state:{state:'unlocked',canSetPin:false}}).post({action:'status'})).json()).canCreate,false)
+ for(const options of [{noIdentity:true},{state:{state:'locked',canSetPin:true}},{state:{state:'inactive'}}]){
+  const h=load(options);assert.equal((await h.post({action:'status'})).status,401);assert.deepEqual(h.calls,[])
+ }
+ assert.equal((await load({profileError:{message:'offline'}}).post({action:'status'})).status,503)
+})
+test('malformed signup payloads are rejected without side effects',async()=>{
+ for(const body of [null,[],false,'create']){
+  const h=load();assert.equal((await h.post(body)).status,400);assert.deepEqual(h.calls,[])
+ }
 })
 test('signup validates and rate-limits before requesting an email',async()=>{
  const bad=load();assert.equal((await bad.post({action:'send',email:'invalid'})).status,400);assert.equal(bad.calls.length,0)

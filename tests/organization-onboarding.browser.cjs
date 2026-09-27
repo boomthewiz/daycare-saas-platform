@@ -8,7 +8,7 @@ const session={access_token:token,refresh_token:'synthetic',expires_at:Math.floo
 ;(async()=>{
  const browser=await chromium.launch({channel:'chrome',headless:true})
  const context=await browser.newContext({viewport:{width:390,height:844}})
- let enabled=false,createStatus=401,createCalls=[],sendCalls=0,verifyStatus=200,existing=false
+ let enabled=false,createStatus=401,createCalls=[],sendCalls=0,verifyStatus=200,existing=false,resumeState='setup',resumeStatus=200
  let page
  try {
   await context.route('**/*',async route=>{
@@ -19,12 +19,14 @@ const session={access_token:token,refresh_token:'synthetic',expires_at:Math.floo
     if(p==='/api/organization-signup'){
      if(route.request().method()==='GET')return route.fulfill({json:{enabled}})
      const body=route.request().postDataJSON()
+     if(body.action==='status')return route.fulfill({status:resumeStatus,json:{email:user.email,canCreate:true,destination:existing?(resumeState==='setup'?'/set-pin':'/dashboard'):null}})
      if(body.action==='send'){sendCalls++;return route.fulfill({json:{success:true}})}
      createCalls.push(body)
      return route.fulfill({status:createStatus,json:createStatus===200?{organizationId:'synthetic-org',destination:'/set-pin'}:{error:createStatus===401?'Verify your email again.':'Unable to complete setup. Please retry.'}})
     }
     if(p==='/api/email-login/verify')return route.fulfill({status:verifyStatus,json:verifyStatus===200?{session,state:'setup',hasOrganization:existing}:{error:'That code is invalid. Please try again.'}})
     if(p==='/set-pin')return route.fulfill({contentType:'text/html',body:'<h1>PIN setup destination</h1>'})
+    if(p==='/dashboard')return route.fulfill({contentType:'text/html',body:'<h1>Existing workspace destination</h1>'})
     return route.continue()
    }
    if(url.origin==='https://workflow-test.supabase.co')return route.fulfill({json:p==='/auth/v1/user'?user:[]})
@@ -46,6 +48,9 @@ const session={access_token:token,refresh_token:'synthetic',expires_at:Math.floo
   assert.equal(await page.getByLabel('Email code',{exact:true}).inputValue(),'123456')
   verifyStatus=200
   await page.getByRole('button',{name:'Verify email',exact:true}).click()
+  // A verified account without an organization can resume after a reload.
+  await page.getByLabel('Your full name').waitFor()
+  await page.reload()
   await page.getByLabel('Your full name').fill('Synthetic Owner')
   await page.getByLabel('Organization name',{exact:true}).fill('Synthetic Organization')
   await page.getByLabel('Organization type').selectOption('Other')
@@ -81,7 +86,19 @@ const session={access_token:token,refresh_token:'synthetic',expires_at:Math.floo
   await page.getByRole('button',{name:'Verify email',exact:true}).click()
   await page.getByRole('heading',{name:'PIN setup destination'}).waitFor()
   assert.equal(createCalls.length,3)
-  console.log('PASS: closed signup, email verification errors, expired verification recovery, retained fields, failed creation retry, PIN destination, existing member redirect')
+  // Reopening signup with a saved session never offers another organization.
+  await page.goto(base+'/onboarding-owner')
+  await page.getByRole('heading',{name:'PIN setup destination'}).waitFor()
+  resumeState='unlocked'
+  await page.goto(base+'/onboarding-owner')
+  await page.getByRole('heading',{name:'Existing workspace destination'}).waitFor()
+  assert.equal(createCalls.length,3)
+  // A failed membership lookup must not assume the account is a new owner.
+  resumeStatus=503
+  await page.goto(base+'/onboarding-owner')
+  await page.getByLabel('Email address').waitFor()
+  assert.equal(await page.getByLabel('Organization name',{exact:true}).count(),0)
+  console.log('PASS: closed signup, email verification errors, expired verification recovery, retained fields, failed creation retry, PIN destination, existing member redirect, verified owner resume, saved-session member routing, failed membership lookup')
  }catch(error){if(page)console.error((await page.locator('body').innerText()).slice(0,4000));throw error}
  finally{await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1})

@@ -14,6 +14,9 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json()
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid request." }, { status: 400, headers })
+    }
     if (body.action === "send") {
       if (typeof body.email !== "string" || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
         return NextResponse.json({ error: "Enter a valid email address." }, { status: 400, headers })
@@ -33,10 +36,28 @@ export async function POST(request: Request) {
       if (sendError) throw new Error("Email unavailable")
       return NextResponse.json({ success: true }, { headers })
     }
-    if (body.action !== "create") return NextResponse.json({ error: "Invalid action." }, { status: 400, headers })
+    if (!["create", "status"].includes(body.action)) return NextResponse.json({ error: "Invalid action." }, { status: 400, headers })
     const identity = await verifiedIdentity(request)
     if (!identity) return NextResponse.json({ error: "Verify your email to continue." }, { status: 401, headers })
     const state = await deviceState(identity.user.id, identity.sessionId)
+    if (body.action === "status") {
+      if (!["unlocked", "setup"].includes(state.state)) {
+        return NextResponse.json({ error: "Verify your email to continue." }, { status: 401, headers })
+      }
+      const { data: profile, error } = await supabaseAdmin.from("users").select("organization_id").eq("id", identity.user.id).single()
+      if (error || !profile) throw new Error("Profile unavailable")
+      return NextResponse.json({
+        email: identity.user.email,
+        canCreate: state.canSetPin === true,
+        destination: profile.organization_id ? (state.state === "setup" ? "/set-pin" : "/dashboard") : null,
+      }, { headers })
+    }
+    // The form may remain open while another tab changes the signed-in account.
+    // Never create an organization for an identity different from the displayed email.
+    if (typeof body.email !== "string" || !identity.user.email
+      || body.email.trim().toLowerCase() !== identity.user.email.toLowerCase()) {
+      return NextResponse.json({ error: "Your signed-in account changed. Verify the email shown here again to continue." }, { status: 401, headers })
+    }
     if (!["unlocked", "setup"].includes(state.state) || !state.canSetPin) {
       return NextResponse.json({ error: "Sign in with your email again to create your organization." }, { status: 401, headers })
     }
@@ -49,6 +70,7 @@ export async function POST(request: Request) {
       p_full_name: body.fullName, p_branch_name: body.branchName, p_organization_type: body.organizationType,
     })
     if (error?.code === "23505") return NextResponse.json({ error: "This account already has an organization. Sign in to open your workspace." }, { status: 409, headers })
+    if (error?.code === "42501") return NextResponse.json({ error: "Verify your email again to create your organization." }, { status: 401, headers })
     if (error || !organizationId) throw new Error("Creation unavailable")
     return NextResponse.json({ organizationId, destination: state.state === "setup" ? "/set-pin" : "/dashboard" }, { headers })
   } catch {
