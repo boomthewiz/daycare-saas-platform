@@ -4,6 +4,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 
+const DEFAULT_EMAIL_RETRY_AFTER_SECONDS = 60
+
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
@@ -29,8 +31,17 @@ export default function LoginPage() {
         body: JSON.stringify({ email }),
       })
       const result = await response.json()
+      if (response.status === 429) {
+        const headerSeconds = Number(response.headers.get("Retry-After"))
+        const retryAfter = Number.isSafeInteger(headerSeconds) && headerSeconds > 0
+          ? headerSeconds
+          : DEFAULT_EMAIL_RETRY_AFTER_SECONDS
+        setResendAt(Date.now() + retryAfter * 1000)
+        return
+      }
       if (!response.ok) throw new Error(result.error || "Unable to send a code.")
-      setEmail(email.trim().toLowerCase()); setSent(true); setCode(""); setResendAt(Date.now() + 60000)
+      setEmail(email.trim().toLowerCase()); setSent(true); setCode("")
+      setResendAt(Date.now() + DEFAULT_EMAIL_RETRY_AFTER_SECONDS * 1000)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to send a code.") }
     finally { setBusy(false) }
   }
@@ -60,14 +71,17 @@ export default function LoginPage() {
       <form onSubmit={event => { event.preventDefault(); void (sent ? verifyCode() : sendCode()) }}>
         {sent ? <>
           <label htmlFor="email-code" className="block text-sm font-medium text-slate-700 mb-2">Email code</label>
-          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
+          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
           <p className="mt-2 text-sm text-slate-500">Use the six-digit email code, not your four-digit PIN.</p>
         </> : <>
           <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-2">Email address</label>
           <input id="login-email" key="email" autoFocus required type="email" autoComplete="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300" />
         </>}
+        {remaining > 0 && <p role="status" aria-live="polite" className="mt-4 text-sm text-slate-600">{sent
+          ? <>We sent your code. You can request another in <strong>{remaining} seconds</strong>.</>
+          : <>For your security, please wait <strong>{remaining} seconds</strong> before requesting a code.</>}</p>}
         {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-        <button disabled={busy || (sent && ![6, 8].includes(code.length))} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : sent ? "Sign in" : "Send sign-in code"}</button>
+        <button disabled={busy || (sent && ![6, 8].includes(code.length)) || (!sent && remaining > 0)} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : sent ? "Sign in" : remaining > 0 ? `Try again in ${remaining}s` : "Send sign-in code"}</button>
       </form>
       {sent && <div className="mt-5 flex flex-col gap-3 text-center text-sm">
         <button disabled={busy || remaining > 0} onClick={() => void sendCode()} className="text-teal-800 underline disabled:text-slate-400">{remaining > 0 ? `Send another code in ${remaining}s` : "Send another code"}</button>
