@@ -4,10 +4,12 @@ import { createClient } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { privateHeaders as headers } from "@/lib/device-session-server"
 
+const DEFAULT_EMAIL_RETRY_AFTER_SECONDS = 60
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    if (typeof body?.email !== "string" || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
+    if (typeof body?.email !== "string" || body.email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email.trim())) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400, headers })
     }
     const email = body.email.trim().toLowerCase()
@@ -15,7 +17,15 @@ export async function POST(request: Request) {
       p_account_key: createHash("sha256").update("email:" + email).digest("hex"),
     })
     if (limitError || typeof limits?.[0]?.allowed !== "boolean") throw new Error("Limiter unavailable")
-    if (!limits[0].allowed) return NextResponse.json({ error: "Please wait before requesting another code." }, { status: 429, headers })
+    if (!limits[0].allowed) {
+      const retryAfter = Number.isInteger(limits[0].retry_after)
+        ? Math.max(1, limits[0].retry_after)
+        : DEFAULT_EMAIL_RETRY_AFTER_SECONDS
+      return NextResponse.json({ error: "Please wait before requesting another code." }, {
+        status: 429,
+        headers: { ...headers, "Retry-After": String(retryAfter) },
+      })
+    }
     const { data: profile } = await supabaseAdmin.from("users").select("id,status").eq("email", email).single()
     // Give the same response for unknown or inactive addresses.
     if (!profile || profile.status !== "active") return NextResponse.json({ success: true }, { headers })
@@ -36,7 +46,13 @@ export async function POST(request: Request) {
     } })
     if (error) {
       await supabaseAdmin.from("email_login_challenges").delete().eq("proof_hash", proofHash)
-      return NextResponse.json({ error: "Unable to send a code right now. Please wait and try again." }, { status: 503, headers })
+      if (error.code === "over_email_send_rate_limit") {
+        return NextResponse.json({ error: "Please wait before requesting another code." }, {
+          status: 429,
+          headers: { ...headers, "Retry-After": String(DEFAULT_EMAIL_RETRY_AFTER_SECONDS) },
+        })
+      }
+      return NextResponse.json({ error: "Unable to send a code right now. Please try again shortly." }, { status: 503, headers })
     }
     // The proof goes only to the email recipient, never to the requesting browser.
     return NextResponse.json({ success: true }, { headers })
