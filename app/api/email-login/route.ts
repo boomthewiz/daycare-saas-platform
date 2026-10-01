@@ -9,7 +9,7 @@ const DEFAULT_EMAIL_RETRY_AFTER_SECONDS = 60
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    if (typeof body?.email !== "string" || body.email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(body.email.trim())) {
+    if (typeof body?.email !== "string" || body.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400, headers })
     }
     const email = body.email.trim().toLowerCase()
