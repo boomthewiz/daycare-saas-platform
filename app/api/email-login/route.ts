@@ -47,9 +47,14 @@ export async function POST(request: Request) {
     if (error) {
       await supabaseAdmin.from("email_login_challenges").delete().eq("proof_hash", proofHash)
       if (error.code === "over_email_send_rate_limit") {
+        const retryMatch = error.message.match(/(\d+)\s+seconds?/i)
+        const retrySeconds = Number(retryMatch?.[1])
+        const retryAfter = Number.isSafeInteger(retrySeconds) && retrySeconds > 0
+          ? retrySeconds
+          : DEFAULT_EMAIL_RETRY_AFTER_SECONDS
         return NextResponse.json({ error: "Please wait before requesting another code." }, {
           status: 429,
-          headers: { ...headers, "Retry-After": String(DEFAULT_EMAIL_RETRY_AFTER_SECONDS) },
+          headers: { ...headers, "Retry-After": String(retryAfter) },
         })
       }
       return NextResponse.json({ error: "Unable to send a code right now. Please try again shortly." }, { status: 503, headers })
