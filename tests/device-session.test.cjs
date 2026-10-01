@@ -199,3 +199,29 @@ test('verified first-time email sign-in returns required setup before workspace 
   assert.equal(response.status,200)
   assert.equal((await response.json()).state,'setup')
 })
+
+
+test('email login limiter returns a retryable response with its retry timing', async () => {
+  const h=load('email-login',{limit:{data:[{allowed:false,retry_after:37}],error:null}})
+  const response=await h.POST(req({email:'person@example.invalid'}))
+  assert.equal(response.status,429)
+  assert.equal(response.headers.get('retry-after'),'37')
+  assert.deepEqual(await response.json(),{error:'Please wait before requesting another code.'})
+  assert.equal(h.calls.some(c=>c[0]==='email'),false)
+})
+
+test('Supabase email OTP cooldown returns 429 and removes its unused proof', async () => {
+  const h=load('email-login',{emailError:{code:'over_email_send_rate_limit'}})
+  const response=await h.POST(req({email:'person@example.invalid'}))
+  assert.equal(response.status,429)
+  assert.equal(response.headers.get('retry-after'),'60')
+  assert.deepEqual(await response.json(),{error:'Please wait before requesting another code.'})
+  assert.ok(h.calls.some(c=>c[0]==='delete'&&c[1]==='proof_hash'))
+})
+
+test('unexpected email provider errors remain service failures', async () => {
+  const h=load('email-login',{emailError:{code:'unexpected_auth_error',message:'private provider details'}})
+  const response=await h.POST(req({email:'person@example.invalid'}))
+  assert.equal(response.status,503)
+  assert.deepEqual(await response.json(),{error:'Unable to send a code right now. Please try again shortly.'})
+})
