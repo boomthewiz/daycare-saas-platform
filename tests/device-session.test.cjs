@@ -210,11 +210,11 @@ test('email login limiter returns a retryable response with its retry timing', a
   assert.equal(h.calls.some(c=>c[0]==='email'),false)
 })
 
-test('Supabase email OTP cooldown returns 429 and removes its unused proof', async () => {
-  const h=load('email-login',{emailError:{code:'over_email_send_rate_limit'}})
+test('Supabase email OTP cooldown returns its remaining time and removes its unused proof', async () => {
+  const h=load('email-login',{emailError:{code:'over_email_send_rate_limit',message:'Retry after 49 seconds'}})
   const response=await h.POST(req({email:'person@example.invalid'}))
   assert.equal(response.status,429)
-  assert.equal(response.headers.get('retry-after'),'60')
+  assert.equal(response.headers.get('retry-after'),'49')
   assert.deepEqual(await response.json(),{error:'Please wait before requesting another code.'})
   assert.ok(h.calls.some(c=>c[0]==='delete'&&c[1]==='proof_hash'))
 })
