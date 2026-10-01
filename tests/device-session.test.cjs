@@ -216,7 +216,8 @@ test('Supabase email OTP cooldown returns its remaining time and removes its unu
   assert.equal(response.status,429)
   assert.equal(response.headers.get('retry-after'),'49')
   assert.deepEqual(await response.json(),{error:'Please wait before requesting another code.'})
-  assert.ok(h.calls.some(c=>c[0]==='delete'&&c[1]==='proof_hash'))
+  assert.ok(h.calls.some(c=>c[0]==='delete'))
+  assert.ok(h.calls.some(c=>c[0]==='eq'&&c[1]==='proof_hash'))
 })
 
 test('unexpected email provider errors remain service failures', async () => {
