@@ -71,7 +71,7 @@ export default function LoginPage() {
       <form onSubmit={event => { event.preventDefault(); void (sent ? verifyCode() : sendCode()) }}>
         {sent ? <>
           <label htmlFor="email-code" className="block text-sm font-medium text-slate-700 mb-2">Email code</label>
-          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
+          <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
           <p className="mt-2 text-sm text-slate-500">Use the six-digit email code, not your four-digit PIN.</p>
         </> : <>
           <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-2">Email address</label>
