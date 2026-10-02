@@ -5,6 +5,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 
 const DEFAULT_EMAIL_RETRY_AFTER_SECONDS = 60
+const LOGIN_FLOW_STORAGE_KEY = "rejoyce-email-login-flow"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -14,6 +15,46 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [resendAt, setResendAt] = useState(0)
   const [remaining, setRemaining] = useState(0)
+  const [restored, setRestored] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(LOGIN_FLOW_STORAGE_KEY)
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored)
+        if (parsed && typeof parsed === "object") {
+          const flow = parsed as { email?: unknown; sent?: unknown; resendAt?: unknown }
+          if (typeof flow.email === "string" && flow.email.trim().length > 0 &&
+            typeof flow.sent === "boolean" && typeof flow.resendAt === "number" && Number.isFinite(flow.resendAt)) {
+            setEmail(flow.email)
+            setSent(flow.sent)
+            setResendAt(flow.resendAt)
+          }
+        }
+      }
+    } catch {
+      // Storage may be unavailable; sign-in still works for the current page view.
+    } finally {
+      setRestored(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!restored) return
+    try {
+      if (email.trim() && (sent || resendAt > Date.now())) {
+        window.sessionStorage.setItem(LOGIN_FLOW_STORAGE_KEY, JSON.stringify({
+          email: email.trim().toLowerCase(),
+          sent,
+          resendAt,
+        }))
+      } else {
+        window.sessionStorage.removeItem(LOGIN_FLOW_STORAGE_KEY)
+      }
+    } catch {
+      // Storage may be unavailable; sign-in still works for the current page view.
+    }
+  }, [email, sent, resendAt, restored])
 
   useEffect(() => {
     const tick = () => setRemaining(Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)))
@@ -57,6 +98,9 @@ export default function LoginPage() {
       if (!response.ok) throw new Error(result.error || "Unable to verify your code.")
       const { error: sessionError } = await supabase.auth.setSession(result.session)
       if (sessionError) throw new Error("Unable to save your sign-in. Please request a new code.")
+      try { window.sessionStorage.removeItem(LOGIN_FLOW_STORAGE_KEY) } catch {
+        // Storage may be unavailable; the authenticated redirect can still continue.
+      }
       const destination = new URLSearchParams(window.location.search).get("next") === "/profile" ? "/profile" : "/dashboard"
       window.location.assign(result.hasOrganization === false ? "/onboarding-owner" : result.state === "setup" ? "/set-pin" : destination)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to sign in.") }
