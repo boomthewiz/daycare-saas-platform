@@ -7,7 +7,7 @@ import { verifiedIdentity, deviceState, privateHeaders as headers } from "@/lib/
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-async function handle(request: Request, action: string, pin?: unknown)
+async function handle(request: Request, action: string, pin?: unknown) {
   try {
     const identity = await verifiedIdentity(request)
     if (!identity) return NextResponse.json({ state: "full_login" }, { status: 401, headers })
