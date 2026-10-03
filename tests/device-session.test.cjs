@@ -112,23 +112,33 @@ test('unknown operations are rejected before database access', async () => {
   assert.equal((await h.POST(req({action:'reset_full_auth'}))).status,400)
   assert.deepEqual(h.calls,[])
 })
-test('email proof is hashed and sent only to the trusted session operation', async () => {
-  const h=load('device-session',{states:[status('unlocked')]})
-  assert.equal((await h.POST(req({action:'complete_email',proof:'a'.repeat(64)}))).status,200)
-  const call=h.calls.find(c=>c[0]==='manage_device_session')[1]
-  assert.equal(call.p_action,'complete_email'); assert.match(call.p_proof_hash,/^[a-f0-9]{64}$/)
-  assert.notEqual(call.p_proof_hash,'a'.repeat(64))
+test('legacy email-link completion is rejected by the public device-session endpoint', async () => {
+  const h=load('device-session')
+  assert.equal((await h.POST(req({action:'complete_email',proof:'a'.repeat(64)}))).status,400)
+  assert.deepEqual(h.calls,[])
 })
-test('email requests never return their proof to the requester and disable public signup', async () => {
+test('email login requests one-time codes without signup or link redirects', async () => {
   const h=load('email-login')
   const r=await h.POST(req({email:'person@example.invalid'}))
   assert.deepEqual(await r.json(),{success:true})
   const sent=h.calls.find(c=>c[0]==='email')[1]
-  assert.equal(sent.options.shouldCreateUser,false)
-  assert.match(sent.options.emailRedirectTo,/^https:\/\/www\.rejoyceapp\.com\/auth\/confirm\?proof=[a-f0-9]{64}$/)
-  assert.ok(h.calls.some(c=>c[0]==='insert'&&/^[a-f0-9]{64}$/.test(c[1].proof_hash)))
+  assert.deepEqual(sent.options,{shouldCreateUser:false})
+  assert.equal(h.calls.some(c=>c[0]==='insert'),false)
+  assert.equal(h.calls.some(c=>c[0]==='delete'),false)
 })
-test('unknown emails get the same public response without sending a link', async () => {
+
+test('Supabase templates contain OTPs and no email links', () => {
+  const login = fs.readFileSync(path.resolve(__dirname, '../supabase/templates/email-otp.html'), 'utf8')
+  const signup = fs.readFileSync(path.resolve(__dirname, '../supabase/templates/confirm-signup.html'), 'utf8')
+  for (const template of [login, signup]) {
+    assert.match(template, /{{ \.Token }}/)
+    assert.doesNotMatch(template, /ConfirmationURL|href\s*=/i)
+  }
+  assert.equal(fs.existsSync(path.resolve(__dirname, '../supabase/templates/magic-link.html')), false)
+  assert.equal(fs.existsSync(path.resolve(__dirname, '../app/auth/confirm/page.tsx')), false)
+})
+
+test('unknown emails get the same public response without sending a code', async () => {
   const h=load('email-login',{profile:null})
   assert.deepEqual(await (await h.POST(req({email:'nobody@example.invalid'}))).json(),{success:true})
   assert.equal(h.calls.some(c=>c[0]==='email'),false)
@@ -210,14 +220,13 @@ test('email login limiter returns a retryable response with its retry timing', a
   assert.equal(h.calls.some(c=>c[0]==='email'),false)
 })
 
-test('Supabase email OTP cooldown returns its remaining time and removes its unused proof', async () => {
+test('Supabase email OTP cooldown returns its remaining time without creating link proofs', async () => {
   const h=load('email-login',{emailError:{code:'over_email_send_rate_limit',message:'Retry after 49 seconds'}})
   const response=await h.POST(req({email:'person@example.invalid'}))
   assert.equal(response.status,429)
   assert.equal(response.headers.get('retry-after'),'49')
   assert.deepEqual(await response.json(),{error:'Please wait before requesting another code.'})
-  assert.ok(h.calls.some(c=>c[0]==='delete'))
-  assert.ok(h.calls.some(c=>c[0]==='eq'&&c[1]==='proof_hash'))
+  assert.equal(h.calls.some(c=>c[0]==='insert'||c[0]==='delete'),false)
 })
 
 test('unexpected email provider errors remain service failures', async () => {

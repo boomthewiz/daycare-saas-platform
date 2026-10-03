@@ -8,7 +8,7 @@ import type { DeviceState } from "@/lib/device-session-server"
 import SubscriptionBanner from "@/components/SubscriptionBanner"
 
 const IDLE = 5 * 60 * 1000
-const publicPaths = new Set(["/login", "/auth/confirm", "/set-pin", "/request-access", "/onboarding", "/onboarding-owner"])
+const publicPaths = new Set(["/login", "/set-pin", "/request-access", "/onboarding", "/onboarding-owner"])
 type Screen = DeviceState["state"] | "checking" | "offline"
 
 export default function SessionGuard({ children }: { children: React.ReactNode }) {

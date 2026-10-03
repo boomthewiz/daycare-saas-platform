@@ -7,18 +7,11 @@ import { verifiedIdentity, deviceState, privateHeaders as headers } from "@/lib/
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-async function handle(request: Request, action: string, pin?: unknown, proof?: unknown) {
+async function handle(request: Request, action: string, pin?: unknown) {
   try {
     const identity = await verifiedIdentity(request)
     if (!identity) return NextResponse.json({ state: "full_login" }, { status: 401, headers })
     const { user, sessionId } = identity
-    if (action === "complete_email") {
-      if (typeof proof !== "string" || !/^[a-f0-9]{64}$/.test(proof)) {
-        return NextResponse.json({ state: "full_login", error: "Please request a new email link." }, { status: 401, headers })
-      }
-      const status = await deviceState(user.id, sessionId, action, createHash("sha256").update(proof).digest("hex"))
-      return NextResponse.json(status, { status: status.state === "full_login" ? 401 : 200, headers })
-    }
     const status = await deviceState(user.id, sessionId)
     if (status.state === "full_login" || status.state === "inactive") {
       return NextResponse.json(status, { status: 401, headers })
@@ -62,9 +55,9 @@ export async function GET(request: Request) { return handle(request, "status") }
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    if (!body || !["activity", "lock", "unlock", "logout", "complete_email"].includes(body.action)) {
+    if (!body || !["activity", "lock", "unlock", "logout"].includes(body.action)) {
       return NextResponse.json({ error: "Invalid action." }, { status: 400, headers })
     }
-    return handle(request, body.action, body.pin, body.proof)
+    return handle(request, body.action, body.pin)
   } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400, headers }) }
 }

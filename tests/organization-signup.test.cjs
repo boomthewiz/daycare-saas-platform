@@ -77,7 +77,8 @@ test('signup validates and rate-limits before requesting an email',async()=>{
   const h=load(options);assert.ok([429,503].includes((await h.post({action:'send',email:'synthetic@example.invalid'})).status));assert.equal(h.calls.some(c=>c[0]==='send'),false)
  }
  const h=load();assert.equal((await h.post({action:'send',email:' Synthetic@Example.invalid '})).status,200)
- assert.equal(h.calls[1][1].email,'synthetic@example.invalid');assert.equal(h.calls[1][1].options.shouldCreateUser,true)
+ assert.equal(h.calls[1][1].email,'synthetic@example.invalid');assert.deepEqual(h.calls[1][1].options,{shouldCreateUser:true})
+ assert.equal('emailRedirectTo' in h.calls[1][1].options,false)
 })
 test('creation uses verified identity and ignores supplied ownership or trial claims',async()=>{
  const h=load();const response=await h.post({...create,userId:'attacker',organizationId:'foreign',trialDays:365,role:'admin'})
