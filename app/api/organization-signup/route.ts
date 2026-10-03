@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       })
       const { error: sendError } = await auth.auth.signInWithOtp({ email, options: {
-        shouldCreateUser: true, emailRedirectTo: "https://www.rejoyceapp.com/onboarding-owner",
+        shouldCreateUser: true,
       } })
       if (sendError) throw new Error("Email unavailable")
       return NextResponse.json({ success: true }, { headers })
