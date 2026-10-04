@@ -1,13 +1,13 @@
 "use client"
 
-import { usePathname, useRouter } from "next/navigation"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { BranchSelector } from "@/components/BranchProvider"
 
 export default function Header() {
   const pathname = usePathname()
-  const router = useRouter()
 
   const [fullName, setFullName] = useState("User")
   const [userRole, setUserRole] = useState("teacher")
@@ -81,22 +81,22 @@ export default function Header() {
 
           {/* 👑 Owner Quick Action */}
           {userRole === "owner" && (
-            <button
-              onClick={() => router.push("/operations")}
+            <Link
+              href="/operations"
               className="px-5 py-3 rounded-2xl font-semibold text-white shadow-lg bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 hover:scale-105 transition-all"
             >
               ✨ New Workflow
-            </button>
+            </Link>
           )}
 
           {/* 👩‍🏫 Teacher Quick Action */}
           {userRole === "teacher" && (
-            <button
-              onClick={() => router.push("/tasks")}
+            <Link
+              href="/tasks"
               className="px-5 py-3 rounded-2xl font-semibold text-white shadow-lg bg-gradient-to-r from-blue-400 to-cyan-400 hover:scale-105 transition-all"
             >
               📋 My Tasks
-            </button>
+            </Link>
           )}
 
           {/* 👤 User Bubble */}

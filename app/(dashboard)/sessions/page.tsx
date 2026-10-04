@@ -30,7 +30,6 @@ import {
 
 import { supabase } from "@/lib/supabase"
 import {
-  useRouter,
   useSearchParams,
 } from "next/navigation"
 
@@ -123,7 +122,6 @@ const FRONTLINE_ROLES = [
 ]
 
 export default function AdminSessionsPage() {
-  const router = useRouter()
 const searchParams = useSearchParams()
 
 const requestedClientId =
@@ -405,12 +403,12 @@ const requestedClientId =
         setRefreshing(false)
       }
     },
-    []
+    [requestedClientId]
   )
 
   useEffect(() => {
     fetchPageData()
-  }, [requestedClientId])
+  }, [fetchPageData])
 
   const sessionTypeNameMap = useMemo(
     () =>
@@ -1432,6 +1430,9 @@ function SessionRowCard({
             <ExternalLink size={17} />
           </Link>
 
+          <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">
+            Edit session
+          </Link>
           <Link
             href={`/sessions/${session.id}`}
             className="rj-button rj-button-primary"
