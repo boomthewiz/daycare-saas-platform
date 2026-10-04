@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -389,6 +390,7 @@ export default function PeopleManagementPage() {
           </div>
         </div>
       </header>
+      <PageGuide guide="team" />
 
       {branchContext.error && <div role="alert" className="rj-card p-4 text-red-700">
         {branchContext.error} <button type="button" className="underline" onClick={() => void branchContext.reload()}>Retry</button>

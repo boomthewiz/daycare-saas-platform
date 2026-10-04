@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -145,28 +146,7 @@ const FRONTLINE_ROLES = [
   "staff",
 ]
 
-const SESSION_TYPES = [
-  {
-    value: "direct_therapy",
-    label: "Direct service",
-  },
-  {
-    value: "education_support",
-    label: "Education support",
-  },
-  {
-    value: "classroom_support",
-    label: "Classroom support",
-  },
-  {
-    value: "care_session",
-    label: "Care session",
-  },
-  {
-    value: "assessment",
-    label: "Assessment",
-  },
-]
+type ConfiguredSessionType = { id: string; code: string; name: string; active: boolean }
 
 const SESSION_STATUSES: {
   value: SessionStatus
@@ -289,6 +269,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
   const [updatingTargetId, setUpdatingTargetId] =
     useState<string | null>(null)
 
+  const [configuredTypes, setConfiguredTypes] = useState<ConfiguredSessionType[]>([])
+  const [typeError, setTypeError] = useState("")
   const [pageError, setPageError] =
     useState<string | null>(null)
 
@@ -355,6 +337,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           clientTargetResult,
           noteResult,
           responseResult,
+          typeResult,
         ] = await Promise.all([
           supabase
             .from("clients")
@@ -444,6 +427,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               session_target_id
             `)
             .eq("session_id", sessionId),
+          supabase.from("session_types").select("id,code,name,active")
+            .eq("organization_id", loadedSession.organization_id)
+            .order("sort_order").order("name"),
         ])
 
         if (clientResult.error) {
@@ -473,6 +459,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         if (responseResult.error) {
           throw new Error(responseResult.error.message)
         }
+
+        setTypeError(typeResult.error ? "Unable to load configured service types. Refresh before changing the type." : "")
+        setConfiguredTypes(typeResult.error ? [] : (typeResult.data || []) as ConfiguredSessionType[])
 
         const loadedSessionTargets =
           (sessionTargetResult.data ||
@@ -1022,7 +1011,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
     <div className="mx-auto max-w-7xl space-y-6">
       {discardDialog}
       {/* Breadcrumb */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
           href="/sessions"
           className="inline-flex items-center gap-2 font-bold text-[var(--rj-teal-700)]"
@@ -1087,7 +1076,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             </p>
 
             <p className="rj-caption mt-1">
-              {formatLabel(session.session_type)}
+              {configuredTypes.find(type => type.code === session.session_type)?.name || formatLabel(session.session_type)}
               {session.location
                 ? ` · ${session.location}`
                 : ""}
@@ -1115,6 +1104,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           </div>}
         </div>
       </header>
+      <PageGuide guide="session" />
 
       {pageError && (
         <MessageBanner
@@ -1133,7 +1123,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
       )}
 
       {/* Overview */}
-      {!editing && <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {!editing && <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
           label="Assigned to"
           value={
@@ -1175,7 +1165,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         />
       </section>}
 
-      <div className={editing ? "mx-auto max-w-3xl" : "grid gap-6 xl:grid-cols-[minmax(330px,420px)_minmax(0,1fr)]"}>
+      <div className={editing ? "mx-auto max-w-3xl" : "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(330px,420px)_minmax(0,1fr)]"}>
         {/* Session Details */}
         <section className="rj-card h-fit p-4 sm:p-6">
           <div className="flex items-center gap-3">
@@ -1201,7 +1191,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               {historical && <p>This historical session is read-only.</p>}
             </div>
           ) : <>
-          <div className="sticky top-3 z-10 mt-5 flex gap-3 rounded-xl border border-[var(--rj-border)] bg-[var(--rj-surface)] p-3 shadow-sm">
+          <div className="sticky top-3 z-10 mt-5 flex flex-col gap-3 rounded-xl border border-[var(--rj-border)] bg-[var(--rj-surface)] p-3 shadow-sm sm:flex-row">
             <SubscriptionWriteControls>
             <button
               type="submit"
@@ -1232,7 +1222,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             onSubmit={handleSaveSession}
             className="mt-6 space-y-5"
           >
-            <fieldset disabled={!canManage || historical || savingSession} className="space-y-5">
+            <fieldset disabled={!canManage || historical || savingSession} className="min-w-0 space-y-5">
             <FormField label="Assigned frontline worker">
               <select
                 value={providerId}
@@ -1264,23 +1254,26 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 
             <FormField label="Session type">
               <select
+                aria-label="Session type"
                 value={sessionType}
                 onChange={(event) =>
                   setSessionType(event.target.value)
                 }
                 className="rj-input"
-                disabled={hasStarted || historical}
+                disabled={hasStarted || historical || !!typeError}
               >
-                {!SESSION_TYPES.some(type => type.value === sessionType) && <option value={sessionType}>{formatLabel(sessionType)}</option>}
-                {SESSION_TYPES.map((type) => (
+                {!configuredTypes.some(type => type.code === sessionType) && <option value={sessionType}>{formatLabel(sessionType)} (saved type)</option>}
+                {configuredTypes.filter(type => type.active || type.code === session.session_type).map((type) => (
                   <option
-                    key={type.value}
-                    value={type.value}
+                    key={type.id}
+                    value={type.code}
                   >
-                    {type.label}
+                    {type.name}{!type.active ? " (inactive, saved type)" : ""}
                   </option>
                 ))}
               </select>
+              {typeError && <p role="alert" className="rj-caption mt-2">{typeError}</p>}
+              <p className="rj-caption mt-2">Changing the service type preserves these scheduled times. Adjust Start and End explicitly if needed.</p>
             </FormField>
 
             <FormField label="Start">
@@ -1893,7 +1886,7 @@ function OverviewCard({
 }) {
   return (
     <article className="rj-card p-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="rj-label">
             {label}

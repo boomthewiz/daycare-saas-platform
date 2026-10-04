@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -25,11 +26,8 @@ import {
   Check,
   CheckCircle2,
   CircleAlert,
-  Clock3,
   Edit3,
   ExternalLink,
-  FileText,
-  ListChecks,
   LoaderCircle,
   PauseCircle,
   Plus,
@@ -39,9 +37,7 @@ import {
   Search,
   Sparkles,
   Target,
-  Trash2,
   UserRound,
-  Users,
   X,
 } from "lucide-react"
 
@@ -1265,6 +1261,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </header>
+      <PageGuide guide="client" />
 
       {pageError && (
         <MessageBanner

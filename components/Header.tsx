@@ -82,7 +82,7 @@ export default function Header() {
           {/* 👑 Owner Quick Action */}
           {userRole === "owner" && (
             <Link
-              href="/setup/preferences"
+              href="/setup"
               className="px-5 py-3 rounded-2xl font-semibold text-white shadow-lg bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 hover:scale-105 transition-all"
             >
               Setup
