@@ -346,7 +346,7 @@ export default function PeopleManagementPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            {canManageClients && <Link href="/team-management/care-setup" className="rj-button rj-button-secondary">Care-team setup</Link>}
+            {canManageClients && <Link href="/setup/care-teams" className="rj-button rj-button-secondary">Care-team setup</Link>}
             <button
               type="button"
               onClick={() => loadPeople(true)}
@@ -482,7 +482,7 @@ export default function PeopleManagementPage() {
                   onChange={setClientBranchIds} disabled={saving || branchContext.loading || !!branchContext.error} />
               </div>
               <div className="space-y-3 md:col-span-2">
-                <Link href="/team-management/care-setup" className="font-semibold underline">Set up staff branches and groups</Link>
+                <Link href="/setup/care-teams" className="font-semibold underline">Set up staff branches and groups</Link>
                 {careError && <p role="alert" className="text-red-700">{careError} <button type="button" className="underline" onClick={() => setCareAttempt(value => value + 1)}>Retry</button></p>}
                 {careLoading ? <p>Loading care-team setup…</p> : careContext && <CareTeamPicker context={careContext} locationIds={activeClientBranches}
                   selected={careMemberIds} primaryId={assignedProviderId} disabled={saving || !!careError}

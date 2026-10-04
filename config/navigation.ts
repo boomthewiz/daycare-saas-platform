@@ -65,10 +65,10 @@ export const navigationItems: NavigationItem[] = [
   },
 
   {
-    name: "Operations",
-    href: "/operations",
+    name: "Setup",
+    href: "/setup",
     icon: Settings2,
-    permission: "can_manage_operations",
+    permission: null,
   },
 
   {

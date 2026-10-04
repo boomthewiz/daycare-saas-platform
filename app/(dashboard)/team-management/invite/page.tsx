@@ -60,7 +60,7 @@ const ROLE_OPTIONS: RoleOption[] = [
     label: "Administrator",
     group: "administrative",
     description:
-      "Broad organization access including people, sessions, configuration, and administrative workflows.",
+      "Administrative account. Management actions require explicit permission grants; administrators also have protected note-administration access.",
   },
   {
     value: "manager",
@@ -644,37 +644,7 @@ const handleInvite = async (
               )}
             </FormField>
 
-            <div className="rounded-[var(--rj-radius-lg)] bg-[var(--rj-surface-muted)] p-5">
-              <p className="font-bold">
-                What happens next?
-              </p>
-
-              <div className="mt-4 space-y-4">
-                <InvitationStep
-                  number={1}
-                  title="Invitation email"
-                  description="The team member receives a secure account invitation."
-                />
-
-                <InvitationStep
-                  number={2}
-                  title="Account activation"
-                  description="They follow the invitation link and establish their authenticated session."
-                />
-
-                <InvitationStep
-                  number={3}
-                  title="Create 4-digit PIN"
-                  description="On first login, they create the quick-access PIN used by the mobile workflow."
-                />
-
-                <InvitationStep
-                  number={4}
-                  title="Assigned work appears"
-                  description="Sessions assigned by administrators become available in My Sessions."
-                />
-              </div>
-            </div>
+            <p className="rj-caption">The invitation lets them activate their account and create a PIN. <Link href="/setup/roles" className="underline">Role and access guide</Link></p>
 
             <button
               type="submit"
@@ -698,49 +668,6 @@ const handleInvite = async (
         </section>
 
         <aside className="space-y-5">
-          <section className="rj-card p-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]">
-              <ShieldCheck size={21} />
-            </div>
-
-            <h2 className="rj-heading-3 mt-4">
-              Role-based access
-            </h2>
-
-            <p className="rj-caption mt-2">
-              Selecting a role controls the
-              navigation shown to the user, while
-              database RLS determines which records
-              they are actually allowed to access.
-            </p>
-          </section>
-
-          <section className="rj-card p-5">
-            <h2 className="font-bold">
-              Frontline accounts
-            </h2>
-
-            <p className="rj-caption mt-2">
-              Teachers, therapists, educators,
-              aides, caregivers, and other frontline
-              staff see only the sessions and clients
-              assigned to them.
-            </p>
-          </section>
-
-          <section className="rj-card p-5">
-            <h2 className="font-bold">
-              Administrative accounts
-            </h2>
-
-            <p className="rj-caption mt-2">
-              Administrative access should be given
-              intentionally. Additional permission
-              controls can further limit billing,
-              reporting, or review access.
-            </p>
-          </section>
-
           {inviteResult?.user_id && (
   <section className="rounded-[var(--rj-radius-lg)] bg-[var(--rj-success-soft)] p-5">
     <CheckCircle2
@@ -795,34 +722,6 @@ function FormField({
         {children}
       </div>
     </label>
-  )
-}
-
-function InvitationStep({
-  number,
-  title,
-  description,
-}: {
-  number: number
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[var(--rj-teal-700)]">
-        {number}
-      </div>
-
-      <div>
-        <p className="text-sm font-bold">
-          {title}
-        </p>
-
-        <p className="rj-caption mt-1">
-          {description}
-        </p>
-      </div>
-    </div>
   )
 }
 

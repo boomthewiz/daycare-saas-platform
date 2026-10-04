@@ -15,7 +15,7 @@ export default function Header() {
   // ✨ Dynamic page title map
   const pageTitles: Record<string, string> = {
     "/dashboard": "Dashboard",
-    "/operations": "Operations Setup",
+    "/setup/preferences": "Operations Setup",
     "/invite-teacher": "Team Management",
     "/request-access": "Access Requests",
     "/billing": "Billing & Subscription",
@@ -25,7 +25,7 @@ export default function Header() {
 
   const pageSubtitles: Record<string, string> = {
     "/dashboard": "Track daily workflows and team progress",
-    "/operations": "Configure recurring tasks and workflow structure",
+    "/setup/preferences": "Configure recurring tasks and workflow structure",
     "/invite-teacher": "Manage your team and staff access",
     "/request-access": "Review and manage owner access requests",
     "/billing": "Manage plans, subscriptions, and invoices",
@@ -33,9 +33,9 @@ export default function Header() {
     "/profile": "Manage your personal account settings",
   }
 
-  const title = pageTitles[pathname] || "ReJoyce"
+  const title = pathname.startsWith("/setup") ? "Setup" : pageTitles[pathname] || "ReJoyce"
   const subtitle =
-    pageSubtitles[pathname] || "Workflow management made simple"
+    pathname.startsWith("/setup") ? "Business and team settings" : pageSubtitles[pathname] || "Workflow management made simple"
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -82,10 +82,10 @@ export default function Header() {
           {/* 👑 Owner Quick Action */}
           {userRole === "owner" && (
             <Link
-              href="/operations"
+              href="/setup/preferences"
               className="px-5 py-3 rounded-2xl font-semibold text-white shadow-lg bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 hover:scale-105 transition-all"
             >
-              ✨ New Workflow
+              Setup
             </Link>
           )}
 
