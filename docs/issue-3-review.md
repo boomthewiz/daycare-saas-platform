@@ -30,9 +30,9 @@ Existing unlocked-session, caller identity, active-account, organization write a
 
 ## Acceptance and rollout
 
-The Supabase CLI generated supabase/migrations/20261004011959_invitation_email_reservations.sql. Apply the reviewed migration before deploying the route; absent RPCs fail closed. Keep the SQL draft as a reference, not a second migration.
+The Supabase CLI generated the migration at 20261004011959. The production MCP migration application recorded version 20261004012441; the file was renamed to this actual recorded version to keep repository and production history aligned. The migration is applied. Post-application SQL assertions passed in rolled-back transactions, including service-role admission and backoff. No test reservations were retained. Keep the SQL draft as a reference, not a second migration.
 
-Live URL inspection confirms https://www.rejoyceapp.com as Site URL and wildcard allowlists for www, apex, m, and localhost:3000. The live invitation template uses ConfirmationURL. Invitation/recovery links alone cannot create trusted device state. Email-code verification must precede PIN setup and workspace access; preserve that gate.
+Live URL inspection confirms https://www.rejoyceapp.com as Site URL and wildcard allowlists for www, apex, m, and localhost:3000. The live invitation and recovery templates use ConfirmationURL. Invitation/recovery links alone cannot create trusted device state. Email-code verification must precede PIN setup and workspace access; preserve that gate.
 
 DNS inspection found SPF v=spf1 include:secureserver.net -all, DMARC p=quarantine with relaxed alignment, and both Microsoft DKIM selector CNAMEs. DNS presence does not prove DKIM signing or SPF/DMARC pass on delivered mail; inspect a real message's authentication results.
 
