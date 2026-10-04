@@ -526,9 +526,9 @@ export default function DashboardPage() {
             />
 
             <QuickActionCard
-              title="Operations"
-              description="Configure organization workflows and resources."
-              href="/operations"
+              title="Setup"
+              description="Configure business preferences, team access, and reusable session options."
+              href="/setup"
               icon={Settings2}
               tone="mint"
             />

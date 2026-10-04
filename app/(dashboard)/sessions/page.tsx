@@ -709,7 +709,7 @@ const requestedClientId =
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
               Schedule services using the session
               types, durations, and locations
-              configured in Operations.
+              configured in Setup.
             </p>
           </div>
 
@@ -718,7 +718,7 @@ const requestedClientId =
               href="/setup/preferences"
               className="rj-button rj-button-secondary"
             >
-              Configure Options
+              Setup options
             </Link>
 
             <button
@@ -1143,9 +1143,9 @@ const requestedClientId =
 
           {sessionTypes.length === 0 && (
             <EmptyRequirement
-              text="Create an active session type in Operations before scheduling."
+              text="Create an active session type in Setup before scheduling."
               href="/setup/preferences"
-              linkText="Open Operations"
+              linkText="Open Setup"
             />
           )}
         </section>
