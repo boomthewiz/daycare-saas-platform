@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import { useSetupAccess } from "@/lib/use-setup-access"
 import SessionTypeDurationField from "@/components/SessionTypeDurationField"
 import { validateSessionTypeDuration } from "@/lib/session-type-duration"
@@ -809,6 +810,7 @@ export default function PreferencesPage() {
           </div>
         </div>
       </header>
+      <PageGuide guide="preferences" />
 
       {pageError && (
         <MessageBanner

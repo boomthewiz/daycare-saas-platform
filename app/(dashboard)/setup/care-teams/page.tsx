@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
@@ -81,6 +82,7 @@ export default function CareSetupPage() {
     <Link href="/setup" className="underline">Back to Setup</Link>
     <h1 className="rj-heading-1">Care-team setup</h1>
     <p>Set staff branches first, then organize teams, classes, or groups. Groups are selection shortcuts; adding a member does not grant access to any client.</p>
+    <PageGuide guide="care" />
     {error && <p role="alert" className="text-red-700">{error} <button type="button" disabled={saving} className="underline" onClick={() => {
       if (window.confirm("Reload setup? Unsaved setup changes will be discarded.")) { setStaffId(""); setStaffBranches([]); edit(null); setAttempt(value => value + 1) }
     }}>Reload setup</button></p>}

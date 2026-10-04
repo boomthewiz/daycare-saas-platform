@@ -38,3 +38,6 @@ coverage/
 # Misc
 .cache
 .parcel-cache
+
+# Synthetic browser verification artifacts
+/work/setup-guide-evidence/

@@ -1,5 +1,6 @@
 "use client"
 
+import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -743,6 +744,7 @@ const requestedClientId =
           </div>
         </div>
       </header>
+      <PageGuide guide="sessions" />
 
       {pageError && (
         <MessageBanner
@@ -788,7 +790,7 @@ const requestedClientId =
       )}
 
       {/* Summary */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SessionSummaryCard
           label="Upcoming"
           value={upcomingCount}
@@ -817,7 +819,7 @@ const requestedClientId =
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
         {/* Create Session */}
         <section className="rj-card h-fit p-6 xl:sticky xl:top-6">
           <div className="flex items-center gap-3">
@@ -986,7 +988,7 @@ const requestedClientId =
               />
             </FormField>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
                   <CalendarDays
@@ -1172,7 +1174,7 @@ const requestedClientId =
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
                 <div className="relative">
                   <Search
                     size={18}
@@ -1188,7 +1190,7 @@ const requestedClientId =
                       )
                     }
                     placeholder="Search sessions…"
-                    className="rj-input min-w-[220px] pl-11"
+                    className="rj-input min-w-0 pl-11"
                   />
                 </div>
 
@@ -1205,7 +1207,7 @@ const requestedClientId =
                         event.target.value
                       )
                     }
-                    className="rj-input min-w-[175px] pl-11"
+                    className="rj-input min-w-0 pl-11"
                   >
                     <option value="all">
                       All statuses
@@ -1377,7 +1379,7 @@ function SessionRowCard({
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SessionDetail
               icon={CalendarDays}
               label="Schedule"
@@ -1421,7 +1423,7 @@ function SessionRowCard({
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+        <div className="flex shrink-0 flex-col flex-wrap gap-3 sm:flex-row">
           <Link
             href={`/session/${session.id}`}
             className="rj-button rj-button-secondary"

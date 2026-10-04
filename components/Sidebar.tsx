@@ -201,8 +201,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
+      className={`min-h-screen w-20 shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
+        collapsed ? "sm:w-20" : "sm:w-64"
       }`}
     >
       {/* Header */}
@@ -214,7 +214,7 @@ export default function Sidebar() {
         } p-4`}
       >
         {!collapsed && (
-          <h1 className="text-lg font-bold text-gray-800">
+          <h1 className="hidden text-lg font-bold text-gray-800 sm:block">
             ReJoyce
           </h1>
         )}
@@ -229,7 +229,7 @@ export default function Sidebar() {
               ? "Expand sidebar"
               : "Collapse sidebar"
           }
-          className="p-2 rounded-lg hover:bg-gray-100 transition"
+          className="hidden p-2 rounded-lg hover:bg-gray-100 transition sm:block"
         >
           {collapsed ? (
             <ChevronRight size={20} />
@@ -272,18 +272,15 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.name}
                 aria-current={
                   isActive ? "page" : undefined
                 }
-                title={
-                  collapsed
-                    ? item.name
-                    : undefined
-                }
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                title={item.name}
+                className={`flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl transition sm:flex-row sm:gap-3 sm:px-4 ${
                   collapsed
                     ? "justify-center"
-                    : ""
+                    : "sm:justify-start"
                 } ${
                   isActive
                     ? "bg-gray-100 text-gray-900 font-semibold"
@@ -296,9 +293,7 @@ export default function Sidebar() {
                   className="shrink-0"
                 />
 
-                {!collapsed && (
-                  <span>{item.name}</span>
-                )}
+                <span className={`text-center text-[10px] leading-tight ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}>{item.name}</span>
               </Link>
             )
           })
@@ -306,7 +301,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto p-4">
+      <div className="mt-auto hidden p-4 sm:block">
         {!collapsed ? (
           <div className="text-sm text-gray-500">
             {isOwner
