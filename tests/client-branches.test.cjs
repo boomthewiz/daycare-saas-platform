@@ -46,7 +46,7 @@ function harness(selectedBranchId = "north") {
     },
     async rpc(name,args) {
       calls.push({name,args})
-      return {data:name === "can_manage_clients" ? true : "new-client",error:null}
+      return {data:name === "can_manage_clients" ? true : name === "care_context" ? {staff:[],groups:[],member_ids:[],location_ids:[],primary_id:null,version:null} : "new-client",error:null}
     },
   }
   function ClientBranchPicker() { return null }
@@ -59,6 +59,8 @@ function harness(selectedBranchId = "north") {
     "@/components/BranchProvider":{useBranches:() => context},
     "@/components/ClientBranchPicker":{default:ClientBranchPicker},
     "@/lib/branches":branchHelpers,
+    "@/components/CareTeamPicker":{default:() => null},
+    "@/lib/care-team":loadTs("lib/care-team.ts"),
   }).default
   function render() { index=0; return Component() }
   function all(node,predicate,result=[]) {
@@ -84,7 +86,7 @@ function harness(selectedBranchId = "north") {
 test("new client defaults to the selected branch; manual multiple selections survive a workspace switch", async () => {
   const h=harness()
   let tree=await h.ready()
-  h.add(tree); tree=h.render()
+  h.add(tree); tree=await h.ready()
   assert.deepEqual(h.picker(tree).props.value,["north"])
   h.picker(tree).props.onChange(["north","south"])
   h.context.selectedBranchId="south"
@@ -94,7 +96,7 @@ test("new client defaults to the selected branch; manual multiple selections sur
   h.all(form,n=>n.type==="input")[0].props.onChange({target:{value:"Synthetic"}})
   tree=h.render()
   await h.all(tree,n=>n.type==="form")[0].props.onSubmit({preventDefault(){}})
-  assert.deepEqual(h.calls.find(c=>c.name==="create_client_with_locations").args.p_location_ids,["north","south"])
+  assert.deepEqual(h.calls.find(c=>c.name==="create_client_with_care_team").args.p_location_ids,["north","south"])
   assert.deepEqual(h.routes,["/clients/new-client"])
 })
 

@@ -30,6 +30,8 @@ import { useRouter } from "next/navigation"
 import { useBranches } from "@/components/BranchProvider"
 import ClientBranchPicker from "@/components/ClientBranchPicker"
 import { initialClientBranches } from "@/lib/branches"
+import CareTeamPicker from "@/components/CareTeamPicker"
+import { CareContext, eligibleStaff } from "@/lib/care-team"
 
 type Tab = "clients" | "team"
 
@@ -71,6 +73,11 @@ export default function PeopleManagementPage() {
     useState("")
   const [assignedProviderId, setAssignedProviderId] =
     useState("")
+  const [careContext, setCareContext] = useState<CareContext | null>(null)
+  const [careMemberIds, setCareMemberIds] = useState<string[]>([])
+  const [careLoading, setCareLoading] = useState(false)
+  const [careError, setCareError] = useState("")
+  const [careAttempt, setCareAttempt] = useState(0)
 
   const [search, setSearch] = useState("")
   const [showClientForm, setShowClientForm] =
@@ -174,21 +181,20 @@ export default function PeopleManagementPage() {
     loadPeople()
   }, [loadPeople])
 
-  const frontlineMembers = useMemo(
-    () =>
-      team.filter((member) =>
-        [
-          "therapist",
-          "teacher",
-          "educator",
-          "assistant",
-          "aide",
-          "caregiver",
-          "staff",
-        ].includes(member.role)
-      ),
-    [team]
-  )
+  useEffect(() => {
+    if (!showClientForm || !canManageClients) return
+    let live = true
+    setCareLoading(true); setCareError("")
+    void supabase.rpc("care_context", { p_client_id: null }).then(result => {
+      if (!live) return
+      if (result.error) setCareError(result.error.message)
+      else setCareContext(result.data as CareContext)
+      setCareLoading(false)
+    })
+    return () => { live = false }
+  }, [showClientForm, canManageClients, careAttempt])
+  const activeClientBranches = clientBranchIds.filter(id => branchContext.branches.some(branch => branch.id === id && branch.active))
+  const invalidCareSelection = careMemberIds.some(id => !careContext?.staff.some(person => person.id === id && eligibleStaff(person, activeClientBranches)))
 
   const filteredClients = useMemo(() => {
     const value = search.trim().toLowerCase()
@@ -232,17 +238,22 @@ export default function PeopleManagementPage() {
       setPageError("Choose at least one branch for this client.")
       return
     }
+    if (!canManageClients || !careContext || careLoading || careError || invalidCareSelection) {
+      setPageError("Load care-team setup and resolve unavailable selections before saving.")
+      return
+    }
 
     setSaving(true)
     setPageError(null)
     setSuccessMessage(null)
 
     try {
-      const { data: clientId, error } = await supabase.rpc("create_client_with_locations", {
+      const { data: clientId, error } = await supabase.rpc("create_client_with_care_team", {
         p_first_name: firstName.trim(),
         p_last_name: lastName.trim() || null,
         p_preferred_name: preferredName.trim() || null,
-        p_assigned_provider_id: assignedProviderId || null,
+        p_primary_id: assignedProviderId || null,
+        p_member_ids: careMemberIds,
         p_location_ids: clientBranchIds,
       })
       if (error) throw new Error(error.message)
@@ -253,6 +264,7 @@ export default function PeopleManagementPage() {
       setLastName("")
       setPreferredName("")
       setAssignedProviderId("")
+      setCareMemberIds([])
       setShowClientForm(false)
 
       setSuccessMessage(
@@ -334,6 +346,7 @@ export default function PeopleManagementPage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
+            {canManageClients && <Link href="/team-management/care-setup" className="rj-button rj-button-secondary">Care-team setup</Link>}
             <button
               type="button"
               onClick={() => loadPeople(true)}
@@ -464,42 +477,22 @@ export default function PeopleManagementPage() {
                 />
               </FormField>
 
-              <FormField label="Primary team member">
-                <select
-                  value={assignedProviderId}
-                  onChange={(event) =>
-                    setAssignedProviderId(
-                      event.target.value
-                    )
-                  }
-                  className="rj-input"
-                >
-                  <option value="">
-                    Not assigned
-                  </option>
-
-                  {frontlineMembers.map((member) => (
-                    <option
-                      key={member.id}
-                      value={member.id}
-                    >
-                      {member.full_name ||
-                        member.email ||
-                        "Unnamed user"}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-
               <div className="md:col-span-2">
                 <ClientBranchPicker branches={branchContext.branches} value={clientBranchIds}
                   onChange={setClientBranchIds} disabled={saving || branchContext.loading || !!branchContext.error} />
+              </div>
+              <div className="space-y-3 md:col-span-2">
+                <Link href="/team-management/care-setup" className="font-semibold underline">Set up staff branches and groups</Link>
+                {careError && <p role="alert" className="text-red-700">{careError} <button type="button" className="underline" onClick={() => setCareAttempt(value => value + 1)}>Retry</button></p>}
+                {careLoading ? <p>Loading care-team setup…</p> : careContext && <CareTeamPicker context={careContext} locationIds={activeClientBranches}
+                  selected={careMemberIds} primaryId={assignedProviderId} disabled={saving || !!careError}
+                  onChange={(ids, primary) => { setCareMemberIds(ids); setAssignedProviderId(primary) }} />}
               </div>
 
               <div className="flex gap-3 md:col-span-2">
                 <button
                   type="submit"
-                  disabled={saving || branchContext.loading || !!branchContext.error || !clientBranchIds.length}
+                  disabled={saving || branchContext.loading || !!branchContext.error || !clientBranchIds.length || careLoading || !!careError || !careContext || invalidCareSelection}
                   className="rj-button rj-button-primary"
                 >
                   {saving ? (

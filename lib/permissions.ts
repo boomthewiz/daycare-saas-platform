@@ -2,7 +2,7 @@
 export const permissionDefinitions = [
   { key: "can_delegate_permissions", label: "May delegate permissions", description: "With Manage users, allows editing other team members’ permission grants. Only owners and administrators can change this setting or billing grants.", grantAuthority: "owner_admin" },
   { key: "can_manage_users", label: "Manage users", description: "Invite, edit, and deactivate organization accounts. Only owners and administrators can manage administrators.", grantAuthority: "delegate" },
-  { key: "can_manage_clients", label: "Manage clients", description: "Create and edit client profiles, targets, and behaviors.", grantAuthority: "delegate" },
+  { key: "can_manage_clients", label: "Manage clients", description: "Create and edit client profiles, care-team assignments, targets, and behaviors, and set up staff branches and care groups.", grantAuthority: "delegate" },
   { key: "can_manage_sessions", label: "Manage sessions", description: "Create, prepare, edit, and assign sessions.", grantAuthority: "delegate" },
   { key: "can_review_sessions", label: "Review session notes", description: "Review submitted documentation and return or approve notes.", grantAuthority: "delegate" },
   { key: "can_view_reports", label: "View reports", description: "Access organization reporting and analytics.", grantAuthority: "delegate" },
