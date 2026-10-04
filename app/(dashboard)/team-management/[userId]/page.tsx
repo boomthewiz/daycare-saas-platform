@@ -308,9 +308,10 @@ export default function ManageTeamMemberPage() {
               id,
               first_name,
               preferred_name,
-              status
+              status,
+              client_care_members!inner(user_id)
             `)
-            .eq("assigned_provider_id", userId)
+            .eq("client_care_members.user_id", userId)
             .order("preferred_name", {
               ascending: true,
               nullsFirst: false,
@@ -1277,16 +1278,15 @@ export default function ManageTeamMemberPage() {
               </p>
 
               <h2 className="rj-heading-2 mt-1">
-                Primary Clients
+                Care-team Clients
               </h2>
             </div>
 
             {assignedClients.length === 0 ? (
               <div className="p-7 text-center">
                 <p className="rj-caption">
-                  No clients currently use this
-                  account as their primary frontline
-                  worker.
+                  This account is not currently selected
+                  in any client’s care team.
                 </p>
               </div>
             ) : (

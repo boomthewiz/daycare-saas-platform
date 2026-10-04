@@ -12,6 +12,7 @@ import {
 } from "react"
 import Link from "next/link"
 import ClientBranches from "@/components/ClientBranches"
+import ClientCareTeam from "@/components/ClientCareTeam"
 import { useParams, useRouter } from "next/navigation"
 import {
   Activity,
@@ -681,8 +682,6 @@ export default function ClientDetailPage() {
           preferred_name:
             preferredName.trim() || null,
           status: clientStatus,
-          assigned_provider_id:
-            assignedProviderId || null,
         })
         .eq("id", client.id)
 
@@ -1363,6 +1362,7 @@ export default function ClientDetailPage() {
       </section>
 
       {activeTab === "overview" && <ClientBranches clientId={clientId} />}
+      {activeTab === "overview" && <ClientCareTeam clientId={clientId} onSaved={setAssignedProviderId} />}
 
       {activeTab === "overview" && (
         <OverviewTab
@@ -1370,16 +1370,11 @@ export default function ClientDetailPage() {
           lastName={lastName}
           preferredName={preferredName}
           clientStatus={clientStatus}
-          assignedProviderId={assignedProviderId}
-          providers={providers}
           saving={savingProfile}
           setFirstName={setFirstName}
           setLastName={setLastName}
           setPreferredName={setPreferredName}
           setClientStatus={setClientStatus}
-          setAssignedProviderId={
-            setAssignedProviderId
-          }
           onSubmit={saveProfile}
         />
       )}
@@ -1614,28 +1609,22 @@ function OverviewTab({
   lastName,
   preferredName,
   clientStatus,
-  assignedProviderId,
-  providers,
   saving,
   setFirstName,
   setLastName,
   setPreferredName,
   setClientStatus,
-  setAssignedProviderId,
   onSubmit,
 }: {
   firstName: string
   lastName: string
   preferredName: string
   clientStatus: ClientStatus
-  assignedProviderId: string
-  providers: ProviderRecord[]
   saving: boolean
   setFirstName: (value: string) => void
   setLastName: (value: string) => void
   setPreferredName: (value: string) => void
   setClientStatus: (value: ClientStatus) => void
-  setAssignedProviderId: (value: string) => void
   onSubmit: (
     event: FormEvent<HTMLFormElement>
   ) => void
@@ -1720,42 +1709,6 @@ function OverviewTab({
             </option>
           </select>
         </FormField>
-
-        <div className="md:col-span-2">
-          <FormField label="Primary frontline worker">
-            <select
-              value={assignedProviderId}
-              onChange={(event) =>
-                setAssignedProviderId(
-                  event.target.value
-                )
-              }
-              className="rj-input"
-            >
-              <option value="">
-                Not assigned
-              </option>
-
-              {providers.map((provider) => (
-                <option
-                  key={provider.id}
-                  value={provider.id}
-                >
-                  {provider.full_name ||
-                    provider.email ||
-                    "Unnamed user"}{" "}
-                  — {formatLabel(provider.role)}
-                </option>
-              ))}
-            </select>
-
-            <p className="rj-caption mt-2">
-              This is the client’s default worker.
-              Individual sessions can still be assigned to
-              someone else.
-            </p>
-          </FormField>
-        </div>
 
         <div className="md:col-span-2">
           <button

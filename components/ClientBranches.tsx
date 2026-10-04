@@ -49,6 +49,7 @@ export default function ClientBranches({ clientId }: { clientId: string }) {
       const { error: saveError } = await supabase.rpc("set_client_locations", { p_client_id: clientId, p_location_ids: selected })
       if (saveError) throw saveError
       setMessage("Client branches saved.")
+      window.dispatchEvent(new CustomEvent("rejoyce:client-branches-changed", { detail: { clientId, locationIds: selected } }))
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save branches. Please retry.") }
     finally { setSaving(false) }
   }

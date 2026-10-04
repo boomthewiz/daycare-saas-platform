@@ -3,17 +3,18 @@
 import Link from "next/link"
 import { Branch } from "@/lib/branches"
 
-export default function ClientBranchPicker({ branches, value, onChange, disabled = false }: {
+export default function ClientBranchPicker({ branches, value, onChange, disabled = false, description = "Choose one or more branches where this client receives services." }: {
   branches: Branch[]
   value: string[]
   onChange: (ids: string[]) => void
   disabled?: boolean
+  description?: string
 }) {
   const options = branches.filter(branch => branch.active || value.includes(branch.id))
   const selectedNames = branches.filter(branch => value.includes(branch.id)).map(branch => branch.name)
   return <fieldset disabled={disabled} className="min-w-0">
     <legend className="rj-label">Branches</legend>
-    <p className="rj-caption my-2">Choose one or more branches where this client receives services.</p>
+    <p className="rj-caption my-2">{description}</p>
     {options.length ? <details className="rounded-xl border border-[var(--rj-border)] bg-white">
       <summary className="cursor-pointer px-4 py-3 font-medium">
         {selectedNames.length ? selectedNames.join(", ") : "Select branches"}
@@ -27,7 +28,7 @@ export default function ClientBranchPicker({ branches, value, onChange, disabled
         </label>)}
       </div>
     </details> : <p className="rounded-xl bg-amber-50 p-3 text-sm">
-      Add an active branch in <Link href="/operations" className="font-semibold underline">Operations → Branches</Link> before creating a client.
+      Add an active branch in <Link href="/operations" className="font-semibold underline">Operations → Branches</Link> to make assignments.
     </p>}
   </fieldset>
 }
