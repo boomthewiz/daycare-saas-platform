@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireUnlocked } from "@/lib/device-session-server"
 import { createClient } from "@supabase/supabase-js"
 import { emptyPermissions } from "@/lib/permissions"
+import { reserveInvitation, deferInvitation, invitationLimit, invitationWait } from "@/lib/invitation-email"
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -113,6 +114,10 @@ export async function POST(
 
     const callerId =
       callerAuthData.user.id
+
+    if (callerId !== identity.user.id) {
+      return NextResponse.json({ error: "Your login session is invalid or expired." }, { status: 401 })
+    }
 
     // =====================================================
     // 2. Load and authorize caller profile
@@ -431,10 +436,14 @@ export async function POST(
           {
             error:
               resendResult.error,
+            ...("body" in resendResult ? resendResult.body : {}),
           },
           {
             status:
               resendResult.status,
+            headers: "body" in resendResult && resendResult.body?.retryAfter
+              ? { "Retry-After": String(resendResult.body.retryAfter), "Cache-Control": "no-store" }
+              : { "Cache-Control": "no-store" },
           }
         )
       }
@@ -500,6 +509,14 @@ export async function POST(
     // 6. Invite brand-new Auth user
     // =====================================================
 
+    const reservation = await reserveInvitation(supabaseAdmin, email)
+    if (!reservation.ok) {
+      return NextResponse.json(reservation.body, {
+        status: reservation.status,
+        headers: { "Cache-Control": "no-store", ...("retryAfter" in reservation.body ? { "Retry-After": String(reservation.body.retryAfter) } : {}) },
+      })
+    }
+
     const {
       data: inviteData,
       error: inviteError,
@@ -528,6 +545,14 @@ export async function POST(
         "Supabase new-user invite error:",
         inviteError
       )
+
+      const limit = invitationLimit(inviteError)
+      if (limit) {
+        await deferInvitation(supabaseAdmin, reservation.key, limit.project)
+        return NextResponse.json(invitationWait(limit.seconds, limit.project), {
+          status: 429, headers: { "Retry-After": String(limit.seconds), "Cache-Control": "no-store" },
+        })
+      }
 
       /*
        * Supabase may independently detect an existing
@@ -785,6 +810,7 @@ async function resendExistingInvitation({
       ok: false
       error: string
       status: number
+      body?: ReturnType<typeof invitationWait>
     }
 > {
   try {
@@ -831,6 +857,12 @@ async function resendExistingInvitation({
       }
     }
 
+    const reservation = await reserveInvitation(supabaseAdmin, email)
+    if (!reservation.ok) {
+      return { ok: false, status: reservation.status, error: reservation.body.error,
+        ...("retryAfter" in reservation.body ? { body: reservation.body } : {}) }
+    }
+
     // Send one setup email through Auth; generating a link separately does not send it.
     const userClient = createClient(
       supabaseUrl,
@@ -861,6 +893,13 @@ async function resendExistingInvitation({
         "Resend password/setup email error:",
         resetError
       )
+
+      const limit = invitationLimit(resetError)
+      if (limit) {
+        await deferInvitation(supabaseAdmin, reservation.key, limit.project)
+        const body = invitationWait(limit.seconds, limit.project)
+        return { ok: false, status: 429, error: body.error, body }
+      }
 
       return {
         ok: false,

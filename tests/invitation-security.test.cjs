@@ -5,6 +5,7 @@ const path = require('node:path')
 const Module = require('node:module')
 const ts = require('typescript')
 const permissions = require('./helpers/load-ts.cjs')('lib/permissions.ts')
+const invitationEmail = require('./helpers/load-ts.cjs')('lib/invitation-email.ts')
 
 const caller = { id: 'caller', organization_id: 'org', role: 'owner', status: 'active' }
 const target = { id: 'target', organization_id: 'org', role: 'staff', status: 'active', email: 'staff@example.com', full_name: 'Staff' }
@@ -13,15 +14,31 @@ const body = { fullName: 'Staff', email: target.email, role: 'staff', organizati
 function load(options = {}) {
   const calls = []
   const record = (name, value) => calls.push([name, value])
+  const reservations = options.reservations || new Map()
   const admin = {
-    rpc: async () => ({ data: options.canWrite !== false, error: options.accessError || null }),
+    rpc: async (name, args) => {
+      record('rpc', { name, args })
+      if (name === 'organization_write_access') return { data: options.canWrite !== false, error: options.accessError || null }
+      if (options.reservationError) return { data: null, error: options.reservationError }
+      if (name === 'defer_invitation_email') {
+        if (options.deferThrows) throw new Error('Database timeout')
+        if (args.p_project) reservations.set('project', Date.now() + 3600000)
+        return { data: null, error: null }
+      }
+      if (options.reservationData !== undefined) return { data: options.reservationData, error: null }
+      const project = (reservations.get('project') || 0) > Date.now()
+      const until = reservations.get(project ? 'project' : args.p_key) || 0
+      if (until > Date.now()) return { data: { allowed: false, project, retry_after: Math.ceil((until-Date.now())/1000) }, error: null }
+      reservations.set(args.p_key, Date.now() + 600000)
+      return { data: { allowed: true }, error: null }
+    },
     auth: {
       getUser: async () => ({ data: { user: options.unauthenticated ? null : { id: caller.id } }, error: null }),
       admin: {
         getUserById: async id => { record('getUserById', id); return { data: { user: options.authTarget === undefined ? { email: target.email } : options.authTarget }, error: null } },
         generateLink: async args => { record('generateLink', args); return { data: {}, error: null } },
         listUsers: async args => { record('listUsers', args); return { data: { users: options.fullDirectory ? Array(1000).fill({ email: 'other@example.com' }) : [] }, error: null } },
-        inviteUserByEmail: async email => { record('invite', email); return { data: { user: { id: 'new-user' } }, error: null } },
+        inviteUserByEmail: async email => { record('invite', email); if (options.sendPromise) await options.sendPromise; if (options.inviteThrow) throw new Error('Network timeout'); return { data: { user: options.inviteError ? null : { id: 'new-user' } }, error: options.inviteError || null } },
       },
     },
     from: table => {
@@ -44,6 +61,7 @@ function load(options = {}) {
   let clients = 0
   mod.require = name => name === '@/lib/device-session-server' ? { requireUnlocked: async () => options.unlocked === false ? null : {user:{id:caller.id}} }
     : name === '@/lib/permissions' ? permissions
+    : name === '@/lib/invitation-email' ? invitationEmail
     : name === '@supabase/supabase-js' ? { createClient: () => ++clients === 1 ? admin : { auth: { resetPasswordForEmail: async (email, args) => { record('send', { email, ...args }); return { error: options.sendError || null } } } } }
     : require(name)
   mod._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, filename)
@@ -171,4 +189,92 @@ test('permission lookup failures deny invitations even when the returned grant i
   const h = load({ caller: { role: 'admin' }, grants: { can_manage_users: true }, grantsError: {} })
   assert.equal((await h.post()).status, 403)
   assert.equal(h.calls.some(c => c[0] === 'send'), false)
+})
+
+test('Supabase email-limit errors return a clear wait and Retry-After on invite and resend', async () => {
+  for (const resend of [false, true]) {
+    const error = { status: 429, code: 'over_email_send_rate_limit', message: 'Email rate limit exceeded' }
+    const h = load({ targets: resend ? [target] : [], inviteError: error, sendError: error })
+    const response = await h.post({ resend })
+    assert.equal(response.status, 429)
+    assert.equal(response.headers.get('Retry-After'), '3600')
+    const result = await response.json()
+    assert.equal(result.code, 'EMAIL_SEND_RATE_LIMIT')
+    assert.match(result.error, /wait up to 60 minutes/)
+    assert.equal(h.calls.some(c => c[0] === 'upsert'), false)
+    assert.equal(h.calls.filter(c => c[0] === 'rpc' && c[1].name === 'defer_invitation_email').length, 1)
+  }
+})
+
+test('independent route instances share a recipient reservation across invite and resend', async () => {
+  const reservations = new Map()
+  const first = load({ targets: [], reservations })
+  const second = load({ reservations })
+  assert.equal((await first.post({ resend: false, email: ' STAFF@example.com ' })).status, 200)
+  const response = await second.post()
+  assert.equal(response.status, 429)
+  assert.equal((await response.json()).code, 'INVITATION_COOLDOWN')
+  assert.equal(second.calls.some(c => c[0] === 'send'), false)
+})
+
+test('overlapping requests send only one email across server instances', async () => {
+  const reservations = new Map()
+  let release
+  const sendPromise = new Promise(resolve => { release = resolve })
+  const first = load({ targets: [], reservations, sendPromise })
+  const second = load({ targets: [], reservations })
+  const pending = first.post({ resend: false })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal((await second.post({ resend: false })).status, 429)
+  release()
+  assert.equal((await pending).status, 200)
+  assert.equal([...first.calls, ...second.calls].filter(c => c[0] === 'invite').length, 1)
+})
+
+test('reservation failures and malformed results fail closed without sending', async () => {
+  for (const options of [{ reservationError: {} }, { reservationData: null }, { reservationData: { allowed: false } }]) {
+    for (const resend of [true, false]) {
+      const h = load({ ...options, targets: resend ? [target] : [] })
+      assert.equal((await h.post({ resend })).status, 503)
+      assert.equal(h.calls.some(c => ['invite', 'send', 'upsert'].includes(c[0])), false)
+    }
+  }
+})
+
+test('project backoff blocks a different recipient after an email-limit error', async () => {
+  const reservations = new Map()
+  const first = load({ targets: [], reservations, inviteError: { code: 'over_email_send_rate_limit', status: 429 } })
+  assert.equal((await first.post({ resend: false })).status, 429)
+  const second = load({ targets: [], reservations })
+  const response = await second.post({ resend: false, email: 'someoneelse@example.com' })
+  assert.equal(response.status, 429)
+  assert.equal((await response.json()).code, 'EMAIL_SEND_RATE_LIMIT')
+  assert.equal(second.calls.some(c => c[0] === 'invite'), false)
+})
+
+test('ambiguous send timeout retains cooldown and creates no profile', async () => {
+  const reservations = new Map()
+  const first = load({ targets: [], reservations, inviteThrow: true })
+  assert.equal((await first.post({ resend: false })).status, 500)
+  const second = load({ targets: [], reservations })
+  assert.equal((await second.post({ resend: false })).status, 429)
+  assert.equal(second.calls.some(c => c[0] === 'invite'), false)
+  assert.equal(first.calls.some(c => c[0] === 'upsert'), false)
+})
+
+test('authorization and account mismatch failures do not consume reservations', async () => {
+  for (const options of [{ unlocked: false }, { caller: { role: 'staff' } }, { authTarget: { email: 'other@example.com' } }, { targets: [{ ...target, organization_id: 'other' }] }]) {
+    const h = load(options)
+    await h.post()
+    assert.equal(h.calls.some(c => c[0] === 'rpc' && c[1].name === 'reserve_invitation_email'), false)
+  }
+})
+
+test('backoff persistence failure still returns the provider wait and retains recipient claim', async () => {
+  const reservations = new Map()
+  const h = load({ targets: [], reservations, deferThrows: true, inviteError: { code: 'over_email_send_rate_limit', status: 429 } })
+  const response = await h.post({ resend: false })
+  assert.equal(response.status, 429)
+  assert.equal(response.headers.get('retry-after'), '3600')
+  assert.equal((await load({ targets: [], reservations }).post({ resend: false })).status, 429)
 })
