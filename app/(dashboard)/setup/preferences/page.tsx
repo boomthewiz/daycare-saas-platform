@@ -1,6 +1,8 @@
 "use client"
 
 import { useSetupAccess } from "@/lib/use-setup-access"
+import SessionTypeDurationField from "@/components/SessionTypeDurationField"
+import { validateSessionTypeDuration } from "@/lib/session-type-duration"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -372,7 +374,10 @@ export default function PreferencesPage() {
     (item) => item.active
   ).length
 
+  const [durationError, setDurationError] = useState<string | null>(null)
+
   const resetOptionForm = () => {
+    setDurationError(null)
     setEditingId(null)
     setOptionName("")
     setOptionCode("")
@@ -382,6 +387,7 @@ export default function PreferencesPage() {
   }
 
   const openCreateForm = () => {
+    setDurationError(null)
     setEditingId(null)
     setOptionName("")
     setOptionCode("")
@@ -395,6 +401,7 @@ export default function PreferencesPage() {
   const openEditForm = (
     item: EditableOption
   ) => {
+    setDurationError(null)
     setEditingId(item.id)
     setOptionName(item.name)
     setOptionDescription(
@@ -440,6 +447,15 @@ export default function PreferencesPage() {
       return
     }
 
+    if (activeTab === "session-types") {
+      const error = validateSessionTypeDuration(defaultDuration)
+      setDurationError(error)
+      if (error) {
+        document.getElementById("session-type-duration")?.focus()
+        return
+      }
+    }
+
     setSaving(true)
     setPageError(null)
     setSuccessMessage(null)
@@ -450,19 +466,7 @@ export default function PreferencesPage() {
           optionCode.trim() ||
           createCode(optionName)
 
-        const duration = defaultDuration.trim()
-          ? Number(defaultDuration)
-          : null
-
-        if (
-          duration !== null &&
-          (!Number.isInteger(duration) ||
-            duration <= 0)
-        ) {
-          throw new Error(
-            "Default duration must be a positive whole number."
-          )
-        }
+        const duration = Number(defaultDuration)
 
         const values = {
           organization_id: organizationId,
@@ -916,13 +920,17 @@ export default function PreferencesPage() {
               code={optionCode}
               description={optionDescription}
               duration={defaultDuration}
+              durationError={durationError}
               saving={saving}
               setName={setOptionName}
               setCode={setOptionCode}
               setDescription={
                 setOptionDescription
               }
-              setDuration={setDefaultDuration}
+              setDuration={(value) => {
+                setDefaultDuration(value)
+                setDurationError(durationError ? validateSessionTypeDuration(value) : null)
+              }}
               onSubmit={saveOption}
               onCancel={resetOptionForm}
             />
@@ -1023,6 +1031,7 @@ function OptionForm({
   code,
   description,
   duration,
+  durationError,
   saving,
   setName,
   setCode,
@@ -1040,6 +1049,7 @@ function OptionForm({
   code: string
   description: string
   duration: string
+  durationError: string | null
   saving: boolean
   setName: (value: string) => void
   setCode: (value: string) => void
@@ -1117,31 +1127,12 @@ function OptionForm({
         )}
 
         {activeTab === "session-types" && (
-          <FormField label="Default duration">
-            <div className="relative">
-              <Clock3
-                size={18}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-              />
-
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={duration}
-                onChange={(event) =>
-                  setDuration(
-                    event.target.value
-                  )
-                }
-                className="rj-input pl-11"
-              />
-            </div>
-
-            <p className="rj-caption mt-2">
-              Duration in minutes.
-            </p>
-          </FormField>
+          <SessionTypeDurationField
+            key={editing ? "edit" : "create"}
+            value={duration}
+            onChange={setDuration}
+            error={durationError}
+          />
         )}
 
         <div
@@ -1778,4 +1769,4 @@ function getNamePlaceholder(
     case "target-categories":
       return "Example: Communication"
   }
-}
+}
