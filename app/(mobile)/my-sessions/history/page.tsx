@@ -26,7 +26,7 @@ export default function SessionHistoryPage() {
     finally {setBusy(false)}
   },[page,filter])
   useEffect(()=>{void load()},[load])
-  return <main className="mx-auto max-w-3xl space-y-5 p-6">
+  return <main className="mx-auto max-w-3xl space-y-5 py-3 sm:p-6">
     <Link href="/my-sessions" className="rj-button rj-button-secondary">Back to my sessions</Link>
     <h1 className="rj-heading-1">Session history</h1>
     <label className="block">Session outcome<select className="rj-input mt-2" value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);setPage(0)}}>{['all','completed','canceled','client_absent','provider_absent','no_show'].map(value=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
@@ -39,6 +39,6 @@ export default function SessionHistoryPage() {
         <p>Note: {row.session_notes?.status || 'not created'}</p>
       </Link>)}
     </>}
-    <nav aria-label="History pages" className="flex items-center gap-4"><button className="rj-button rj-button-secondary" disabled={busy||page===0} onClick={()=>setPage(value=>value-1)}>Previous</button><span>Page {page+1}</span><button className="rj-button rj-button-secondary" disabled={busy||!more} onClick={()=>setPage(value=>value+1)}>Next</button></nav>
+    <nav aria-label="History pages" className="flex flex-wrap items-center gap-3"><button className="rj-button rj-button-secondary" disabled={busy||page===0} onClick={()=>setPage(value=>value-1)}>Previous</button><span>Page {page+1}</span><button className="rj-button rj-button-secondary" disabled={busy||!more} onClick={()=>setPage(value=>value+1)}>Next</button></nav>
   </main>
 }

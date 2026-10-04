@@ -30,7 +30,7 @@ const defaultPermissions: UserPermissions = {
   can_manage_users: false,
 }
 
-export default function Sidebar() {
+export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
   const pathname = usePathname()
 
   const [collapsed, setCollapsed] = useState(false)
@@ -201,7 +201,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`min-h-screen w-20 shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
+      className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-screen"} w-20 shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
         collapsed ? "sm:w-20" : "sm:w-64"
       }`}
     >
