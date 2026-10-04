@@ -183,6 +183,7 @@ export default function Sidebar() {
     }
 
     return navigationItems.filter((item) => {
+      if (item.href === "/team-management" && (isOwner || permissions.can_manage_clients || permissions.can_manage_users)) return true
       if (item.href === "/reviews" && isNoteAdmin) return true
       /*
        * Public-to-authenticated-user navigation.
@@ -196,7 +197,7 @@ export default function Sidebar() {
        */
       return permissions[item.permission] === true
     })
-  }, [permissions, loadingPermissions, isNoteAdmin])
+  }, [permissions, loadingPermissions, isNoteAdmin, isOwner])
 
   return (
     <aside

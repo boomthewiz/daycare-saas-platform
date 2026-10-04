@@ -715,7 +715,7 @@ const requestedClientId =
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/operations"
+              href="/setup/preferences"
               className="rj-button rj-button-secondary"
             >
               Configure Options
@@ -1144,7 +1144,7 @@ const requestedClientId =
           {sessionTypes.length === 0 && (
             <EmptyRequirement
               text="Create an active session type in Operations before scheduling."
-              href="/operations"
+              href="/setup/preferences"
               linkText="Open Operations"
             />
           )}

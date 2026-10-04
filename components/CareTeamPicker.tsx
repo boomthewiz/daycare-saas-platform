@@ -47,7 +47,7 @@ export default function CareTeamPicker({ context, locationIds, selected, primary
     })}
     <details open><summary className="cursor-pointer py-2 font-medium">Select individuals</summary>
       {eligible.map(row)}
-      {!eligible.length && <p className="rj-caption">No eligible staff for these branches. <Link href="/team-management/care-setup" className="underline">Set up staff branches and groups</Link>.</p>}
+      {!eligible.length && <p className="rj-caption">No eligible staff for these branches. <Link href="/setup/care-teams" className="underline">Set up staff branches and groups</Link>.</p>}
     </details>
     {!!unavailable.length && <div role="alert" className="text-red-700">
       <p>Some selected people are unavailable for these branches. Remove them or update setup before saving.</p>

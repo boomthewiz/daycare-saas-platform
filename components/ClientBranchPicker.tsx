@@ -28,7 +28,7 @@ export default function ClientBranchPicker({ branches, value, onChange, disabled
         </label>)}
       </div>
     </details> : <p className="rounded-xl bg-amber-50 p-3 text-sm">
-      Add an active branch in <Link href="/operations" className="font-semibold underline">Operations → Branches</Link> to make assignments.
+      Add an active branch in <Link href="/setup/preferences" className="font-semibold underline">Setup → Branches</Link> to make assignments.
     </p>}
   </fieldset>
 }
