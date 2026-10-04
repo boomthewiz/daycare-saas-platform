@@ -274,8 +274,8 @@ export default function MySessionsPage() {
 
   return (
     <main className="rj-page min-h-screen">
-      <div className="rj-mobile-shell pb-[calc(var(--rj-bottom-nav-height)+var(--rj-space-8)+env(safe-area-inset-bottom))]">
-        <div className="space-y-6 px-5 py-6">
+      <div className="mx-auto w-full max-w-7xl pb-8">
+        <div className="space-y-6 py-3 sm:py-6">
           {/* Header */}
           <header className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-border)] bg-white p-6 shadow-[var(--rj-shadow-soft)]">
             <div className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full bg-[var(--rj-blue-100)] opacity-70" />
@@ -342,7 +342,7 @@ export default function MySessionsPage() {
           )}
 
           {/* Daily count */}
-          <section className="grid grid-cols-2 gap-4">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <MobileStatCard
               label="Today"
               value={todaySessions.length}
@@ -776,7 +776,7 @@ function SessionStatusBadge({
 
 function MySessionsLoading() {
   return (
-    <main className="rj-page flex min-h-screen items-center justify-center">
+    <main className="rj-page flex min-h-[60vh] items-center justify-center">
       <div className="text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--rj-teal-100)]">
           <LoaderCircle
