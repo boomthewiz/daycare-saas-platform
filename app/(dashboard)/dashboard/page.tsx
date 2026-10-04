@@ -512,7 +512,7 @@ export default function DashboardPage() {
             <QuickActionCard
               title="Manage Clients"
               description="Add client records, targets, and behavior definitions."
-              href="/clients"
+              href="/team-management"
               icon={UserRound}
               tone="blue"
             />
