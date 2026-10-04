@@ -440,7 +440,7 @@ export default function DashboardPage() {
       )}
 
       {/* Statistics */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Dashboard statistics" className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
           title="Today’s Sessions"
           value={todaySessions.length}
