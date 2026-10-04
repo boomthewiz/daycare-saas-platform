@@ -78,7 +78,6 @@ type TeamMember = {
   role: UserRole
   status: UserStatus
   created_at: string | null
-  updated_at: string | null
 }
 
 type PermissionRecord = PermissionGrants & {
@@ -271,8 +270,7 @@ export default function ManageTeamMemberPage() {
             email,
             role,
             status,
-            created_at,
-            updated_at
+            created_at
           `)
           .eq("id", userId)
           .single()
