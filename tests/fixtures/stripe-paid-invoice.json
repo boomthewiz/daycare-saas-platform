@@ -1,0 +1,119 @@
+{
+  "livemode": false,
+  "status": "paid",
+  "amount_remaining": 0,
+  "currency": "usd",
+  "customer": "cus_VLCk41WHIeorxP",
+  "parent": {
+    "quote_details": null,
+    "subscription_details": {
+      "metadata": {
+        "application": "rejoyce",
+        "purpose": "billing_acceptance"
+      },
+      "subscription": "sub_1UKWLNCxlg8hHxkPbcNhrCjx"
+    },
+    "type": "subscription_details"
+  },
+  "billing_reason": "subscription_create",
+  "lines": {
+    "object": "list",
+    "data": [
+      {
+        "id": "il_1UKWKuCxlg8hHxkP1EFVVFYq",
+        "object": "line_item",
+        "amount": 7900,
+        "currency": "usd",
+        "description": "1 × ReJoyce organization (at $79.00 / month)",
+        "discount_amounts": [],
+        "discountable": true,
+        "discounts": [],
+        "invoice": "in_1UKWLNCxlg8hHxkPVoaBMxe1",
+        "livemode": false,
+        "metadata": {
+          "application": "rejoyce",
+          "purpose": "billing_acceptance"
+        },
+        "parent": {
+          "invoice_item_details": null,
+          "subscription_item_details": {
+            "invoice_item": null,
+            "proration": false,
+            "proration_details": {
+              "credited_items": null
+            },
+            "subscription": "sub_1UKWLNCxlg8hHxkPbcNhrCjx",
+            "subscription_item": "si_VLCkNVsEm3JWhj"
+          },
+          "type": "subscription_item_details"
+        },
+        "period": {
+          "end": 1793162324,
+          "start": 1790570324
+        },
+        "pretax_credit_amounts": [],
+        "pricing": {
+          "price_details": {
+            "price": "price_1UKWHLCxlg8hHxkP27zSb6kF",
+            "product": "prod_VLCghVGuOVngw3"
+          },
+          "type": "price_details",
+          "unit_amount_decimal": "7900"
+        },
+        "quantity": 1,
+        "quantity_decimal": "1",
+        "subtotal": 7900,
+        "taxes": []
+      },
+      {
+        "id": "il_1UKWKvCxlg8hHxkPqJCVw88g",
+        "object": "line_item",
+        "amount": 11600,
+        "currency": "usd",
+        "description": "4 × ReJoyce additional provider (at $29.00 / month)",
+        "discount_amounts": [],
+        "discountable": true,
+        "discounts": [],
+        "invoice": "in_1UKWLNCxlg8hHxkPVoaBMxe1",
+        "livemode": false,
+        "metadata": {
+          "application": "rejoyce",
+          "purpose": "billing_acceptance"
+        },
+        "parent": {
+          "invoice_item_details": null,
+          "subscription_item_details": {
+            "invoice_item": null,
+            "proration": false,
+            "proration_details": {
+              "credited_items": null
+            },
+            "subscription": "sub_1UKWLNCxlg8hHxkPbcNhrCjx",
+            "subscription_item": "si_VLCk5WNeWwxLqR"
+          },
+          "type": "subscription_item_details"
+        },
+        "period": {
+          "end": 1793162324,
+          "start": 1790570324
+        },
+        "pretax_credit_amounts": [],
+        "pricing": {
+          "price_details": {
+            "price": "price_1UKWHXCxlg8hHxkPMPs2w26E",
+            "product": "prod_VLCgIYaCAOdwXF"
+          },
+          "type": "price_details",
+          "unit_amount_decimal": "2900"
+        },
+        "quantity": 4,
+        "quantity_decimal": "4",
+        "subtotal": 11600,
+        "taxes": []
+      }
+    ],
+    "has_more": false,
+    "total_count": 2,
+    "url": "/v1/invoices/in_1UKWLNCxlg8hHxkPVoaBMxe1/lines"
+  }
+}
