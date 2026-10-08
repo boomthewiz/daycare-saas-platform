@@ -730,6 +730,7 @@ export default function PreferencesPage() {
       setSuccessMessage(
         "Organization terminology saved."
       )
+      window.dispatchEvent(new Event("rejoyce:terminology-changed"))
 
       window.dispatchEvent(new Event("rejoyce:branches-changed"))
       await loadOperations()

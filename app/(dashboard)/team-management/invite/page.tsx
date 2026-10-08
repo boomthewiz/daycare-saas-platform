@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -128,6 +130,8 @@ const ROLE_OPTIONS: RoleOption[] = [
 ]
 
 export default function InviteTeamMemberPage() {
+  const { t } = usePortal()
+
   const router = useRouter()
 
   const [fullName, setFullName] = useState("")
@@ -429,15 +433,9 @@ const handleInvite = async (
             Account Setup
           </span>
 
-          <h1 className="rj-heading-1 mt-4">
-            Invite Team Member
-          </h1>
+          <h1 className="rj-heading-1 mt-4">{t("Invite Team Member")}</h1>
 
-          <p className="rj-body mt-3 max-w-2xl text-[var(--rj-text-secondary)]">
-            Create an organization account and send
-            the new team member a secure invitation
-            to finish their login setup.
-          </p>
+          <p className="rj-body mt-3 max-w-2xl text-[var(--rj-text-secondary)]">{t("Create an organization account and send the new team member a secure invitation to finish their login setup.")}</p>
         </div>
       </header>
 
@@ -506,9 +504,7 @@ const handleInvite = async (
                 New Account
               </p>
 
-              <h2 className="rj-heading-2 mt-1">
-                Team member details
-              </h2>
+              <h2 className="rj-heading-2 mt-1">{t("Team member details")}</h2>
             </div>
           </div>
 
@@ -662,7 +658,7 @@ const handleInvite = async (
 
               {sending
                 ? "Sending Invitation…"
-                : "Invite Team Member"}
+                : t("Invite Team Member")}
             </button>
           </form></SubscriptionWriteControls>
         </section>
@@ -683,8 +679,8 @@ const handleInvite = async (
 
     <p className="rj-caption mt-2">
       {inviteResult.resent
-        ? "A new account setup link was sent to the existing team member."
-        : "The team member has been added to your organization and their invitation was sent."}
+        ? t("A new account setup link was sent to the existing team member.")
+        : t("The team member has been added to your organization and their invitation was sent.")}
     </p>
 
     <Link

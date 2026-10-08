@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getPinStatus } from "@/lib/pin-status"
-import Sidebar from "@/components/Sidebar"
+import WorkspaceNavigation from "@/components/WorkspaceNavigation"
 import Header from "@/components/Header"
 import { BranchProvider } from "@/components/BranchProvider"
 import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
+import PortalProvider from "@/components/PortalProvider"
 
 export default function WorkspaceLayout({
   children,
@@ -63,11 +64,11 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <BranchProvider>
-    <div className="min-h-screen flex bg-gray-50">
+    <PortalProvider><BranchProvider>
+    <div className="min-h-screen flex flex-col bg-gray-50 sm:flex-row">
 
       {/* Sidebar stays mounted */}
-      <Sidebar sticky={stickySidebar} />
+      <WorkspaceNavigation sticky={stickySidebar} />
 
       <div className="min-w-0 flex-1 flex flex-col">
 
@@ -80,6 +81,6 @@ export default function WorkspaceLayout({
         </main>
       </div>
     </div>
-    </BranchProvider>
+    </BranchProvider></PortalProvider>
   )
 }

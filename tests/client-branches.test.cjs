@@ -5,6 +5,7 @@ const path = require("node:path")
 const ts = require("typescript")
 
 function loadTs(file, mocks = {}) {
+  mocks['@/components/PortalProvider'] = { usePortal: () => ({ t: text => text }) }
   const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8")
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText
   const module = { exports: {} }
@@ -51,6 +52,7 @@ function harness(selectedBranchId = "north") {
   }
   function ClientBranchPicker() { return null }
   const Component = loadTs("app/(dashboard)/team-management/page.tsx", {
+    "@/components/StaffReadiness": { StaffReadinessLabel: () => null, useStaffReadiness: () => ({ data: null, loading: false, error: "", refresh: async () => {} }) },
     "@/components/PageGuide": { default: () => null },
     "@/components/SubscriptionWriteControls": { default: ({ children }) => children },
     react:mockReact,

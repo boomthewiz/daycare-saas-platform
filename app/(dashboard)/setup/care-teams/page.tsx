@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import PageGuide from "@/components/PageGuide"
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -10,6 +12,8 @@ import ClientBranchPicker from "@/components/ClientBranchPicker"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 export default function CareSetupPage() {
+  const { t } = usePortal()
+
   const { branches, loading: branchLoading, error: branchError } = useBranches()
   const [context, setContext] = useState<CareContext | null>(null)
   const [permission, setPermission] = useState(false)
@@ -81,21 +85,21 @@ export default function CareSetupPage() {
   return <main className="mx-auto max-w-4xl space-y-6 p-4 sm:p-8">
     <Link href="/setup" className="underline">Back to Setup</Link>
     <h1 className="rj-heading-1">Care-team setup</h1>
-    <p>Set staff branches first, then organize teams, classes, or groups. Groups are selection shortcuts; adding a member does not grant access to any client.</p>
+    <p>{t("Set staff branches first, then organize teams, classes, or groups. Groups are selection shortcuts; adding a member does not grant access to any client.")}</p>
     <PageGuide guide="care" />
     {error && <p role="alert" className="text-red-700">{error} <button type="button" disabled={saving} className="underline" onClick={() => {
       if (window.confirm("Reload setup? Unsaved setup changes will be discarded.")) { setStaffId(""); setStaffBranches([]); edit(null); setAttempt(value => value + 1) }
     }}>Reload setup</button></p>}
     {branchError && <p role="alert" className="text-red-700">{branchError}</p>}
     {message && <p role="status" className="text-green-700">{message}</p>}
-    {loading || branchLoading ? <p>Loading setup…</p> : !permission ? <p>You need Manage clients permission to use care-team setup.</p> : context && <SubscriptionWriteControls>
+    {loading || branchLoading ? <p>Loading setup…</p> : !permission ? <p>{t("You need Manage clients permission to use care-team setup.")}</p> : context && <SubscriptionWriteControls>
       <fieldset disabled={saving || !!branchError} className="rj-card space-y-4 p-5">
         <legend className="px-2 font-semibold">1. Staff branches</legend>
         <label className="block"><span>Staff member</span><select aria-label="Staff member" className="rj-input mt-2" value={staffId} onChange={event => {
           const id = event.target.value; setStaffId(id); setStaffBranches(staff.find(person => person.id === id)?.location_ids || [])
         }}><option value="">Choose active staff</option>{staff.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
-        {staffId && <ClientBranchPicker branches={branches} value={staffBranches} onChange={setStaffBranches} disabled={saving} description="Choose branches where this staff member may serve assigned clients." />}
-        <p className="rj-caption">Staff may be selected for clients sharing an active branch. Removing all shared branches stops access granted by a care-team assignment; other existing access may remain.</p>
+        {staffId && <ClientBranchPicker branches={branches} value={staffBranches} onChange={setStaffBranches} disabled={saving} description={t("Choose branches where this staff member may serve assigned clients.")} />}
+        <p className="rj-caption">{t("Staff may be selected for clients sharing an active branch. Removing all shared branches stops access granted by a care-team assignment; other existing access may remain.")}</p>
         <button type="button" disabled={!staffId || saving} className="rj-button rj-button-primary" onClick={() => void saveStaff()}>{saving ? "Saving…" : "Save staff branches"}</button>
       </fieldset>
       <section className="rj-card mt-6 space-y-4 p-5">
@@ -118,7 +122,7 @@ export default function CareSetupPage() {
                 {members.filter(id => !groupStaff.some(person => person.id === id)).map(id => <label key={id} className="flex gap-3 p-3"><input type="checkbox" checked onChange={() => setMembers(members.filter(memberId => memberId !== id))} />{context.staff.find(person => person.id === id)?.name || "Unavailable staff"}</label>)}
               </div>}
             </fieldset>
-            <p className="rj-caption">{new Set(members).size} members selected. People can belong to multiple groups. Changes here do not change saved client assignments.</p>
+            <p className="rj-caption">{new Set(members).size}{t(" members selected. People can belong to multiple groups. Changes here do not change saved client assignments.")}</p>
             <button type="submit" disabled={saving || !locationId || !name.trim() || invalidGroupMembers} className="rj-button rj-button-primary">{saving ? "Saving…" : "Save group"}</button>
           </fieldset>
         </form>

@@ -1,12 +1,14 @@
 "use client"
 
 import Link from "next/link"
+import { usePortal } from "@/components/PortalProvider"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { BranchSelector } from "@/components/BranchProvider"
 
 export default function Header() {
+  const { t } = usePortal()
   const pathname = usePathname()
 
   const [fullName, setFullName] = useState("User")
@@ -67,11 +69,11 @@ export default function Header() {
         {/* Left Side */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            ✨ {title}
+            ✨ {t(title)}
           </h1>
 
           <p className="text-sm text-gray-500 mt-1">
-            {subtitle}
+            {t(subtitle)}
           </p>
         </div>
 

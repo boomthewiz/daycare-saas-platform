@@ -8,6 +8,7 @@ const output = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../compon
 }).outputText
 const mod = {exports:{}}
 new Function('require','module','exports',output)(name=>{
+  if(name==='@/components/PortalProvider')return {usePortal:()=>({t:text=>text})}
   if(name==='@/lib/care-team')return helpers
   if(name==='next/link')return {default:({children,...props})=>React.createElement('a',props,children)}
   return require(name)

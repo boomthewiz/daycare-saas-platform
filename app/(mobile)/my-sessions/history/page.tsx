@@ -1,10 +1,14 @@
 "use client"
+
+import { usePortal } from "@/components/PortalProvider"
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 type Row = { id:string; status:string; scheduled_start:string|null; completed_at:string|null; clients:{first_name:string;preferred_name:string|null}|null; session_notes:{status:string}|null }
 export default function SessionHistoryPage() {
+  const { t } = usePortal()
+
   const [rows,setRows]=useState<Row[]>([])
   const [filter,setFilter]=useState('all')
   const [page,setPage]=useState(0)
@@ -27,12 +31,12 @@ export default function SessionHistoryPage() {
   },[page,filter])
   useEffect(()=>{void load()},[load])
   return <main className="mx-auto max-w-3xl space-y-5 py-3 sm:p-6">
-    <Link href="/my-sessions" className="rj-button rj-button-secondary">Back to my sessions</Link>
-    <h1 className="rj-heading-1">Session history</h1>
-    <label className="block">Session outcome<select className="rj-input mt-2" value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);setPage(0)}}>{['all','completed','canceled','client_absent','provider_absent','no_show'].map(value=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
+    <Link href="/my-sessions" className="rj-button rj-button-secondary">{t("Back to my sessions")}</Link>
+    <h1 className="rj-heading-1">{t("Session history")}</h1>
+    <label className="block">{t("Session outcome")}<select className="rj-input mt-2" value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);setPage(0)}}>{['all','completed','canceled','client_absent','provider_absent','no_show'].map(value=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
     {error && <div role="alert">{error}<button className="rj-button rj-button-secondary" onClick={()=>void load()}>Try again</button></div>}
     {busy ? <p role="status">Loading history…</p> : <>
-      {!rows.length&&!error&&<p>No sessions match this page.</p>}
+      {!rows.length&&!error&&<p>{t("No sessions match this page.")}</p>}
       {rows.map(row=><Link key={row.id} href={`/session/${row.id}/complete`} className="rj-card block p-5">
         <h2 className="rj-heading-3">{row.clients?.preferred_name||row.clients?.first_name||'Session'}</h2>
         <p>{row.scheduled_start?new Date(row.scheduled_start).toLocaleString():'Unscheduled'} · {row.status.replaceAll('_',' ')}</p>

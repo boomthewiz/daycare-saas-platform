@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { usePortal } from "@/components/PortalProvider"
 import { supabase } from "@/lib/supabase"
 import {
   ChevronLeft,
@@ -30,7 +31,8 @@ const defaultPermissions: UserPermissions = {
   can_manage_users: false,
 }
 
-export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
+export default function Sidebar({ sticky = false, mobile = false, onNavigate }: { sticky?: boolean; mobile?: boolean; onNavigate?: () => void }) {
+  const { t } = usePortal()
   const pathname = usePathname()
 
   const [collapsed, setCollapsed] = useState(false)
@@ -201,8 +203,8 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
 
   return (
     <aside
-      className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-screen"} w-20 shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
-        collapsed ? "sm:w-20" : "sm:w-64"
+      className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-screen"} ${mobile ? "w-full" : "w-20"} shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
+        mobile ? "" : collapsed ? "sm:w-20" : "sm:w-64"
       }`}
     >
       {/* Header */}
@@ -213,8 +215,8 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
             : "justify-between"
         } p-4`}
       >
-        {!collapsed && (
-          <h1 className="hidden text-lg font-bold text-gray-800 sm:block">
+        {(!collapsed || mobile) && (
+          <h1 className={`${mobile ? "block" : "hidden sm:block"} text-lg font-bold text-gray-800`}>
             ReJoyce
           </h1>
         )}
@@ -229,7 +231,7 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
               ? "Expand sidebar"
               : "Collapse sidebar"
           }
-          className="hidden p-2 rounded-lg hover:bg-gray-100 transition sm:block"
+          className={`${mobile ? "hidden" : "hidden sm:block"} p-2 rounded-lg hover:bg-gray-100 transition`}
         >
           {collapsed ? (
             <ChevronRight size={20} />
@@ -272,12 +274,13 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
-                aria-label={item.name}
+                onClick={onNavigate}
+                aria-label={t(item.name)}
                 aria-current={
                   isActive ? "page" : undefined
                 }
-                title={item.name}
-                className={`flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl transition sm:flex-row sm:gap-3 sm:px-4 ${
+                title={t(item.name)}
+                className={`flex ${mobile ? "flex-row justify-start gap-3" : "flex-col items-center justify-center gap-1 sm:flex-row sm:gap-3 sm:px-4"} px-2 py-3 rounded-xl transition ${
                   collapsed
                     ? "justify-center"
                     : "sm:justify-start"
@@ -293,7 +296,7 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
                   className="shrink-0"
                 />
 
-                <span className={`text-center text-[10px] leading-tight ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}>{item.name}</span>
+                <span className={`min-w-0 break-words leading-tight ${mobile ? "text-left text-base" : `text-center text-[10px] ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}`}>{t(item.name)}</span>
               </Link>
             )
           })

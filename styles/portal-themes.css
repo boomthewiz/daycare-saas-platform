@@ -1,0 +1,39 @@
+.rj-portal[data-portal-theme="ocean"], [data-portal-preview="ocean"] {
+  --rj-background: #f5f8fc;
+  --rj-surface-muted: #edf3fa;
+  --rj-border: #dce5ef;
+  --rj-teal-50: #eff6ff;
+  --rj-teal-100: #dbeafe;
+  --rj-teal-500: #60a5fa;
+  --rj-teal-700: #1d4ed8;
+  --rj-mint-100: #dbeafe;
+  --rj-mint-700: #1d4ed8;
+  --rj-radius-xl: 1.25rem;
+}
+.rj-portal[data-portal-theme="lavender"], [data-portal-preview="lavender"] {
+  --rj-background: #faf7fc;
+  --rj-surface-muted: #f4eff9;
+  --rj-border: #e7dff0;
+  --rj-teal-50: #faf5ff;
+  --rj-teal-100: #ede9fe;
+  --rj-teal-500: #a78bfa;
+  --rj-teal-700: #6d28d9;
+  --rj-mint-100: #ede9fe;
+  --rj-mint-700: #6d28d9;
+}
+.rj-portal { background: var(--rj-background); }
+.rj-portal > div { background: var(--rj-background); }
+.rj-portal[data-portal-theme="ocean"] .rj-button-primary,
+[data-portal-preview="ocean"] .rj-button-primary { background: #1d4ed8; }
+.rj-portal[data-portal-theme="lavender"] .rj-button-primary,
+[data-portal-preview="lavender"] .rj-button-primary { background: #6d28d9; }
+[data-portal-preview="rejoyce"] {
+  --rj-background: #f8fbfa;
+  --rj-surface-muted: #f2f6f5;
+  --rj-border: #e3e9e7;
+  --rj-teal-50: #edfafa;
+  --rj-teal-100: #b9e6e9;
+  --rj-teal-500: #7bc6cf;
+  --rj-teal-700: #397f89;
+  --rj-radius-xl: 2rem;
+}

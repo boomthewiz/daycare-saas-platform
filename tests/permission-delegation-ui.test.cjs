@@ -40,6 +40,7 @@ function harness(role, delegates = false, self = false, memberRole = 'staff') {
   const mod = { exports: {} }
   const mocks = { react, '@/lib/permissions': permissions, '@/lib/supabase': { supabase }, 'next/navigation': { useParams: () => ({ userId: memberId }) } }
   mocks['@/components/SubscriptionWriteControls'] = { default: ({ children }) => children }
+  mocks['@/components/PortalProvider'] = { usePortal: () => ({ t: text => text }) }
   new Function('require', 'module', 'exports', output)(name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), mod, mod.exports)
   function render() { index = 0; return mod.exports.default() }
   function all(node, predicate, found = []) {

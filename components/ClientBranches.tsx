@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import { useEffect, useState } from "react"
@@ -8,6 +10,8 @@ import { useBranches } from "@/components/BranchProvider"
 import ClientBranchPicker from "@/components/ClientBranchPicker"
 
 export default function ClientBranches({ clientId }: { clientId: string }) {
+  const { t } = usePortal()
+
   const { branches, loading: branchLoading, error: branchError, reload } = useBranches()
   const [selected, setSelected] = useState<string[]>([])
   const [canEdit, setCanEdit] = useState(false)
@@ -55,7 +59,7 @@ export default function ClientBranches({ clientId }: { clientId: string }) {
   }
 
   return <section className="rj-card space-y-4 p-6">
-    <h2 className="rj-heading-2">Client branches</h2>
+    <h2 className="rj-heading-2">{t("Client branches")}</h2>
     {(error || branchError) && <div role="alert" className="text-sm text-red-700">
       {error || branchError} <button type="button" className="underline" onClick={() => { setAttempt(value => value + 1); void reload() }}>Retry</button>
     </div>}

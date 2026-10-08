@@ -1,5 +1,8 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
+import { StaffReadinessLabel, useStaffReadiness } from "@/components/StaffReadiness"
 import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
@@ -56,6 +59,9 @@ type TeamMemberRecord = {
 }
 
 export default function PeopleManagementPage() {
+  const { t } = usePortal()
+  const readiness = useStaffReadiness()
+
   const branchContext = useBranches()
   const [clientBranchIds, setClientBranchIds] = useState<string[]>([])
   const [canManageClients, setCanManageClients] = useState(false)
@@ -340,17 +346,15 @@ export default function PeopleManagementPage() {
               People
             </h1>
 
-            <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
-              Manage clients and the team members who
-              deliver their services.
-            </p>
+            <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">{t("Manage clients and the team members who deliver their services.")}</p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
+            <Link href="/team-management/import" className="rj-button rj-button-secondary">Import people</Link>
             {canManageClients && <Link href="/setup/care-teams" className="rj-button rj-button-secondary">Care-team setup</Link>}
             <button
               type="button"
-              onClick={() => loadPeople(true)}
+              onClick={() => { void loadPeople(true); void readiness.refresh() }}
               className="rj-button rj-button-secondary"
             >
               {refreshing ? (
@@ -375,22 +379,19 @@ export default function PeopleManagementPage() {
                 }}
                 className="rj-button rj-button-primary"
               >
-                <Plus size={19} />
-                Add Client
-              </button></SubscriptionWriteControls>
+                <Plus size={19} />{t("Add Client")}</button></SubscriptionWriteControls>
             ) : (
               <SubscriptionWriteControls><Link
                 href="/team-management/invite"
                 className="rj-button rj-button-primary"
               >
-                <MailPlus size={19} />
-                Invite Team Member
-              </Link></SubscriptionWriteControls>
+                <MailPlus size={19} />{t("Invite Team Member")}</Link></SubscriptionWriteControls>
             )}
           </div>
         </div>
       </header>
       <PageGuide guide="team" />
+      {activeTab === "team" && <div role="status">{readiness.loading ? "Checking invitations and readiness…" : readiness.error ? <>{readiness.error} <button className="underline" onClick={() => void readiness.refresh()}>Retry readiness</button></> : "Account status, invitation acceptance and session readiness are shown separately. Email delivery and invitation expiry are not tracked. Use Manage to resend through the existing invitation flow."}</div>}
 
       {branchContext.error && <div role="alert" className="rj-card p-4 text-red-700">
         {branchContext.error} <button type="button" className="underline" onClick={() => void branchContext.reload()}>Retry</button>
@@ -414,7 +415,7 @@ export default function PeopleManagementPage() {
         <div className="grid grid-cols-2 gap-2">
           <TabButton
             active={activeTab === "clients"}
-            label="Clients"
+            label={t("Clients")}
             count={filteredClients.length}
             icon={Baby}
             onClick={() => setActiveTab("clients")}
@@ -422,7 +423,7 @@ export default function PeopleManagementPage() {
 
           <TabButton
             active={activeTab === "team"}
-            label="Team Members"
+            label={t("Team Members")}
             count={team.length}
             icon={Users}
             onClick={() => setActiveTab("team")}
@@ -433,14 +434,9 @@ export default function PeopleManagementPage() {
       {showClientForm &&
         activeTab === "clients" && (
           <section className="rj-card p-6">
-            <h2 className="rj-heading-2">
-              Create Client
-            </h2>
+            <h2 className="rj-heading-2">{t("Create Client")}</h2>
 
-            <p className="rj-caption mt-2">
-              Targets and behavior definitions can be
-              configured after the profile is created.
-            </p>
+            <p className="rj-caption mt-2">{t("Targets and behavior definitions can be configured after the profile is created.")}</p>
 
             <SubscriptionWriteControls><form
               onSubmit={createClient}
@@ -504,10 +500,7 @@ export default function PeopleManagementPage() {
                     />
                   ) : (
                     <CheckCircle2 size={19} />
-                  )}
-
-                  Create Client
-                </button>
+                  )}{t("Create Client")}</button>
 
                 <button
                   type="button"
@@ -539,8 +532,8 @@ export default function PeopleManagementPage() {
               }
               placeholder={
                 activeTab === "clients"
-                  ? "Search clients…"
-                  : "Search team members…"
+                  ? t("Search clients…")
+                  : t("Search team members…")
               }
               className="rj-input pl-11"
             />
@@ -551,8 +544,8 @@ export default function PeopleManagementPage() {
           filteredClients.length === 0 ? (
             <EmptyState
               icon={Baby}
-              title="No clients found"
-              description="Create a client to begin assigning targets and sessions."
+              title={t("No clients found")}
+              description={t("Create a client to begin assigning targets and sessions.")}
             />
           ) : (
             <div className="divide-y divide-[var(--rj-border)]">
@@ -616,15 +609,15 @@ export default function PeopleManagementPage() {
         ) : filteredTeam.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No team members found"
-            description="Invite a frontline or administrative team member."
+            title={t("No team members found")}
+            description={t("Invite a frontline or administrative team member.")}
           />
         ) : (
           <div className="divide-y divide-[var(--rj-border)]">
             {filteredTeam.map((member) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between gap-4 p-5"
+                className="flex flex-wrap items-center justify-between gap-4 p-5"
               >
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--rj-lavender-100)] text-[var(--rj-lavender-700)]">
@@ -644,6 +637,7 @@ export default function PeopleManagementPage() {
                         ? ` · ${member.email}`
                         : ""}
                     </p>
+                    {!readiness.loading && <StaffReadinessLabel staff={readiness.error ? undefined : readiness.data?.staff.find(person => person.id === member.id)} />}
                   </div>
                 </div>
 
@@ -655,7 +649,7 @@ export default function PeopleManagementPage() {
         : "rj-badge-warning"
     }`}
   >
-    {formatLabel(member.status)}
+    Account: {formatLabel(member.status)}
   </span>
 
   <Link

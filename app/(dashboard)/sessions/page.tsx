@@ -1,6 +1,9 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import PageGuide from "@/components/PageGuide"
+import SessionPeopleWarning from "@/components/SessionPeopleWarning"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -123,6 +126,9 @@ const FRONTLINE_ROLES = [
 ]
 
 export default function AdminSessionsPage() {
+  const { t } = usePortal()
+  const [peopleReadiness, setPeopleReadiness] = useState<{ missing_clients: boolean; missing_staff: boolean } | null>(null)
+
 const searchParams = useSearchParams()
 
 const requestedClientId =
@@ -186,6 +192,7 @@ const requestedClientId =
           sessionTypeResult,
           locationResult,
           sessionResult,
+          readinessResult,
         ] = await Promise.all([
           supabase
   .from("clients")
@@ -290,7 +297,10 @@ const requestedClientId =
               ascending: true,
             })
             .limit(100),
+          supabase.rpc("session_people_readiness"),
         ])
+        if (readinessResult.error) throw new Error("Unable to check people setup. Refresh to try again.")
+        setPeopleReadiness(readinessResult.data)
 
         if (clientResult.error) {
           throw new Error(
@@ -680,9 +690,7 @@ const requestedClientId =
             />
           </div>
 
-          <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-            Loading session management…
-          </p>
+          <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">{t("Loading session management…")}</p>
         </div>
       </div>
     )
@@ -690,6 +698,7 @@ const requestedClientId =
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {!pageError && peopleReadiness && <SessionPeopleWarning missingClients={peopleReadiness.missing_clients} missingStaff={peopleReadiness.missing_staff} />}
       {/* Page Header */}
       <header className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-border)] bg-[var(--rj-surface)] p-6 shadow-[var(--rj-shadow-soft)] sm:p-8">
         <div className="pointer-events-none absolute -right-12 -top-20 h-52 w-52 rounded-full bg-[var(--rj-blue-100)] opacity-65" />
@@ -703,15 +712,9 @@ const requestedClientId =
               Admin Workspace
             </div>
 
-            <h1 className="rj-heading-1 mt-4">
-              Sessions
-            </h1>
+            <h1 className="rj-heading-1 mt-4">{t("Sessions")}</h1>
 
-            <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
-              Schedule services using the session
-              types, durations, and locations
-              configured in Setup.
-            </p>
+            <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">{t("Schedule services using the session types, durations, and locations configured in Setup.")}</p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -764,15 +767,10 @@ const requestedClientId =
               />
 
               <div>
-                <h2 className="font-bold text-[var(--rj-mint-700)]">
-                  Session created successfully
-                </h2>
+                <h2 className="font-bold text-[var(--rj-mint-700)]">{t("Session created successfully")}</h2>
 
                 <p className="mt-1 text-sm text-[var(--rj-text-secondary)]">
-                  {success.targets_added} active target
-                  {success.targets_added === 1
-                    ? ""
-                    : "s"}{" "}
+                  {success.targets_added}{t(success.targets_added === 1 ? " active target" : " active targets")}{" "}
                   were prepared automatically.
                 </p>
               </div>
@@ -781,9 +779,7 @@ const requestedClientId =
             <Link
               href={`/sessions/${success.session_id}`}
               className="rj-button rj-button-primary"
-            >
-              Manage Session
-              <ExternalLink size={17} />
+            >{t("Manage Session")}<ExternalLink size={17} />
             </Link>
           </div>
         </section>
@@ -812,7 +808,7 @@ const requestedClientId =
         <SessionSummaryCard
           label="Completed"
           value={completedCount}
-          description="Finished sessions"
+          description={t("Finished sessions")}
           icon={CheckCircle2}
           background="var(--rj-mint-100)"
           foreground="var(--rj-mint-700)"
@@ -828,9 +824,7 @@ const requestedClientId =
             </div>
 
             <div>
-              <p className="rj-label">
-                New Session
-              </p>
+              <p className="rj-label">{t("New Session")}</p>
 
               <h2 className="rj-heading-2 mt-1">
                 Create and prepare
@@ -838,10 +832,7 @@ const requestedClientId =
             </div>
           </div>
 
-          <p className="rj-caption mt-3">
-            Active client targets are copied into
-            the session automatically.
-          </p>
+          <p className="rj-caption mt-3">{t("Active client targets are copied into the session automatically.")}</p>
 {requestedClientId && selectedClient && (
   <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-blue-50)] p-4">
     <div className="flex gap-3">
@@ -851,15 +842,11 @@ const requestedClientId =
       />
 
       <div>
-        <p className="text-sm font-bold text-[var(--rj-blue-700)]">
-          Creating a session for{" "}
+        <p className="text-sm font-bold text-[var(--rj-blue-700)]">{t("Creating a session for")}{" "}
           {getClientName(selectedClient)}
         </p>
 
-        <p className="rj-caption mt-1">
-          The client and primary worker were selected
-          from the client profile.
-        </p>
+        <p className="rj-caption mt-1">{t("The client and primary worker were selected from the client profile.")}</p>
       </div>
     </div>
   </div>
@@ -868,7 +855,7 @@ const requestedClientId =
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
-            <FormField label="Client">
+            <FormField label={t("Client")}>
               <select
                 value={clientId}
                 onChange={(event) => {
@@ -899,9 +886,7 @@ const requestedClientId =
                 className="rj-input"
                 required
               >
-                <option value="">
-                  Select a client
-                </option>
+                <option value="">{t("Select a client")}</option>
 
                 {clients.map((client) => (
                   <option
@@ -914,7 +899,7 @@ const requestedClientId =
               </select>
             </FormField>
 
-            <FormField label="Assigned frontline worker">
+            <FormField label={t("Assigned frontline worker")}>
               <select
                 value={providerId}
                 onChange={(event) =>
@@ -925,9 +910,7 @@ const requestedClientId =
                 className="rj-input"
                 required
               >
-                <option value="">
-                  Select a team member
-                </option>
+                <option value="">{t("Select a team member")}</option>
 
                 {providers.map((provider) => (
                   <option
@@ -945,7 +928,7 @@ const requestedClientId =
               </select>
             </FormField>
 
-            <FormField label="Session type">
+            <FormField label={t("Session type")}>
               <select
                 value={sessionType}
                 onChange={(event) => {
@@ -964,9 +947,7 @@ const requestedClientId =
                 className="rj-input"
                 required
               >
-                <option value="">
-                  Select a session type
-                </option>
+                <option value="">{t("Select a session type")}</option>
 
                 {sessionTypes.map((type) => (
                   <option
@@ -1122,14 +1103,14 @@ const requestedClientId =
               )}
 
               {creating
-                ? "Preparing session…"
-                : "Create Session"}
+                ? t("Preparing session…")
+                : t("Create Session")}
             </button>
           </form></SubscriptionWriteControls>
 
           {clients.length === 0 && (
             <EmptyRequirement
-              text="Create an active client before scheduling a session."
+              text={t("Create an active client before scheduling a session.")}
               href="/team-management"
               linkText="Manage People"
             />
@@ -1137,7 +1118,7 @@ const requestedClientId =
 
           {providers.length === 0 && (
             <EmptyRequirement
-              text="Create or invite an active frontline worker before scheduling."
+              text={t("Create or invite an active frontline worker before scheduling.")}
               href="/team-management"
               linkText="Manage Team"
             />
@@ -1145,7 +1126,7 @@ const requestedClientId =
 
           {sessionTypes.length === 0 && (
             <EmptyRequirement
-              text="Create an active session type in Setup before scheduling."
+              text={t("Create an active session type in Setup before scheduling.")}
               href="/setup/preferences"
               linkText="Open Setup"
             />
@@ -1161,15 +1142,10 @@ const requestedClientId =
                   Organization Schedule
                 </p>
 
-                <h2 className="rj-heading-2 mt-1">
-                  Scheduled Sessions
-                </h2>
+                <h2 className="rj-heading-2 mt-1">{t("Scheduled Sessions")}</h2>
 
                 <p className="rj-caption mt-2">
-                  {filteredSessions.length} session
-                  {filteredSessions.length === 1
-                    ? ""
-                    : "s"}{" "}
+                  {filteredSessions.length}{t(filteredSessions.length === 1 ? " session" : " sessions")}{" "}
                   shown
                 </p>
               </div>
@@ -1189,7 +1165,7 @@ const requestedClientId =
                         event.target.value
                       )
                     }
-                    placeholder="Search sessions…"
+                    placeholder={t("Search sessions…")}
                     className="rj-input min-w-0 pl-11"
                   />
                 </div>
@@ -1248,14 +1224,9 @@ const requestedClientId =
                 <CalendarDays size={28} />
               </div>
 
-              <h3 className="rj-heading-3 mt-4">
-                No matching sessions
-              </h3>
+              <h3 className="rj-heading-3 mt-4">{t("No matching sessions")}</h3>
 
-              <p className="rj-caption mx-auto mt-2 max-w-sm">
-                Create a session or adjust your
-                search and filter options.
-              </p>
+              <p className="rj-caption mx-auto mt-2 max-w-sm">{t("Create a session or adjust your search and filter options.")}</p>
             </div>
           ) : (
             <div className="divide-y divide-[var(--rj-border)]">
@@ -1336,6 +1307,8 @@ function SessionRowCard({
   session: SessionRow
   sessionTypeName: string
 }) {
+  const { t } = usePortal()
+
   const clientName =
     session.clients?.preferred_name ||
     session.clients?.first_name ||
@@ -1375,7 +1348,7 @@ function SessionRowCard({
             >
               {isPrepared
                 ? "Prepared"
-                : "Needs targets"}
+                : t("Needs targets")}
             </span>
           </div>
 
@@ -1397,10 +1370,8 @@ function SessionRowCard({
 
             <SessionDetail
               icon={ListChecks}
-              label="Prepared targets"
-              value={`${targetCount} target${
-                targetCount === 1 ? "" : "s"
-              }`}
+              label={t("Prepared targets")}
+              value={`${targetCount} ${t(targetCount === 1 ? "target" : "targets")}`}
             />
 
             <SessionDetail
@@ -1432,9 +1403,7 @@ function SessionRowCard({
             <ExternalLink size={17} />
           </Link>
 
-          <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">
-            Edit session
-          </Link>
+          <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">{t("Edit session")}</Link>
           <Link
             href={`/sessions/${session.id}`}
             className="rj-button rj-button-primary"

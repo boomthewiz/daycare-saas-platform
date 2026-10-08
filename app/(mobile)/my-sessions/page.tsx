@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import {
   useCallback,
   useEffect,
@@ -63,6 +65,8 @@ type AssignedSession = {
 }
 
 export default function MySessionsPage() {
+  const { t } = usePortal()
+
   const [sessions, setSessions] =
     useState<AssignedSession[]>([])
 
@@ -290,9 +294,7 @@ export default function MySessionsPage() {
                     Care Workspace
                   </span>
 
-                  <h1 className="rj-heading-1 mt-4">
-                    My Sessions
-                  </h1>
+                  <h1 className="rj-heading-1 mt-4">{t("My Sessions")}</h1>
 
                   <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">
                     See what is next and continue active
@@ -304,7 +306,7 @@ export default function MySessionsPage() {
                   type="button"
                   onClick={() => loadSessions(true)}
                   disabled={refreshing}
-                  aria-label="Refresh sessions"
+                  aria-label={t("Refresh sessions")}
                   className="rj-icon-button shrink-0"
                 >
                   {refreshing ? (
@@ -346,7 +348,7 @@ export default function MySessionsPage() {
             <MobileStatCard
               label="Today"
               value={todaySessions.length}
-              description="Scheduled sessions"
+              description={t("Scheduled sessions")}
               icon={CalendarDays}
               background="var(--rj-blue-100)"
               foreground="var(--rj-blue-700)"
@@ -371,8 +373,8 @@ export default function MySessionsPage() {
 
               <h2 className="rj-heading-2 mt-1">
                 {activeSession
-                  ? "Continue Session"
-                  : "Next Session"}
+                  ? t("Continue Session")
+                  : t("Next Session")}
               </h2>
             </div>
 
@@ -390,10 +392,7 @@ export default function MySessionsPage() {
                   You are caught up
                 </h3>
 
-                <p className="rj-caption mx-auto mt-2 max-w-sm">
-                  Your next assigned session will appear here
-                  when it is scheduled.
-                </p>
+                <p className="rj-caption mx-auto mt-2 max-w-sm">{t("Your next assigned session will appear here when it is scheduled.")}</p>
               </div>
             )}
           </section>
@@ -401,7 +400,7 @@ export default function MySessionsPage() {
           {/* Today's remaining sessions */}
           <SessionSection
             title="Today’s Schedule"
-            description="Your remaining assigned sessions"
+            description={t("Your remaining assigned sessions")}
             sessions={todayRemaining.filter(
               (session) =>
                 session.id !== nextSession?.id
@@ -412,7 +411,7 @@ export default function MySessionsPage() {
           {/* Upcoming sessions */}
           <SessionSection
             title="Coming Up"
-            description="Future assigned sessions"
+            description={t("Future assigned sessions")}
             sessions={upcomingSessions.filter(
               (session) =>
                 session.id !== nextSession?.id &&
@@ -425,10 +424,10 @@ export default function MySessionsPage() {
           />
 
           {/* Completed */}
-          <Link href="/my-sessions/history" className="rj-button rj-button-secondary">Browse all session history</Link>
+          <Link href="/my-sessions/history" className="rj-button rj-button-secondary">{t("Browse all session history")}</Link>
           <SessionSection
             title="Recently Completed"
-            description="Open a completed session to finish or review its note"
+            description={t("Open a completed session to finish or review its note")}
             sessions={completedSessions.slice(0, 5)}
             emptyMessage="Completed sessions will appear here."
             completed
@@ -444,6 +443,8 @@ function FeaturedSessionCard({
 }: {
   session: AssignedSession
 }) {
+  const { t } = usePortal()
+
   const targetCount =
     session.session_targets?.length || 0
 
@@ -486,7 +487,7 @@ function FeaturedSessionCard({
         <div className="mt-6 grid grid-cols-2 gap-3">
           <SessionInfoTile
             icon={ListChecks}
-            label="Targets"
+            label={t("Targets")}
             value={`${targetCount} prepared`}
           />
 
@@ -506,14 +507,9 @@ function FeaturedSessionCard({
               />
 
               <div>
-                <p className="text-sm font-bold text-[#926c22]">
-                  Targets are not ready
-                </p>
+                <p className="text-sm font-bold text-[#926c22]">{t("Targets are not ready")}</p>
 
-                <p className="rj-caption mt-1">
-                  Contact an administrator before beginning
-                  this session.
-                </p>
+                <p className="rj-caption mt-1">{t("Contact an administrator before beginning this session.")}</p>
               </div>
             </div>
           </div>
@@ -539,7 +535,7 @@ function FeaturedSessionCard({
           )}
 
           {active
-            ? "Continue Session"
+            ? t("Continue Session")
             : session.status === "completed"
               ? "Review Documentation"
               : "Prepare and Start"}
@@ -602,6 +598,8 @@ function CompactSessionCard({
   session: AssignedSession
   completed: boolean
 }) {
+  const { t } = usePortal()
+
   const targetCount =
     session.session_targets?.length || 0
 
@@ -666,7 +664,7 @@ function CompactSessionCard({
             >
               {prepared
                 ? `${targetCount} targets`
-                : "Needs targets"}
+                : t("Needs targets")}
             </span>
           </div>
         </div>
@@ -775,6 +773,8 @@ function SessionStatusBadge({
 }
 
 function MySessionsLoading() {
+  const { t } = usePortal()
+
   return (
     <main className="rj-page flex min-h-[60vh] items-center justify-center">
       <div className="text-center">
@@ -785,9 +785,7 @@ function MySessionsLoading() {
           />
         </div>
 
-        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-          Loading your sessions…
-        </p>
+        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">{t("Loading your sessions…")}</p>
       </div>
     </main>
   )

@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -74,11 +76,11 @@ export function useBranches() {
 }
 
 export function BranchSelector() {
+  const { t } = usePortal()
+
   const { branches, selectedBranchId, selectBranch, loading, error, reload } = useBranches()
   if (error) return <button type="button" onClick={() => void reload()} className="text-sm text-red-700">Retry loading branches</button>
-  return <label className="text-xs text-gray-600">
-    Client branch
-    <select aria-label="Client branch" value={selectedBranchId} disabled={loading}
+  return <label className="text-xs text-gray-600">{t("Client branch")}<select aria-label={t("Client branch")} value={selectedBranchId} disabled={loading}
       onChange={event => selectBranch(event.target.value)}
       className="mt-1 block max-w-52 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
       <option value="">{loading ? "Loading branches…" : "All branches"}</option>

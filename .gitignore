@@ -41,3 +41,6 @@ coverage/
 
 # Synthetic browser verification artifacts
 /work/setup-guide-evidence/
+
+# Local synthetic onboarding fixtures and validation artifacts
+/work/

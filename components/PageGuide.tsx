@@ -1,4 +1,6 @@
+"use client"
 import Link from "next/link"
+import { usePortal } from "@/components/PortalProvider"
 
 type Step = { title: string; text: string; href?: string }
 const guides = {
@@ -77,11 +79,12 @@ const guides = {
 } satisfies Record<string, { title: string; steps: Step[]; access: string }>
 
 export default function PageGuide({ guide }: { guide: keyof typeof guides }) {
+  const { t } = usePortal()
   const content: { title: string; steps: Step[]; access: string } = guides[guide]
   return <details className="rj-card min-w-0 p-4 sm:p-5">
-    <summary className="cursor-pointer rounded-md font-bold text-[var(--rj-teal-700)]">Getting started: {content.title}</summary>
+    <summary className="cursor-pointer rounded-md font-bold text-[var(--rj-teal-700)]">Getting started: {t(content.title)}</summary>
     <ol className="mt-4 list-decimal space-y-4 pl-5">
-      {content.steps.map(step => <li key={step.title} className="pl-1"><p className="font-semibold">{step.title}</p><p className="rj-caption mt-1">{step.text}</p>{step.href && <Link href={step.href} className="mt-2 inline-block font-semibold underline">Open {step.href === "/setup/preferences" ? "business preferences" : step.href === "/setup/care-teams" ? "care-team setup" : step.href === "/setup/roles" ? "roles and permissions" : step.href === "/sessions" ? "Sessions" : "Team"}</Link>}</li>)}
+      {content.steps.map(step => <li key={step.title} className="pl-1"><p className="font-semibold">{t(step.title)}</p><p className="rj-caption mt-1">{t(step.text)}</p>{step.href && <Link href={step.href} className="mt-2 inline-block font-semibold underline">Open {step.href === "/setup/preferences" ? "business preferences" : step.href === "/setup/care-teams" ? "care-team setup" : step.href === "/setup/roles" ? "roles and permissions" : step.href === "/sessions" ? t("Sessions") : "People"}</Link>}</li>)}
     </ol>
     <p className="rj-caption mt-4 rounded-lg bg-[var(--rj-surface-muted)] p-3"><strong>Your access: </strong>{content.access}</p>
   </details>
