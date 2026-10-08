@@ -12,6 +12,17 @@ export default function SetupPage() {
     <p>Configure your business and team. Available changes depend on your current permissions.</p>
     <PageGuide guide="setup" />
     {access.error && <p role="alert">{access.error}</p>}
+    <section className="rj-card space-y-3 p-5" aria-labelledby="first-session-setup">
+      <h2 id="first-session-setup" className="rj-heading-3">Start with your first {t("session").toLowerCase()}</h2>
+      <p>Follow these steps in order. You can return here whenever you need to finish setup.</p>
+      <ol className="list-decimal space-y-2 pl-5">
+        <li><Link href="/setup/preferences" className="underline">Set up your branches and {t("session types")}</Link> so scheduling has a location and service to use.</li>
+        <li><Link href="/team-management" className="underline">Add your {t("clients and frontline staff")}</Link> individually, or <Link href="/team-management/import" className="underline">import a CSV list</Link>.</li>
+        <li><Link href="/setup/care-teams" className="underline">Assign staff to branches and care groups</Link>, then open each person in People to review their care assignments.</li>
+        <li><Link href="/sessions" className="underline">Create your first {t("session").toLowerCase()}</Link>.</li>
+      </ol>
+      <p className="text-sm">Appearance and vocabulary are optional; you can personalize them at any time. Your permissions determine which setup steps you can complete.</p>
+    </section>
     <div className="grid gap-4 md:grid-cols-2">
       <Link href="/setup/appearance" className="rj-card block p-5"><h2 className="rj-heading-3">Portal appearance and vocabulary</h2><p className="mt-2">Preview themes, choose a business preset, and customize the words your team sees.</p></Link>
       <Link href="/team-management/import" className="rj-card block p-5"><h2 className="rj-heading-3">Import people</h2><p className="mt-2">Get started faster with CSV lists of clients and staff.</p></Link>
