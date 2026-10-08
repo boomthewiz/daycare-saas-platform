@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
@@ -69,6 +71,8 @@ type FilterValue =
   | "locked"
 
 export default function ReviewsPage() {
+  const { t } = usePortal()
+
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -272,15 +276,9 @@ export default function ReviewsPage() {
               </span>
             </div>
 
-            <h1 className="rj-heading-1 mt-4">
-              Session Reviews
-            </h1>
+            <h1 className="rj-heading-1 mt-4">{t("Session Reviews")}</h1>
 
-            <p className="rj-body mt-2 max-w-2xl text-[var(--rj-text-secondary)]">
-              Review submitted session documentation, return
-              notes for correction, approve documentation, and
-              finalize completed records.
-            </p>
+            <p className="rj-body mt-2 max-w-2xl text-[var(--rj-text-secondary)]">{t("Review submitted session documentation, return notes for correction, approve documentation, and finalize completed records.")}</p>
           </div>
 
           <button
@@ -404,7 +402,7 @@ export default function ReviewsPage() {
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                placeholder="Search client or provider..."
+                placeholder={t("Search client or provider...")}
                 className="rj-input pl-10 sm:w-72"
               />
             </div>
@@ -452,9 +450,9 @@ export default function ReviewsPage() {
         ) : (
           <>
             <div className="hidden border-b border-[var(--rj-border)] bg-[var(--rj-surface-muted)] px-6 py-3 text-xs font-extrabold uppercase tracking-wide text-[var(--rj-text-muted)] lg:grid lg:grid-cols-[minmax(220px,1.4fr)_minmax(160px,1fr)_150px_150px_40px] lg:gap-4">
-              <span>Client</span>
+              <span>{t("Client")}</span>
               <span>Provider</span>
-              <span>Session</span>
+              <span>{t("Session")}</span>
               <span>Status</span>
               <span />
             </div>
@@ -479,6 +477,8 @@ function ReviewListItem({
 }: {
   review: ReviewRow
 }) {
+  const { t } = usePortal()
+
   const session = review.sessions
   const client = session?.clients
 
@@ -530,9 +530,7 @@ function ReviewListItem({
 
         {/* Session */}
         <div>
-          <p className="rj-label lg:hidden">
-            Session
-          </p>
+          <p className="rj-label lg:hidden">{t("Session")}</p>
 
           <div className="mt-1 lg:mt-0">
             <p className="text-sm font-bold">
@@ -648,6 +646,8 @@ function EmptyReviews({
   hasSearch: boolean
   filter: FilterValue
 }) {
+  const { t } = usePortal()
+
   if (hasSearch) {
     return (
       <div className="p-10 text-center">
@@ -679,9 +679,7 @@ function EmptyReviews({
           You are all caught up
         </h2>
 
-        <p className="rj-caption mt-2">
-          There are no submitted session notes waiting for review.
-        </p>
+        <p className="rj-caption mt-2">{t("There are no submitted session notes waiting for review.")}</p>
       </div>
     )
   }
@@ -697,9 +695,7 @@ function EmptyReviews({
         No reviews found
       </h2>
 
-      <p className="rj-caption mt-2">
-        There are no session notes in this category.
-      </p>
+      <p className="rj-caption mt-2">{t("There are no session notes in this category.")}</p>
     </div>
   )
 }

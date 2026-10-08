@@ -5,6 +5,7 @@ const path = require("node:path")
 const ts = require("typescript")
 
 function loadTs(file, mocks = {}) {
+  mocks['@/components/PortalProvider'] = { usePortal: () => ({ t: text => text }) }
   const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8")
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText
   const module = { exports: {} }

@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import Link from "next/link"
 import { CareContext, CareStaff, eligibleStaff, groupSelection, selectPeople } from "@/lib/care-team"
 
@@ -7,6 +9,8 @@ export default function CareTeamPicker({ context, locationIds, selected, primary
   context: CareContext; locationIds: string[]; selected: string[]; primaryId: string
   onChange: (ids: string[], primary: string) => void; disabled?: boolean
 }) {
+  const { t } = usePortal()
+
   const eligible = context.staff.filter(person => eligibleStaff(person, locationIds))
   const unique = [...new Set(selected)]
   const unavailable = unique.filter(id => !eligible.some(person => person.id === id))
@@ -25,9 +29,9 @@ export default function CareTeamPicker({ context, locationIds, selected, primary
   }
   return <fieldset disabled={disabled} className="space-y-4 rounded-xl border border-gray-200 p-4">
     <legend className="px-1 font-semibold">Care-team assignments</legend>
-    <p className="rj-caption">Select current members. Future group changes do not update this client’s saved care team.</p>
+    <p className="rj-caption">{t("Select current members. Future group changes do not update this client’s saved care team.")}</p>
     <p className="rj-caption">A person counts once across groups. Deselecting them removes them everywhere; selecting a whole group again adds its current eligible members.</p>
-    {!locationIds.length && <p>Choose client branches first.</p>}
+    {!locationIds.length && <p>{t("Choose client branches first.")}</p>}
     {groups.map(group => {
       const people = eligible.filter(person => group.member_ids.includes(person.id) && person.location_ids.includes(group.location_id))
       const ids = people.map(person => person.id)
@@ -58,17 +62,17 @@ export default function CareTeamPicker({ context, locationIds, selected, primary
         <option value="">No default worker</option>
         {context.staff.filter(person => unique.includes(person.id)).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
       </select>
-      <span className="rj-caption block">Choose from the selected care team. Individual sessions may use another worker.</span>
+      <span className="rj-caption block">{t("Choose from the selected care team. Individual sessions may use another worker.")}</span>
     </label>
     <div aria-live="polite" className="rounded-lg bg-blue-50 p-4">
       <p className="font-semibold">Assignment summary — {unique.length} {unique.length === 1 ? "person" : "people"}</p>
-      <p>{unique.length ? unique.map(id => context.staff.find(person => person.id === id)?.name || "Unavailable staff").join(", ") : "No care-team members selected."}</p>
+      <p>{unique.length ? unique.map(id => context.staff.find(person => person.id === id)?.name || "Unavailable staff").join(", ") : t("No care-team members selected.")}</p>
       <p className="mt-2 text-sm">Default worker: {context.staff.find(person => person.id === primaryId)?.name || "None"}</p>
       {groups.map(group => {
         const state = groupSelection(eligible.filter(person => group.member_ids.includes(person.id) && person.location_ids.includes(group.location_id)).map(person => person.id), unique)
         return state.count > 0 ? <p key={group.id} className="text-sm">{group.name}: {state.count}/{state.total}{state.partial ? " — partially selected" : " — all eligible members selected"}</p> : null
       })}
-      <p className="mt-2 text-sm">Selected staff may view this client’s profile, targets, and behaviors while branch eligibility is valid. Session and note access follow existing permissions.</p>
+      <p className="mt-2 text-sm">{t("Selected staff may view this client’s profile, targets, and behaviors while branch eligibility is valid. Session and note access follow existing permissions.")}</p>
     </div>
   </fieldset>
 }

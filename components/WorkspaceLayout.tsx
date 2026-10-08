@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar"
 import Header from "@/components/Header"
 import { BranchProvider } from "@/components/BranchProvider"
 import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
+import PortalProvider from "@/components/PortalProvider"
 
 export default function WorkspaceLayout({
   children,
@@ -63,7 +64,7 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <BranchProvider>
+    <PortalProvider><BranchProvider>
     <div className="min-h-screen flex bg-gray-50">
 
       {/* Sidebar stays mounted */}
@@ -80,6 +81,6 @@ export default function WorkspaceLayout({
         </main>
       </div>
     </div>
-    </BranchProvider>
+    </BranchProvider></PortalProvider>
   )
 }

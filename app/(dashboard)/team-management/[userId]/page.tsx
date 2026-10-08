@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -118,6 +120,8 @@ const ROLE_OPTIONS: {
 ]
 
 export default function ManageTeamMemberPage() {
+  const { t } = usePortal()
+
   const params = useParams<{ userId: string }>()
   const userId = params.userId
 
@@ -969,7 +973,7 @@ export default function ManageTeamMemberPage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <SummaryCard
-          label="Assigned Clients"
+          label={t("Assigned Clients")}
           value={assignedClients.length}
           icon={Users}
           background="var(--rj-blue-100)"
@@ -977,7 +981,7 @@ export default function ManageTeamMemberPage() {
         />
 
         <SummaryCard
-          label="Upcoming Sessions"
+          label={t("Upcoming Sessions")}
           value={upcomingSessions.length}
           icon={CalendarDays}
           background="var(--rj-lavender-100)"
@@ -1203,11 +1207,7 @@ export default function ManageTeamMemberPage() {
               </div>
             </div>
 
-            <p className="rj-caption mt-3">
-              These grants supplement the user’s role.
-              An owner or administrator decides who may
-              change permission grants for other team members.
-            </p>
+            <p className="rj-caption mt-3">{t("These grants supplement the user’s role. An owner or administrator decides who may change permission grants for other team members.")}</p>
 
             {!accountLocked && !callerCanDelegatePermissions && (
               <p className="rj-caption mt-3">
@@ -1277,17 +1277,12 @@ export default function ManageTeamMemberPage() {
                 Assignments
               </p>
 
-              <h2 className="rj-heading-2 mt-1">
-                Care-team Clients
-              </h2>
+              <h2 className="rj-heading-2 mt-1">{t("Care-team Clients")}</h2>
             </div>
 
             {assignedClients.length === 0 ? (
               <div className="p-7 text-center">
-                <p className="rj-caption">
-                  This account is not currently selected
-                  in any client’s care team.
-                </p>
+                <p className="rj-caption">{t("This account is not currently selected in any client’s care team.")}</p>
               </div>
             ) : (
               <div className="divide-y divide-[var(--rj-border)]">
@@ -1328,17 +1323,12 @@ export default function ManageTeamMemberPage() {
                 Schedule
               </p>
 
-              <h2 className="rj-heading-2 mt-1">
-                Upcoming Sessions
-              </h2>
+              <h2 className="rj-heading-2 mt-1">{t("Upcoming Sessions")}</h2>
             </div>
 
             {upcomingSessions.length === 0 ? (
               <div className="p-7 text-center">
-                <p className="rj-caption">
-                  No upcoming sessions are assigned
-                  to this user.
-                </p>
+                <p className="rj-caption">{t("No upcoming sessions are assigned to this user.")}</p>
               </div>
             ) : (
               <div className="divide-y divide-[var(--rj-border)]">

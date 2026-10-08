@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
@@ -256,6 +258,8 @@ const EMPTY_BEHAVIOR_FORM: BehaviorFormState = {
 }
 
 export default function ClientDetailPage() {
+  const { t } = usePortal()
+
   const params = useParams<{ clientId: string }>()
   const router = useRouter()
 
@@ -1147,9 +1151,7 @@ export default function ClientDetailPage() {
             className="mx-auto text-[var(--rj-danger)]"
           />
 
-          <h1 className="rj-heading-2 mt-4">
-            Client unavailable
-          </h1>
+          <h1 className="rj-heading-2 mt-4">{t("Client unavailable")}</h1>
 
           <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">
             {pageError ||
@@ -1211,9 +1213,7 @@ export default function ClientDetailPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full bg-[var(--rj-teal-50)] px-3 py-1.5 text-sm font-bold text-[var(--rj-teal-700)]">
-                <Sparkles size={15} />
-                Client Workspace
-              </span>
+                <Sparkles size={15} />{t("Client Workspace")}</span>
 
               <ClientStatusBadge
                 status={client.status}
@@ -1242,9 +1242,7 @@ export default function ClientDetailPage() {
               href={`/sessions?client=${client.id}`}
               className="rj-button rj-button-primary"
             >
-              <CalendarDays size={19} />
-              Create Session
-            </Link></SubscriptionWriteControls>
+              <CalendarDays size={19} />{t("Create Session")}</Link></SubscriptionWriteControls>
 
             <SubscriptionWriteControls><button
               type="button"
@@ -1255,9 +1253,7 @@ export default function ClientDetailPage() {
               }
               className="rj-button rj-button-secondary"
             >
-              <Archive size={18} />
-              Archive Client
-            </button></SubscriptionWriteControls>
+              <Archive size={18} />{t("Archive Client")}</button></SubscriptionWriteControls>
           </div>
         </div>
       </header>
@@ -1282,7 +1278,7 @@ export default function ClientDetailPage() {
       {/* Summary cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
-          label="Active Targets"
+          label={t("Active Targets")}
           value={activeTargets.length}
           icon={Target}
           background="var(--rj-blue-100)"
@@ -1298,7 +1294,7 @@ export default function ClientDetailPage() {
         />
 
         <SummaryCard
-          label="Upcoming Sessions"
+          label={t("Upcoming Sessions")}
           value={upcomingSessions.length}
           icon={CalendarDays}
           background="var(--rj-teal-100)"
@@ -1306,7 +1302,7 @@ export default function ClientDetailPage() {
         />
 
         <SummaryCard
-          label="Completed Sessions"
+          label={t("Completed Sessions")}
           value={completedSessions.length}
           icon={CheckCircle2}
           background="var(--rj-mint-100)"
@@ -1328,7 +1324,7 @@ export default function ClientDetailPage() {
 
           <PageTabButton
             active={activeTab === "targets"}
-            label="Targets"
+            label={t("Targets")}
             count={targets.length}
             icon={Target}
             onClick={() =>
@@ -1348,7 +1344,7 @@ export default function ClientDetailPage() {
 
           <PageTabButton
             active={activeTab === "sessions"}
-            label="Sessions"
+            label={t("Sessions")}
             count={sessions.length}
             icon={CalendarDays}
             onClick={() =>
@@ -1394,18 +1390,11 @@ export default function ClientDetailPage() {
             <div className="border-b border-[var(--rj-border)] p-6">
               <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
                 <div>
-                  <p className="rj-label">
-                    Client Program
-                  </p>
+                  <p className="rj-label">{t("Client Program")}</p>
 
-                  <h2 className="rj-heading-2 mt-1">
-                    Targets and Goals
-                  </h2>
+                  <h2 className="rj-heading-2 mt-1">{t("Targets and Goals")}</h2>
 
-                  <p className="rj-caption mt-2">
-                    Active targets are copied into newly
-                    prepared sessions.
-                  </p>
+                  <p className="rj-caption mt-2">{t("Active targets are copied into newly prepared sessions.")}</p>
                 </div>
 
                 <SubscriptionWriteControls><button
@@ -1413,9 +1402,7 @@ export default function ClientDetailPage() {
                   onClick={openCreateTargetForm}
                   className="rj-button rj-button-primary"
                 >
-                  <Plus size={19} />
-                  Add Target
-                </button></SubscriptionWriteControls>
+                  <Plus size={19} />{t("Add Target")}</button></SubscriptionWriteControls>
               </div>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -1433,7 +1420,7 @@ export default function ClientDetailPage() {
                         event.target.value
                       )
                     }
-                    placeholder="Search targets…"
+                    placeholder={t("Search targets…")}
                     className="rj-input pl-11"
                   />
                 </div>
@@ -1469,8 +1456,8 @@ export default function ClientDetailPage() {
             {filteredTargets.length === 0 ? (
               <EmptyState
                 icon={Target}
-                title="No matching targets"
-                description="Create a target or adjust your filters."
+                title={t("No matching targets")}
+                description={t("Create a target or adjust your filters.")}
                 actionLabel="Add Target"
                 onAction={openCreateTargetForm}
               />
@@ -1532,18 +1519,13 @@ export default function ClientDetailPage() {
           <section className="rj-card overflow-hidden">
             <div className="flex flex-col justify-between gap-5 border-b border-[var(--rj-border)] p-6 sm:flex-row sm:items-center">
               <div>
-                <p className="rj-label">
-                  Session Tracking
-                </p>
+                <p className="rj-label">{t("Session Tracking")}</p>
 
                 <h2 className="rj-heading-2 mt-1">
                   Behavior Definitions
                 </h2>
 
-                <p className="rj-caption mt-2">
-                  Active behaviors appear as quick actions
-                  in the frontline session workspace.
-                </p>
+                <p className="rj-caption mt-2">{t("Active behaviors appear as quick actions in the frontline session workspace.")}</p>
               </div>
 
               <SubscriptionWriteControls><button
@@ -1626,6 +1608,8 @@ function OverviewTab({
     event: FormEvent<HTMLFormElement>
   ) => void
 }) {
+  const { t } = usePortal()
+
   return (
     <section className="rj-card p-6 sm:p-8">
       <div className="flex items-center gap-4">
@@ -1634,9 +1618,7 @@ function OverviewTab({
         </div>
 
         <div>
-          <p className="rj-label">
-            Client Profile
-          </p>
+          <p className="rj-label">{t("Client Profile")}</p>
 
           <h2 className="rj-heading-2 mt-1">
             General information
@@ -1681,7 +1663,7 @@ function OverviewTab({
           />
         </FormField>
 
-        <FormField label="Client status">
+        <FormField label={t("Client status")}>
           <select
             value={clientStatus}
             onChange={(event) =>
@@ -1751,20 +1733,22 @@ function TargetForm({
   ) => void
   onCancel: () => void
 }) {
+  const { t } = usePortal()
+
   return (
     <section className="rj-card p-6 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="rj-label">
             {editing
-              ? "Edit Client Target"
-              : "New Client Target"}
+              ? t("Edit Client Target")
+              : t("New Client Target")}
           </p>
 
           <h2 className="rj-heading-2 mt-1">
             {editing
-              ? "Update target"
-              : "Create target"}
+              ? t("Update target")
+              : t("Create target")}
           </h2>
         </div>
 
@@ -1772,7 +1756,7 @@ function TargetForm({
           type="button"
           onClick={onCancel}
           className="rj-icon-button"
-          aria-label="Close target form"
+          aria-label={t("Close target form")}
         >
           <X size={19} />
         </button>
@@ -1783,7 +1767,7 @@ function TargetForm({
         className="mt-6 grid gap-5 md:grid-cols-2"
       >
         <div className="md:col-span-2">
-          <FormField label="Target title">
+          <FormField label={t("Target title")}>
             <input
               value={form.title}
               onChange={(event) =>
@@ -1825,7 +1809,7 @@ function TargetForm({
           </select>
         </FormField>
 
-        <FormField label="Target type">
+        <FormField label={t("Target type")}>
           <select
             value={form.targetType}
             onChange={(event) =>
@@ -1920,10 +1904,10 @@ function TargetForm({
             )}
 
             {saving
-              ? "Saving Target…"
+              ? t("Saving Target…")
               : editing
                 ? "Save Changes"
-                : "Create Target"}
+                : t("Create Target")}
           </button>
 
           <button
@@ -2351,6 +2335,8 @@ function SessionsTab({
   sessionTypeMap: Map<string, string>
   clientId: string
 }) {
+  const { t } = usePortal()
+
   const providerMap = new Map(
     providers.map((provider) => [
       provider.id,
@@ -2368,30 +2354,23 @@ function SessionsTab({
             Service History
           </p>
 
-          <h2 className="rj-heading-2 mt-1">
-            Client Sessions
-          </h2>
+          <h2 className="rj-heading-2 mt-1">{t("Client Sessions")}</h2>
 
-          <p className="rj-caption mt-2">
-            Upcoming and completed services for this
-            client.
-          </p>
+          <p className="rj-caption mt-2">{t("Upcoming and completed services for this client.")}</p>
         </div>
 
         <SubscriptionWriteControls><Link
           href={`/sessions?client=${clientId}`}
           className="rj-button rj-button-primary"
         >
-          <Plus size={19} />
-          Create Session
-        </Link></SubscriptionWriteControls>
+          <Plus size={19} />{t("Create Session")}</Link></SubscriptionWriteControls>
       </div>
 
       {sessions.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
-          title="No sessions scheduled"
-          description="Create the first session after adding active targets."
+          title={t("No sessions scheduled")}
+          description={t("Create the first session after adding active targets.")}
           actionLabel="Create Session"
           actionHref={`/sessions?client=${clientId}`}
         />
@@ -2752,6 +2731,8 @@ function MessageBanner({
 }
 
 function ClientWorkspaceLoading() {
+  const { t } = usePortal()
+
   return (
     <div className="flex min-h-[65vh] items-center justify-center">
       <div className="text-center">
@@ -2762,9 +2743,7 @@ function ClientWorkspaceLoading() {
           />
         </div>
 
-        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-          Loading client workspace…
-        </p>
+        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">{t("Loading client workspace…")}</p>
       </div>
     </div>
   )

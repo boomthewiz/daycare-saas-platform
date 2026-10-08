@@ -72,7 +72,7 @@ export const navigationItems: NavigationItem[] = [
   },
 
   {
-    name: "Team",
+    name: "People",
     href: "/team-management",
     icon: Users,
     permission: "can_manage_team",

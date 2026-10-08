@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { usePortal } from "@/components/PortalProvider"
 import { supabase } from "@/lib/supabase"
 import {
   ChevronLeft,
@@ -31,6 +32,7 @@ const defaultPermissions: UserPermissions = {
 }
 
 export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
+  const { t } = usePortal()
   const pathname = usePathname()
 
   const [collapsed, setCollapsed] = useState(false)
@@ -272,11 +274,11 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
-                aria-label={item.name}
+                aria-label={t(item.name)}
                 aria-current={
                   isActive ? "page" : undefined
                 }
-                title={item.name}
+                title={t(item.name)}
                 className={`flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl transition sm:flex-row sm:gap-3 sm:px-4 ${
                   collapsed
                     ? "justify-center"
@@ -293,7 +295,7 @@ export default function Sidebar({ sticky = false }: { sticky?: boolean }) {
                   className="shrink-0"
                 />
 
-                <span className={`text-center text-[10px] leading-tight ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}>{item.name}</span>
+                <span className={`text-center text-[10px] leading-tight ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}>{t(item.name)}</span>
               </Link>
             )
           })

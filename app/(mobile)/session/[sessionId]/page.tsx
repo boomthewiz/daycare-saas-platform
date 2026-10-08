@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSubscriptionAccess } from "@/lib/use-subscription-access"
 import Link from "next/link"
@@ -119,6 +121,8 @@ type DisplayBehavior = ClientBehaviorRecord & {
 }
 
 export default function ActiveSessionPage() {
+  const { t } = usePortal()
+
   const router = useRouter()
   const params = useParams<{ sessionId: string }>()
 
@@ -718,9 +722,7 @@ export default function ActiveSessionPage() {
             size={34}
           />
 
-          <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-            Preparing your session…
-          </p>
+          <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">{t("Preparing your session…")}</p>
         </div>
       </main>
     )
@@ -735,9 +737,7 @@ export default function ActiveSessionPage() {
             size={34}
           />
 
-          <h1 className="rj-heading-2 mt-4">
-            Unable to open session
-          </h1>
+          <h1 className="rj-heading-2 mt-4">{t("Unable to open session")}</h1>
 
           <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">
             {pageError ||
@@ -764,7 +764,7 @@ export default function ActiveSessionPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              aria-label="Leave session"
+              aria-label={t("Leave session")}
               className="rj-icon-button shrink-0"
             >
               <ArrowLeft size={22} />
@@ -808,8 +808,8 @@ export default function ActiveSessionPage() {
               }}
               aria-label={
                 sessionIsPaused
-                  ? "Resume session"
-                  : "Pause session"
+                  ? t("Resume session")
+                  : t("Pause session")
               }
               className="rj-icon-button shrink-0 disabled:opacity-50"
             >
@@ -833,9 +833,7 @@ export default function ActiveSessionPage() {
                 className="text-[var(--rj-blue-700)]"
               />
 
-              <span className="text-sm font-bold text-[var(--rj-blue-700)]">
-                Session time
-              </span>
+              <span className="text-sm font-bold text-[var(--rj-blue-700)]">{t("Session time")}</span>
             </div>
 
             <span className="font-mono text-xl font-bold tracking-wide">
@@ -845,7 +843,7 @@ export default function ActiveSessionPage() {
         </header>
 
         <div className="space-y-5 px-5 py-6">
-          {!workspaceReady && <div role="alert" className="rj-card p-4"><p>Session data needs to be refreshed before another action. Check the latest recorded counts before repeating an entry.</p><button className="rj-button rj-button-secondary mt-3" onClick={()=>void fetchSessionWorkspace()}>Refresh session data</button></div>}
+          {!workspaceReady && <div role="alert" className="rj-card p-4"><p>{t("Session data needs to be refreshed before another action. Check the latest recorded counts before repeating an entry.")}</p><button className="rj-button rj-button-secondary mt-3" onClick={()=>void fetchSessionWorkspace()}>{t("Refresh session data")}</button></div>}
           {pageError && (
             <div className="rounded-[var(--rj-radius-md)] bg-[var(--rj-danger-soft)] p-4">
               <div className="flex gap-3">
@@ -862,7 +860,7 @@ export default function ActiveSessionPage() {
           )}
 
           {subscriptionError && <p role="alert" className="rj-card p-4">{subscriptionError}</p>}
-          {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? 'Your trial has ended. You may finish this session and submit its note.' : 'Your organization has read-only access. Subscribe before starting a new session.'}</p>}
+          {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? t("Your trial has ended. You may finish this session and submit its note.") : t("Your organization has read-only access. Subscribe before starting a new session.")}</p>}
           {!sessionHasStarted && (
             <section className="rj-card p-6 text-center">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]">
@@ -873,10 +871,7 @@ export default function ActiveSessionPage() {
                 Ready to begin?
               </h1>
 
-              <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">
-                Starting confirms that you are present and
-                begins the session timer.
-              </p>
+              <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">{t("Starting confirms that you are present and begins the session timer.")}</p>
 
               <button
                 type="button"
@@ -895,23 +890,17 @@ export default function ActiveSessionPage() {
                   />
                 ) : (
                   <Play size={20} />
-                )}
-
-                Start session
-              </button>
+                )}{t("Start session")}</button>
             </section>
           )}
 
           <section className="rj-card p-5">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="rj-caption">
-                  Session progress
-                </p>
+                <p className="rj-caption">{t("Session progress")}</p>
 
                 <p className="rj-heading-2 mt-1">
-                  {completedTargets} of {targets.length} targets
-                </p>
+                  {completedTargets} of {targets.length}{t(" targets")}</p>
               </div>
 
               <div
@@ -934,13 +923,9 @@ export default function ActiveSessionPage() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="rj-label">
-                  Current session
-                </p>
+                <p className="rj-label">{t("Current session")}</p>
 
-                <h1 className="rj-heading-1 mt-1">
-                  Targets
-                </h1>
+                <h1 className="rj-heading-1 mt-1">{t("Targets")}</h1>
               </div>
 
               <span className="rj-badge rj-badge-info">
@@ -951,14 +936,9 @@ export default function ActiveSessionPage() {
 
             {targets.length === 0 ? (
               <div className="rj-card p-6 text-center">
-                <p className="font-bold">
-                  No prepared targets
-                </p>
+                <p className="font-bold">{t("No prepared targets")}</p>
 
-                <p className="rj-caption mt-2">
-                  An administrator must prepare this session
-                  before targets appear.
-                </p>
+                <p className="rj-caption mt-2">{t("An administrator must prepare this session before targets appear.")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1161,9 +1141,7 @@ export default function ActiveSessionPage() {
             </div>
 
             {behaviors.length === 0 ? (
-              <p className="rj-caption mt-5">
-                No active behaviors are assigned to this client.
-              </p>
+              <p className="rj-caption mt-5">{t("No active behaviors are assigned to this client.")}</p>
             ) : (
               <div className="mt-5 space-y-3">
                 {behaviors.map((behavior) => {
@@ -1239,9 +1217,9 @@ export default function ActiveSessionPage() {
           </section>
 
           <section className="rj-card p-5">
-            <h2 className="rj-heading-3">Session notes</h2>
-            <p className="rj-caption mt-2">Save observations and draft documentation during the session. Submission becomes available after completion.</p>
-            <Link href={`/session/${sessionId}/complete`} className="rj-button rj-button-secondary mt-4">Open session notes</Link>
+            <h2 className="rj-heading-3">{t("Session notes")}</h2>
+            <p className="rj-caption mt-2">{t("Save observations and draft documentation during the session. Submission becomes available after completion.")}</p>
+            <Link href={`/session/${sessionId}/complete`} className="rj-button rj-button-secondary mt-4">{t("Open session notes")}</Link>
           </section>
         </div>
 
@@ -1249,13 +1227,12 @@ export default function ActiveSessionPage() {
           <div className="mx-auto flex max-w-lg items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold">
-                {completedTargets}/{targets.length} targets completed
-              </p>
+                {completedTargets}/{targets.length}{t(" targets completed")}</p>
 
               <p className="rj-caption truncate">
                 {activeTarget
                   ? `Current: ${activeTarget.title}`
-                  : "No target selected"}
+                  : t("No target selected")}
               </p>
             </div>
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import {
   useCallback,
   useEffect,
@@ -82,6 +84,8 @@ const ADMIN_ROLES: UserRole[] = [
 ]
 
 export default function DashboardPage() {
+  const { t } = usePortal()
+
   const [profile, setProfile] =
     useState<UserProfile | null>(null)
 
@@ -371,8 +375,8 @@ export default function DashboardPage() {
 
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
               {isAdmin
-                ? "Prepare sessions, support your team, and keep daily care moving smoothly."
-                : "Review your assigned sessions and stay focused on the people in your care."}
+                ? t("Prepare sessions, support your team, and keep daily care moving smoothly.")
+                : t("Review your assigned sessions and stay focused on the people in your care.")}
             </p>
           </div>
 
@@ -402,17 +406,13 @@ export default function DashboardPage() {
                 href="/sessions"
                 className="rj-button rj-button-primary"
               >
-                <CalendarDays size={20} />
-                Create Session
-              </Link>
+                <CalendarDays size={20} />{t("Create Session")}</Link>
             ) : (
               <Link
                 href="/my-sessions"
                 className="rj-button rj-button-primary"
               >
-                <CalendarDays size={20} />
-                View My Sessions
-              </Link>
+                <CalendarDays size={20} />{t("View My Sessions")}</Link>
             )}
           </div>
         </div>
@@ -442,7 +442,7 @@ export default function DashboardPage() {
       {/* Statistics */}
       <section aria-label="Dashboard statistics" className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
         <DashboardStatCard
-          title="Today’s Sessions"
+          title={t("Today’s Sessions")}
           value={todaySessions.length}
           description="Scheduled for today"
           icon={CalendarDays}
@@ -458,7 +458,7 @@ export default function DashboardPage() {
         />
 
         <DashboardStatCard
-          title="Active Clients"
+          title={t("Active Clients")}
           value={clients.length}
           description={
             isAdmin
@@ -470,7 +470,7 @@ export default function DashboardPage() {
         />
 
         <DashboardStatCard
-          title="Team Members"
+          title={t("Team Members")}
           value={
             isAdmin
               ? teamMembers.length
@@ -502,16 +502,16 @@ export default function DashboardPage() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <QuickActionCard
-              title="Create Session"
-              description="Schedule and prepare targets for a team member."
+              title={t("Create Session")}
+              description={t("Schedule and prepare targets for a team member.")}
               href="/sessions"
               icon={CalendarDays}
               tone="teal"
             />
 
             <QuickActionCard
-              title="Manage Clients"
-              description="Add client records, targets, and behavior definitions."
+              title={t("Manage Clients")}
+              description={t("Add client records, targets, and behavior definitions.")}
               href="/team-management"
               icon={UserRound}
               tone="blue"
@@ -527,7 +527,7 @@ export default function DashboardPage() {
 
             <QuickActionCard
               title="Setup"
-              description="Configure business preferences, team access, and reusable session options."
+              description={t("Configure business preferences, team access, and reusable session options.")}
               href="/setup"
               icon={Settings2}
               tone="mint"
@@ -545,16 +545,14 @@ export default function DashboardPage() {
                 Schedule
               </p>
 
-              <h2 className="rj-heading-2 mt-1">
-                Upcoming Sessions
-              </h2>
+              <h2 className="rj-heading-2 mt-1">{t("Upcoming Sessions")}</h2>
             </div>
 
             <Link
               href={
                 isAdmin
-                  ? "/sessions"
-                  : "/my-sessions"
+                  ? t("/sessions")
+                  : t("/my-sessions")
               }
               className="inline-flex items-center gap-2 font-bold text-[var(--rj-teal-700)]"
             >
@@ -569,14 +567,12 @@ export default function DashboardPage() {
                 <CalendarDays size={28} />
               </div>
 
-              <h3 className="rj-heading-3 mt-4">
-                No upcoming sessions
-              </h3>
+              <h3 className="rj-heading-3 mt-4">{t("No upcoming sessions")}</h3>
 
               <p className="rj-caption mx-auto mt-2 max-w-sm">
                 {isAdmin
-                  ? "Create a session to begin connecting your admin and frontline workspaces."
-                  : "Assigned sessions will appear here when they are scheduled."}
+                  ? t("Create a session to begin connecting your admin and frontline workspaces.")
+                  : t("Assigned sessions will appear here when they are scheduled.")}
               </p>
 
               {isAdmin && (
@@ -584,9 +580,7 @@ export default function DashboardPage() {
                   href="/sessions"
                   className="rj-button rj-button-primary mt-6"
                 >
-                  <CalendarDays size={19} />
-                  Create First Session
-                </Link>
+                  <CalendarDays size={19} />{t("Create First Session")}</Link>
               )}
             </div>
           ) : (
@@ -658,10 +652,7 @@ export default function DashboardPage() {
                   Keep documentation current
                 </p>
 
-                <p className="rj-caption mt-1">
-                  Completing notes immediately after each
-                  session helps keep records accurate.
-                </p>
+                <p className="rj-caption mt-1">{t("Completing notes immediately after each session helps keep records accurate.")}</p>
               </div>
             </div>
           </div>
@@ -844,6 +835,8 @@ function SessionListItem({
   session: DashboardSession
   isAdmin: boolean
 }) {
+  const { t } = usePortal()
+
   return (
     <article className="p-5 transition-colors hover:bg-[var(--rj-surface-muted)]">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -881,9 +874,7 @@ function SessionListItem({
         <Link
           href={`/session/${session.id}`}
           className="rj-button rj-button-secondary shrink-0"
-        >
-          Open Session
-          <ArrowRight size={17} />
+        >{t("Open Session")}<ArrowRight size={17} />
         </Link>
       </div>
     </article>

@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
@@ -217,6 +219,8 @@ const ATTENDANCE_STATUSES: {
 ]
 
 export default function SessionAdministration({ editing = false }: { editing?: boolean }) {
+  const { t } = usePortal()
+
   const router = useRouter()
   const [canManage, setCanManage] = useState(false)
   const params = useParams<{ sessionId: string }>()
@@ -986,9 +990,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             className="mx-auto text-[var(--rj-danger)]"
           />
 
-          <h1 className="rj-heading-2 mt-4">
-            Session unavailable
-          </h1>
+          <h1 className="rj-heading-2 mt-4">{t("Session unavailable")}</h1>
 
           <p className="rj-body mt-2 text-[var(--rj-text-secondary)]">
             {pageError ||
@@ -999,9 +1001,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             href="/sessions"
             className="rj-button rj-button-primary mt-6"
           >
-            <ArrowLeft size={19} />
-            Back to Sessions
-          </Link>
+            <ArrowLeft size={19} />{t("Back to Sessions")}</Link>
         </section>
       </div>
     )
@@ -1016,9 +1016,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           href="/sessions"
           className="inline-flex items-center gap-2 font-bold text-[var(--rj-teal-700)]"
         >
-          <ArrowLeft size={18} />
-          Sessions
-        </Link>
+          <ArrowLeft size={18} />{t("Sessions")}</Link>
 
         <button
           type="button"
@@ -1049,9 +1047,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           <div>
             {!editing && <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full bg-[var(--rj-teal-50)] px-3 py-1.5 text-sm font-bold text-[var(--rj-teal-700)]">
-                <Sparkles size={15} />
-                Session Administration
-              </span>
+                <Sparkles size={15} />{t("Session Administration")}</span>
 
               <SessionStatusBadge status={session.status} />
 
@@ -1064,7 +1060,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             </div>}
 
             <h1 className={editing ? "rj-heading-1" : "rj-heading-1 mt-4"}>
-              {editing ? "Edit session" : clientName}
+              {editing ? t("Edit session") : clientName}
             </h1>
             {editing && <p className="mt-2 font-bold">{clientName}</p>}
 
@@ -1137,7 +1133,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         />
 
         <OverviewCard
-          label="Prepared targets"
+          label={t("Prepared targets")}
           value={`${sessionTargets.length}`}
           icon={ListChecks}
           background="var(--rj-lavender-100)"
@@ -1145,7 +1141,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         />
 
         <OverviewCard
-          label="Completed targets"
+          label={t("Completed targets")}
           value={`${completedTargetCount}`}
           icon={CheckCircle2}
           background="var(--rj-mint-100)"
@@ -1153,7 +1149,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         />
 
         <OverviewCard
-          label="Session note"
+          label={t("Session note")}
           value={
             sessionNote
               ? formatLabel(sessionNote.status)
@@ -1174,9 +1170,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             </div>
 
             <div>
-              <p className="rj-label">
-                Session Details
-              </p>
+              <p className="rj-label">{t("Session Details")}</p>
 
               <h2 className="rj-heading-2 mt-1">
                 Schedule and assignment
@@ -1186,9 +1180,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 
           {!editing ? (
             <div className="mt-5 space-y-3">
-              <p>Open the editor to review this session’s schedule and assignment.</p>
-              {canManage && !historical && <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-primary w-full">Edit session</Link>}
-              {historical && <p>This historical session is read-only.</p>}
+              <p>{t("Open the editor to review this session’s schedule and assignment.")}</p>
+              {canManage && !historical && <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-primary w-full">{t("Edit session")}</Link>}
+              {historical && <p>{t("This historical session is read-only.")}</p>}
             </div>
           ) : <>
           <div className="sticky top-3 z-10 mt-5 flex flex-col gap-3 rounded-xl border border-[var(--rj-border)] bg-[var(--rj-surface)] p-3 shadow-sm sm:flex-row">
@@ -1214,16 +1208,16 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             </button></SubscriptionWriteControls>
             <button type="button" onClick={() => void cancelEditing()} disabled={savingSession} className="rj-button rj-button-secondary flex-1">Cancel</button>
           </div>
-          <p role="status" className="mt-4">{dirty ? "Unsaved changes" : "Showing saved session details"}. Changes are saved only when you choose Save.</p>
-          {!canManage && <p role="alert" className="mt-3">You do not have permission to edit sessions.</p>}
-          {historical && <p role="alert" className="mt-3">This historical session is read-only.</p>}
+          <p role="status" className="mt-4">{dirty ? "Unsaved changes" : t("Showing saved session details")}. Changes are saved only when you choose Save.</p>
+          {!canManage && <p role="alert" className="mt-3">{t("You do not have permission to edit sessions.")}</p>}
+          {historical && <p role="alert" className="mt-3">{t("This historical session is read-only.")}</p>}
           <SubscriptionWriteControls><form
             id="session-details-form"
             onSubmit={handleSaveSession}
             className="mt-6 space-y-5"
           >
             <fieldset disabled={!canManage || historical || savingSession} className="min-w-0 space-y-5">
-            <FormField label="Assigned frontline worker">
+            <FormField label={t("Assigned frontline worker")}>
               <select
                 value={providerId}
                 onChange={(event) =>
@@ -1233,11 +1227,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                 required
                 disabled={hasStarted || historical}
               >
-                <option value="">
-                  Select a team member
-                </option>
+                <option value="">{t("Select a team member")}</option>
 
-                {providerId && !providers.some(provider => provider.id === providerId) && <option value={providerId}>Current team member (inactive or unavailable)</option>}
+                {providerId && !providers.some(provider => provider.id === providerId) && <option value={providerId}>{t("Current team member (inactive or unavailable)")}</option>}
                 {providers.map((provider) => (
                   <option
                     key={provider.id}
@@ -1252,9 +1244,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               </select>
             </FormField>
 
-            <FormField label="Session type">
+            <FormField label={t("Session type")}>
               <select
-                aria-label="Session type"
+                aria-label={t("Session type")}
                 value={sessionType}
                 onChange={(event) =>
                   setSessionType(event.target.value)
@@ -1325,7 +1317,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               </div>
             </FormField>
 
-            <FormField label="Session status">
+            <FormField label={t("Session status")}>
               <select
                 value={status}
                 disabled={hasStarted || historical}
@@ -1386,9 +1378,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               />
 
               <div>
-                <p className="font-bold">
-                  Session was supervised
-                </p>
+                <p className="font-bold">{t("Session was supervised")}</p>
 
                 <p className="rj-caption mt-0.5">
                   This will be included in documentation.
@@ -1408,17 +1398,12 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                 disabled={savingSession || historical}
                 className="rj-button rj-button-danger mt-3 w-full"
               >
-                <XCircle size={19} />
-                Cancel Session
-              </button></SubscriptionWriteControls>
+                <XCircle size={19} />{t("Cancel Session")}</button></SubscriptionWriteControls>
             )}
 
           {hasStarted && (
             <div className="mt-5 rounded-[var(--rj-radius-md)] bg-[var(--rj-warning-soft)] p-4">
-              <p className="text-sm font-bold text-[#926c22]">
-                Assignment and schedule fields are locked
-                because this session has already started.
-              </p>
+              <p className="text-sm font-bold text-[#926c22]">{t("Assignment and schedule fields are locked because this session has already started.")}</p>
             </div>
           )}
         </section>
@@ -1429,18 +1414,11 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             <div className="border-b border-[var(--rj-border)] p-6">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                  <p className="rj-label">
-                    Session Pack
-                  </p>
+                  <p className="rj-label">{t("Session Pack")}</p>
 
-                  <h2 className="rj-heading-2 mt-1">
-                    Prepared Targets
-                  </h2>
+                  <h2 className="rj-heading-2 mt-1">{t("Prepared Targets")}</h2>
 
-                  <p className="rj-caption mt-2">
-                    These targets appear in the frontline
-                    Session Workspace.
-                  </p>
+                  <p className="rj-caption mt-2">{t("These targets appear in the frontline Session Workspace.")}</p>
                 </div>
 
                 {canEditPreparation && (
@@ -1459,10 +1437,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                       />
                     ) : (
                       <RotateCcw size={18} />
-                    )}
-
-                    Sync Active Targets
-                  </button></SubscriptionWriteControls>
+                    )}{t("Sync Active Targets")}</button></SubscriptionWriteControls>
                 )}
               </div>
             </div>
@@ -1473,14 +1448,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                   <ListChecks size={28} />
                 </div>
 
-                <h3 className="rj-heading-3 mt-4">
-                  No prepared targets
-                </h3>
+                <h3 className="rj-heading-3 mt-4">{t("No prepared targets")}</h3>
 
-                <p className="rj-caption mx-auto mt-2 max-w-sm">
-                  Sync the client’s active targets or add
-                  selected targets below.
-                </p>
+                <p className="rj-caption mx-auto mt-2 max-w-sm">{t("Sync the client’s active targets or add selected targets below.")}</p>
 
                 {canEditPreparation && (
                   <SubscriptionWriteControls><button
@@ -1491,9 +1461,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                     disabled={preparingTargets}
                     className="rj-button rj-button-primary mt-6"
                   >
-                    <Sparkles size={19} />
-                    Prepare Targets
-                  </button></SubscriptionWriteControls>
+                    <Sparkles size={19} />{t("Prepare Targets")}</button></SubscriptionWriteControls>
                 )}
               </div>
             ) : (
@@ -1659,18 +1627,11 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           {/* Available Client Targets */}
           <section className="rj-card overflow-hidden">
             <div className="border-b border-[var(--rj-border)] p-6">
-              <p className="rj-label">
-                Client Program
-              </p>
+              <p className="rj-label">{t("Client Program")}</p>
 
-              <h2 className="rj-heading-2 mt-1">
-                Available Targets
-              </h2>
+              <h2 className="rj-heading-2 mt-1">{t("Available Targets")}</h2>
 
-              <p className="rj-caption mt-2">
-                Active client targets not currently included
-                in this session.
-              </p>
+              <p className="rj-caption mt-2">{t("Active client targets not currently included in this session.")}</p>
             </div>
 
             {!canEditPreparation ? (
@@ -1680,14 +1641,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                   className="mx-auto text-[var(--rj-text-muted)]"
                 />
 
-                <p className="mt-4 font-bold">
-                  Target preparation is locked
-                </p>
+                <p className="mt-4 font-bold">{t("Target preparation is locked")}</p>
 
-                <p className="rj-caption mt-1">
-                  Targets cannot be added or removed after
-                  the session begins.
-                </p>
+                <p className="rj-caption mt-1">{t("Targets cannot be added or removed after the session begins.")}</p>
               </div>
             ) : availableTargets.length === 0 ? (
               <div className="p-8 text-center">
@@ -1696,14 +1652,9 @@ export default function SessionAdministration({ editing = false }: { editing?: b
                   className="mx-auto text-[var(--rj-mint-700)]"
                 />
 
-                <p className="mt-4 font-bold">
-                  All active targets are included
-                </p>
+                <p className="mt-4 font-bold">{t("All active targets are included")}</p>
 
-                <p className="rj-caption mt-1">
-                  This session pack is up to date with the
-                  client’s active program.
-                </p>
+                <p className="rj-caption mt-1">{t("This session pack is up to date with the client’s active program.")}</p>
               </div>
             ) : (
               <div className="divide-y divide-[var(--rj-border)]">
@@ -1764,13 +1715,11 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               Activity
             </p>
 
-            <h2 className="rj-heading-2 mt-1">
-              Session Timeline
-            </h2>
+            <h2 className="rj-heading-2 mt-1">{t("Session Timeline")}</h2>
 
             <div className="mt-6 space-y-5">
               <TimelineItem
-                label="Session created"
+                label={t("Session created")}
                 value={formatDateTime(
                   session.created_at
                 )}
@@ -1778,7 +1727,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               />
 
               <TimelineItem
-                label="Targets prepared"
+                label={t("Targets prepared")}
                 value={
                   session.prepared_at
                     ? formatDateTime(
@@ -1790,7 +1739,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               />
 
               <TimelineItem
-                label="Session started"
+                label={t("Session started")}
                 value={
                   session.started_at
                     ? formatDateTime(
@@ -1802,7 +1751,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               />
 
               <TimelineItem
-                label="Session completed"
+                label={t("Session completed")}
                 value={
                   session.completed_at
                     ? formatDateTime(
@@ -1814,7 +1763,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               />
 
               <TimelineItem
-                label="Session note"
+                label={t("Session note")}
                 value={
                   sessionNote
                     ? formatLabel(
@@ -1833,6 +1782,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 }
 
 function SessionDetailLoading() {
+  const { t } = usePortal()
+
   return (
     <div className="flex min-h-[65vh] items-center justify-center">
       <div className="text-center">
@@ -1843,9 +1794,7 @@ function SessionDetailLoading() {
           />
         </div>
 
-        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">
-          Loading session details…
-        </p>
+        <p className="rj-body mt-4 text-[var(--rj-text-secondary)]">{t("Loading session details…")}</p>
       </div>
     </div>
   )
@@ -1946,6 +1895,8 @@ function PreparationBadge({
 }: {
   prepared: boolean
 }) {
+  const { t } = usePortal()
+
   return (
     <span
       className={`rj-badge ${
@@ -1961,7 +1912,7 @@ function PreparationBadge({
       )}
 
       {prepared
-        ? "Targets prepared"
+        ? t("Targets prepared")
         : "Needs preparation"}
     </span>
   )

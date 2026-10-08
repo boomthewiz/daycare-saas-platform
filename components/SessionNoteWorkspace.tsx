@@ -1,5 +1,7 @@
 "use client"
 
+import { usePortal } from "@/components/PortalProvider"
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +18,8 @@ const date = (value: string | null) => value ? new Date(value).toLocaleString() 
 const label = (value: string) => value.replaceAll('_', ' ')
 
 export default function SessionNoteWorkspace({ sessionId, review = false }: { sessionId: string; review?: boolean }) {
+  const { t } = usePortal()
+
   const { access: subscription, error: subscriptionError } = useSubscriptionAccess(sessionId)
   const [session, setSession] = useState<Session | null>(null)
   const [identity, setIdentity] = useState<Identity | null>(null)
@@ -156,33 +160,33 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
   const actions = loaded && identity && session ? noteActions(note, {...identity, providerId:session.provider_id,sessionStatus:session.status}).filter(action => subscription?.canWrite || (subscription?.canFinishSession && ['save','submit'].includes(action))) : []
   const editable = actions.includes('save')
   const disabled = busy || !!pending || !loaded
-  if (loading) return <p role="status" className="p-6">Loading session documentation…</p>
+  if (loading) return <p role="status" className="p-6">{t("Loading session documentation…")}</p>
   return <div className="mx-auto min-w-0 max-w-4xl space-y-6 break-words p-1 sm:p-6">
-    <Link onClick={event=>{if((dirty||pending||remark||feedback)&&!window.confirm('Leave with unsaved work? Keep this page open or copy your text first.')) event.preventDefault()}} className="rj-button rj-button-secondary" href={review ? '/reviews' : `/session/${sessionId}`}>Back to {review ? 'reviews' : 'session'}</Link>
+    <Link onClick={event=>{if((dirty||pending||remark||feedback)&&!window.confirm('Leave with unsaved work? Keep this page open or copy your text first.')) event.preventDefault()}} className="rj-button rj-button-secondary" href={review ? '/reviews' : `/session/${sessionId}`}>Back to {review ? 'reviews' : t("session")}</Link>
     <header className="rj-card p-6">
-      <h1 className="rj-heading-1">Session documentation</h1>
-      <p className="mt-2 font-bold">{session?.clients ? [session.clients.preferred_name||session.clients.first_name,session.clients.last_name].filter(Boolean).join(' ') : 'Session record'} · {date(session?.scheduled_start || null)}</p>
-      <p className="mt-2 capitalize">Session: {label(session?.status || 'unavailable')} · Note: {label(note?.status || 'not created')}</p>
+      <h1 className="rj-heading-1">{t("Session documentation")}</h1>
+      <p className="mt-2 font-bold">{session?.clients ? [session.clients.preferred_name||session.clients.first_name,session.clients.last_name].filter(Boolean).join(' ') : t("Session record")} · {date(session?.scheduled_start || null)}</p>
+      <p className="mt-2 capitalize">{t("Session: ")}{label(session?.status || 'unavailable')} · Note: {label(note?.status || 'not created')}</p>
       {note?.status==='locked' && <p>Locked from {note.locked_from_status === 'approved' ? 'approved' : 'submitted (unapproved)'}. An owner or admin must unlock it before any status change.</p>}
       {note && <p className="rj-caption mt-2">Created {date(note.created_at)} · Updated {date(note.updated_at)} · Version {note.version}<br/>Submitted {date(note.submitted_at)} · Reviewed {date(note.reviewed_at)} · Locked {date(note.locked_at)}</p>}
       <button className="rj-button rj-button-secondary mt-4" disabled={busy} onClick={reload}>Reload saved record</button>
     </header>
     {error && <div role="alert" className="rj-card p-4 text-[var(--rj-danger)]">{error}</div>}
     {subscriptionError && <p role="alert" className="rj-card p-4">{subscriptionError}</p>}
-    {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? 'The trial has ended. You may finish this session’s documentation and submit its note.' : 'This record is read-only until your organization subscribes.'}</p>}
+    {subscription && !subscription.canWrite && <p className="rj-card p-4">{subscription.canFinishSession ? t("The trial has ended. You may finish this session’s documentation and submit its note.") : 'This record is read-only until your organization subscribes.'}</p>}
     {message && <p role="status" className="rj-card p-4">{message}</p>}
     {pending && <div className="rj-card p-4"><p>The last request needs confirmation. Retry checks the same request without duplicating it. You can select and copy your text below.</p><button disabled={busy} onClick={()=>void execute(pending)} className="rj-button rj-button-primary mt-3">Retry last request</button></div>}
     {loaded && <>
       {note?.review_notes && <section className="rj-card p-6"><h2 className="rj-heading-2">Reviewer feedback</h2><p className="mt-3 whitespace-pre-wrap">{note.review_notes}</p></section>}
       <section className="rj-card space-y-4 p-6">
-        <h2 className="rj-heading-2">Session note</h2>
-        {editable && <p>Save notes while the session is active or paused. Submit after completion. Unsaved text stays in this tab; it is not saved automatically.</p>}
-        <label className="block" htmlFor="note-observations">Session observations</label><textarea id="note-observations" className="rj-input mt-2 w-full" rows={5} value={addendum} maxLength={20000} readOnly={!editable||disabled} onChange={e=>{setAddendum(e.target.value);setDirty(true)}} />
+        <h2 className="rj-heading-2">{t("Session note")}</h2>
+        {editable && <p>{t("Save notes while the session is active or paused. Submit after completion. Unsaved text stays in this tab; it is not saved automatically.")}</p>}
+        <label className="block" htmlFor="note-observations">{t("Session observations")}</label><textarea id="note-observations" className="rj-input mt-2 w-full" rows={5} value={addendum} maxLength={20000} readOnly={!editable||disabled} onChange={e=>{setAddendum(e.target.value);setDirty(true)}} />
         <label className="block" htmlFor="note-final">Final note</label><textarea id="note-final" className="rj-input mt-2 w-full" rows={14} value={text} maxLength={100000} readOnly={!editable||disabled} onChange={e=>{setText(e.target.value);setDirty(true)}} />
         {editable && <p role="status">{dirty ? 'Unsaved changes' : 'Showing saved text'}</p>}
         {!editable && <p>This note is read-only. Status changes and remarks are recorded separately.</p>}
         <div className="flex flex-wrap gap-3">{actions.filter(a=>a==='save'||a==='submit').map(action=><button key={action} disabled={disabled} className="rj-button rj-button-primary" onClick={()=>act(action)}>{labels[action]}</button>)}</div>
-        {editable && <details><summary>Recorded session data</summary><button disabled={disabled} className="rj-button rj-button-secondary my-3" onClick={()=>void readSummary()}>Load recorded data</button><pre className="whitespace-pre-wrap font-sans">{summary}</pre><p className="rj-caption">Use these observations to write the note. Loading them does not overwrite your text.</p>{summary && <button disabled={disabled} className="rj-button rj-button-secondary mt-3" onClick={()=>{if(!text || window.confirm('Replace the current final-note draft with this recorded summary?')){setText([summary,addendum].filter(Boolean).join('\n\n'));setDirty(true)}}}>Use as note draft</button>}</details>}
+        {editable && <details><summary>{t("Recorded session data")}</summary><button disabled={disabled} className="rj-button rj-button-secondary my-3" onClick={()=>void readSummary()}>Load recorded data</button><pre className="whitespace-pre-wrap font-sans">{summary}</pre><p className="rj-caption">Use these observations to write the note. Loading them does not overwrite your text.</p>{summary && <button disabled={disabled} className="rj-button rj-button-secondary mt-3" onClick={()=>{if(!text || window.confirm('Replace the current final-note draft with this recorded summary?')){setText([summary,addendum].filter(Boolean).join('\n\n'));setDirty(true)}}}>Use as note draft</button>}</details>}
       </section>
       {actions.some(a=>!['save','submit'].includes(a)) && <section className="rj-card space-y-4 p-6">
         <h2 className="rj-heading-2">Review controls</h2>
