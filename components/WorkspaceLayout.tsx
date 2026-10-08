@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getPinStatus } from "@/lib/pin-status"
-import Sidebar from "@/components/Sidebar"
+import WorkspaceNavigation from "@/components/WorkspaceNavigation"
 import Header from "@/components/Header"
 import { BranchProvider } from "@/components/BranchProvider"
 import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
@@ -65,10 +65,10 @@ export default function WorkspaceLayout({
 
   return (
     <PortalProvider><BranchProvider>
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 sm:flex-row">
 
       {/* Sidebar stays mounted */}
-      <Sidebar sticky={stickySidebar} />
+      <WorkspaceNavigation sticky={stickySidebar} />
 
       <div className="min-w-0 flex-1 flex flex-col">
 

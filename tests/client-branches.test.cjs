@@ -52,6 +52,7 @@ function harness(selectedBranchId = "north") {
   }
   function ClientBranchPicker() { return null }
   const Component = loadTs("app/(dashboard)/team-management/page.tsx", {
+    "@/components/StaffReadiness": { StaffReadinessLabel: () => null, useStaffReadiness: () => ({ data: null, loading: false, error: "", refresh: async () => {} }) },
     "@/components/PageGuide": { default: () => null },
     "@/components/SubscriptionWriteControls": { default: ({ children }) => children },
     react:mockReact,

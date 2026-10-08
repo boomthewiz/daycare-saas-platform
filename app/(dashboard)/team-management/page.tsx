@@ -2,6 +2,7 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import { StaffReadinessLabel, useStaffReadiness } from "@/components/StaffReadiness"
 import PageGuide from "@/components/PageGuide"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
@@ -59,6 +60,7 @@ type TeamMemberRecord = {
 
 export default function PeopleManagementPage() {
   const { t } = usePortal()
+  const readiness = useStaffReadiness()
 
   const branchContext = useBranches()
   const [clientBranchIds, setClientBranchIds] = useState<string[]>([])
@@ -352,7 +354,7 @@ export default function PeopleManagementPage() {
             {canManageClients && <Link href="/setup/care-teams" className="rj-button rj-button-secondary">Care-team setup</Link>}
             <button
               type="button"
-              onClick={() => loadPeople(true)}
+              onClick={() => { void loadPeople(true); void readiness.refresh() }}
               className="rj-button rj-button-secondary"
             >
               {refreshing ? (
@@ -389,6 +391,7 @@ export default function PeopleManagementPage() {
         </div>
       </header>
       <PageGuide guide="team" />
+      {activeTab === "team" && <div role="status">{readiness.loading ? "Checking invitations and readiness…" : readiness.error ? <>{readiness.error} <button className="underline" onClick={() => void readiness.refresh()}>Retry readiness</button></> : "Account status, invitation acceptance and session readiness are shown separately. Email delivery and invitation expiry are not tracked. Use Manage to resend through the existing invitation flow."}</div>}
 
       {branchContext.error && <div role="alert" className="rj-card p-4 text-red-700">
         {branchContext.error} <button type="button" className="underline" onClick={() => void branchContext.reload()}>Retry</button>
@@ -614,7 +617,7 @@ export default function PeopleManagementPage() {
             {filteredTeam.map((member) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between gap-4 p-5"
+                className="flex flex-wrap items-center justify-between gap-4 p-5"
               >
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--rj-lavender-100)] text-[var(--rj-lavender-700)]">
@@ -634,6 +637,7 @@ export default function PeopleManagementPage() {
                         ? ` · ${member.email}`
                         : ""}
                     </p>
+                    {!readiness.loading && <StaffReadinessLabel staff={readiness.error ? undefined : readiness.data?.staff.find(person => person.id === member.id)} />}
                   </div>
                 </div>
 
@@ -645,7 +649,7 @@ export default function PeopleManagementPage() {
         : "rj-badge-warning"
     }`}
   >
-    {formatLabel(member.status)}
+    Account: {formatLabel(member.status)}
   </span>
 
   <Link

@@ -29,3 +29,17 @@ Rollback the frontend first if necessary. Additive columns/functions can remain.
 ## Verification
 
 Run `node --test tests/*.test.cjs` with `REJOYCE_BASELINE_SQL` pointing to the pre-care schema snapshot and `REJOYCE_PGLITE_MODULE` pointing to PGlite. The suite tests database imports, atomic failures, repeat IDs, unauthorized/foreign/locked/revoked/expired/anonymous requests and preset RLS. CSV and vocabulary tests run without the database fixture. Browser acceptance uses synthetic data in isolated PostgreSQL and a loopback-only mail stub; it sends no real emails.
+
+## Live onboarding and staff readiness
+
+Apply `20261008061322_onboarding_progress.sql` after the portal and care-team migrations before releasing this UI. No production migration, merge or deployment has been performed during preparation.
+
+Setup now reads `onboarding_progress()` on mount, focus, visibility return, manual refresh and every 30 seconds while visible. Requests are versioned; errors invalidate stale completion state. Four milestones track an active service type, active client, ready frontline account and a non-cancelled scheduled session. Saved branches are optional because scheduling permits custom locations. Care groups/default workers are optional shortcuts; explicit care membership with a shared active branch grants ongoing client access. A person assigned directly to a session can deliver that session. Appearance and vocabulary remain optional.
+
+Readiness requires an active frontline role, confirmed authentication email, completed PIN setup without a reset requirement, and no current authentication ban. It does not guarantee a current unlocked device or future availability. Owner/admin/manager accounts do not count. This informational checklist does not alter scheduling authorization or eligible-provider selection.
+
+The private, fixed-search-path definer returns tenant-scoped booleans to active unlocked organization members. `p_include_staff=true` additionally requires Manage users and returns only IDs already used by People plus readiness/assignment booleans and invitation state. No auth records, credentials, PIN hashes, names, emails, timestamps or tokens are exposed. Grants exclude PUBLIC/anon. Subscription write access is returned separately; expired trials retain the existing browsing behavior.
+
+People shows account status separately from invitation acceptance and session readiness. Auth `invited_at` without `email_confirmed_at` means pending acceptance; a confirmed email is labelled accepted/email confirmed. Missing auth evidence is unknown. The stored data does not reliably establish delivery, expiration or prior send failures, so the UI does not invent those states. Resend remains under Manage through the existing invitation route, permissions, rate limits and duplicate checks.
+
+At widths below 640 px navigation uses a native modal dialog. The labelled Menu button reports expanded state; the drawer focuses Close, traps keyboard focus, closes on Escape/navigation and restores focus to Menu. Desktop collapse and permission-filtered active links are preserved. The closed mobile drawer occupies no content width.
