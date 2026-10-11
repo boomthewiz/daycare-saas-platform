@@ -4,13 +4,14 @@ import { usePortal } from "@/components/PortalProvider"
 
 import PageGuide from "@/components/PageGuide"
 import SessionPeopleWarning from "@/components/SessionPeopleWarning"
-import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
+import SubscriptionWriteControls, { useOrganizationWriteAccess } from "@/components/SubscriptionWriteControls"
 
 import {
   FormEvent,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import Link from "next/link"
@@ -33,6 +34,7 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import { parseCalendarDraft, localDateTime } from "@/lib/calendar"
 import {
   useSearchParams,
 } from "next/navigation"
@@ -127,12 +129,14 @@ const FRONTLINE_ROLES = [
 
 export default function AdminSessionsPage() {
   const { t } = usePortal()
+  const { allowed: canWrite } = useOrganizationWriteAccess()
   const [peopleReadiness, setPeopleReadiness] = useState<{ missing_clients: boolean; missing_staff: boolean } | null>(null)
 
 const searchParams = useSearchParams()
 
 const requestedClientId =
   searchParams.get("client")
+const requestedStart = parseCalendarDraft(searchParams.get("start"))
   
     const [clients, setClients] =
     useState<ClientOption[]>([])
@@ -152,8 +156,26 @@ const requestedClientId =
   const [clientId, setClientId] = useState("")
   const [providerId, setProviderId] = useState("")
   const [sessionType, setSessionType] = useState("")
-  const [scheduledStart, setScheduledStart] = useState("")
+  const [scheduledStart, setScheduledStart] = useState(requestedStart)
   const [scheduledEnd, setScheduledEnd] = useState("")
+  const [canSchedule, setCanSchedule] = useState(false)
+  const [permissionError, setPermissionError] = useState("")
+  const appliedDraft = useRef<string | null>(null)
+
+  useEffect(() => {
+    appliedDraft.current = null
+    setScheduledStart(requestedStart)
+    setScheduledEnd("")
+  }, [requestedStart])
+
+  useEffect(() => {
+    if (!requestedStart || appliedDraft.current === requestedStart || scheduledStart !== requestedStart || scheduledEnd) return
+    const duration = sessionTypes.find(type => type.code === sessionType)?.default_duration_minutes
+    if (duration && duration > 0) {
+      appliedDraft.current = requestedStart
+      setScheduledEnd(localDateTime(new Date(new Date(requestedStart).getTime() + duration * 60000)))
+    }
+  }, [requestedStart, scheduledStart, scheduledEnd, sessionType, sessionTypes])
 
   const [selectedLocation, setSelectedLocation] =
     useState("")
@@ -193,6 +215,7 @@ const requestedClientId =
           locationResult,
           sessionResult,
           readinessResult,
+          permissionResult,
         ] = await Promise.all([
           supabase
   .from("clients")
@@ -298,7 +321,10 @@ const requestedClientId =
             })
             .limit(100),
           supabase.rpc("session_people_readiness"),
+          supabase.rpc("can_manage_sessions"),
         ])
+        setCanSchedule(!permissionResult.error && permissionResult.data === true)
+        setPermissionError(permissionResult.error ? "Unable to check scheduling permissions. Refresh to try again." : "")
         if (readinessResult.error) throw new Error("Unable to check people setup. Refresh to try again.")
         setPeopleReadiness(readinessResult.data)
 
@@ -552,6 +578,11 @@ const requestedClientId =
   ) => {
     event.preventDefault()
 
+    if (!canSchedule || !canWrite) {
+      setPageError("Scheduling is unavailable with your current access. Ask your primary administrator to review permissions and the account subscription.")
+      return
+    }
+
     if (
       !clientId ||
       !providerId ||
@@ -636,6 +667,7 @@ const requestedClientId =
         data as CreateSessionResult
 
       setSuccess(result)
+      window.dispatchEvent(new Event("rejoyce:schedule-changed"))
 
       if (requestedClientId) {
   setClientId(requestedClientId)
@@ -817,7 +849,7 @@ const requestedClientId =
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
         {/* Create Session */}
-        <section className="rj-card h-fit p-6 xl:sticky xl:top-6">
+        <section id="create-session" className="rj-card h-fit p-6 xl:sticky xl:top-6">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]">
               <Plus size={23} />
@@ -851,7 +883,9 @@ const requestedClientId =
     </div>
   </div>
 )}
-          <SubscriptionWriteControls><form
+          {permissionError && <p role="alert" className="mt-3 text-sm text-red-700">{permissionError}</p>}
+          {!canSchedule && !permissionError && <p className="mt-3 text-sm text-gray-500" title="Ask your account's primary administrator to review your scheduling permissions.">Scheduling requires permission from your primary administrator.</p>}
+          <fieldset disabled={!canSchedule} className="contents"><SubscriptionWriteControls><form
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
@@ -1106,7 +1140,7 @@ const requestedClientId =
                 ? t("Preparing session…")
                 : t("Create Session")}
             </button>
-          </form></SubscriptionWriteControls>
+          </form></SubscriptionWriteControls></fieldset>
 
           {clients.length === 0 && (
             <EmptyRequirement

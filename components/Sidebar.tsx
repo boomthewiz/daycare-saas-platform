@@ -5,9 +5,8 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { usePortal } from "@/components/PortalProvider"
 import { supabase } from "@/lib/supabase"
+import { useDailySchedule } from "@/components/DailyScheduleProvider"
 import {
-  ChevronLeft,
-  ChevronRight,
   LoaderCircle,
 } from "lucide-react"
 
@@ -31,11 +30,12 @@ const defaultPermissions: UserPermissions = {
   can_manage_users: false,
 }
 
-export default function Sidebar({ sticky = false, mobile = false, onNavigate }: { sticky?: boolean; mobile?: boolean; onNavigate?: () => void }) {
+export default function Sidebar({ sticky = false, mobile = false, collapsed = false, onNavigate }: { sticky?: boolean; mobile?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const { t } = usePortal()
   const pathname = usePathname()
+  const daily = useDailySchedule()
 
-  const [collapsed, setCollapsed] = useState(false)
+
   const [permissions, setPermissions] =
     useState<UserPermissions>(defaultPermissions)
 
@@ -203,47 +203,13 @@ export default function Sidebar({ sticky = false, mobile = false, onNavigate }: 
 
   return (
     <aside
-      className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-screen"} ${mobile ? "w-full" : "w-20"} shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
+      className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-[calc(100dvh-4rem)]"} ${mobile ? "w-full" : "w-20"} shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
         mobile ? "" : collapsed ? "sm:w-20" : "sm:w-64"
       }`}
     >
-      {/* Header */}
-      <div
-        className={`flex items-center ${
-          collapsed
-            ? "justify-center"
-            : "justify-between"
-        } p-4`}
-      >
-        {(!collapsed || mobile) && (
-          <h1 className={`${mobile ? "block" : "hidden sm:block"} text-lg font-bold text-gray-800`}>
-            ReJoyce
-          </h1>
-        )}
-
-        <button
-          type="button"
-          onClick={() =>
-            setCollapsed((current) => !current)
-          }
-          aria-label={
-            collapsed
-              ? "Expand sidebar"
-              : "Collapse sidebar"
-          }
-          className={`${mobile ? "hidden" : "hidden sm:block"} p-2 rounded-lg hover:bg-gray-100 transition`}
-        >
-          {collapsed ? (
-            <ChevronRight size={20} />
-          ) : (
-            <ChevronLeft size={20} />
-          )}
-        </button>
-      </div>
-
       {/* Navigation */}
       <nav
-        className="flex flex-col gap-2 px-2"
+        className="flex flex-col gap-2 px-2 pt-3"
         aria-label="Main navigation"
       >
         {loadingPermissions ? (
@@ -302,6 +268,17 @@ export default function Sidebar({ sticky = false, mobile = false, onNavigate }: 
           })
         )}
       </nav>
+
+      {!mobile && <section aria-label={t("Today's session totals")} className="mt-6 border-t px-3 py-4 text-sm">
+        {daily.error ? <button title={daily.error} onClick={() => void daily.refresh()} className="min-h-11 text-gray-500 underline">{collapsed ? "Retry" : "Retry today's totals"}</button> : <>
+          <div title={`${t("Today’s Sessions")}: ${daily.today ?? "Loading"}`} className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} gap-2 py-2`}>
+            {!collapsed && <span className="text-gray-500">{t("Today’s Sessions")}</span>}<span className="font-bold" aria-label={collapsed ? `${t("Today’s Sessions")}: ${daily.today ?? "Loading"}` : undefined}>{daily.today ?? "—"}</span>
+          </div>
+          <div title={`Completed: ${daily.completed ?? "Loading"}`} className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} gap-2 py-2`}>
+            {!collapsed && <span className="text-gray-500">Completed</span>}<span className="font-bold text-teal-700" aria-label={collapsed ? `Completed: ${daily.completed ?? "Loading"}` : undefined}>{daily.completed ?? "—"}</span>
+          </div>
+        </>}
+      </section>}
 
       {/* Footer */}
       <div className="mt-auto hidden p-4 sm:block">

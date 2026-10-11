@@ -417,6 +417,7 @@ export default function PeopleManagementPage() {
             active={activeTab === "clients"}
             label={t("Clients")}
             count={filteredClients.length}
+            activeCount={filteredClients.filter(client => client.status === "active").length}
             icon={Baby}
             onClick={() => setActiveTab("clients")}
           />
@@ -424,7 +425,8 @@ export default function PeopleManagementPage() {
           <TabButton
             active={activeTab === "team"}
             label={t("Team Members")}
-            count={team.length}
+            count={filteredTeam.length}
+            activeCount={filteredTeam.filter(member => member.status === "active").length}
             icon={Users}
             onClick={() => setActiveTab("team")}
           />
@@ -673,12 +675,14 @@ function TabButton({
   active,
   label,
   count,
+  activeCount,
   icon: Icon,
   onClick,
 }: {
   active: boolean
   label: string
   count: number
+  activeCount: number
   icon: typeof Users
   onClick: () => void
 }) {
@@ -686,7 +690,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-14 items-center justify-center gap-3 rounded-[var(--rj-radius-md)] px-4 font-bold ${
+      className={`flex min-h-14 flex-wrap items-center justify-center gap-2 rounded-[var(--rj-radius-md)] px-3 py-2 font-bold ${
         active
           ? "bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]"
           : "text-[var(--rj-text-secondary)]"
@@ -694,8 +698,9 @@ function TabButton({
     >
       <Icon size={20} />
       {label}
-      <span className="rounded-full bg-white px-2 py-0.5 text-xs">
-        {count}
+      <span className="flex basis-full items-center justify-center gap-2 text-xs sm:basis-auto">
+        <span className="rounded-full bg-white px-2 py-0.5" title="Total matching this view">{count} total</span>
+        <span className="font-normal">{activeCount} active</span>
       </span>
     </button>
   )

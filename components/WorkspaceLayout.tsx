@@ -4,10 +4,12 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getPinStatus } from "@/lib/pin-status"
 import WorkspaceNavigation from "@/components/WorkspaceNavigation"
-import Header from "@/components/Header"
+
 import { BranchProvider } from "@/components/BranchProvider"
 import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
 import PortalProvider from "@/components/PortalProvider"
+import DailyScheduleProvider from "@/components/DailyScheduleProvider"
+import AccessHelp from "@/components/AccessHelp"
 
 export default function WorkspaceLayout({
   children,
@@ -64,23 +66,14 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <PortalProvider><BranchProvider>
-    <div className="min-h-screen flex flex-col bg-gray-50 sm:flex-row">
-
-      {/* Sidebar stays mounted */}
-      <WorkspaceNavigation sticky={stickySidebar} />
-
-      <div className="min-w-0 flex-1 flex flex-col">
-
-        {/* Header stays mounted */}
-        <Header />
-
-        {/* Page content changes */}
+    <PortalProvider><BranchProvider><DailyScheduleProvider>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <WorkspaceNavigation sticky={stickySidebar}>
         <main className="min-w-0 flex-1 p-3 sm:p-6">
-          <SubscriptionWriteProvider>{children}</SubscriptionWriteProvider>
+          <SubscriptionWriteProvider><AccessHelp />{children}</SubscriptionWriteProvider>
         </main>
-      </div>
+      </WorkspaceNavigation>
     </div>
-    </BranchProvider></PortalProvider>
+    </DailyScheduleProvider></BranchProvider></PortalProvider>
   )
 }

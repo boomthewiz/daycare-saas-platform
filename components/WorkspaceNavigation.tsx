@@ -1,8 +1,11 @@
 "use client"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
+import Header from "@/components/Header"
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react"
 import Sidebar from "@/components/Sidebar"
-export default function WorkspaceNavigation({ sticky = false }: { sticky?: boolean }) {
+export default function WorkspaceNavigation({ sticky = false, children }: { sticky?: boolean; children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false)
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
@@ -15,12 +18,20 @@ export default function WorkspaceNavigation({ sticky = false }: { sticky?: boole
     return () => media.removeEventListener("change", resize)
   }, [])
   return <>
-    <div className="hidden sm:block"><Sidebar sticky={sticky} /></div>
+    <Header navigation={<>
+      <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="desktop-navigation" onClick={() => setCollapsed(current => !current)} className="hidden h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100 sm:flex">
+        {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+      </button>
     <button ref={trigger} type="button" aria-label="Open navigation menu" aria-controls="mobile-navigation" aria-expanded="false"
-      className="m-3 self-start rounded-xl border bg-white px-4 py-3 font-semibold shadow-sm sm:hidden"
-      onClick={() => { dialog.current?.showModal(); trigger.current?.setAttribute("aria-expanded", "true") }}>Menu</button>
+      className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100 sm:hidden"
+      onClick={() => { dialog.current?.showModal(); trigger.current?.setAttribute("aria-expanded", "true") }}><ChevronDown size={20} /></button>
+    </>} />
+    <div className="flex min-w-0 flex-1">
+      <div id="desktop-navigation" className="hidden sm:block"><Sidebar sticky={sticky} collapsed={collapsed} /></div>
+      {children}
+    </div>
     <dialog id="mobile-navigation" ref={dialog} aria-label="Navigation menu"
-      className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(20rem,90vw)] max-w-none border-0 p-0 backdrop:bg-black/40"
+      className="fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto border-0 bg-white p-0"
       onKeyDown={event => {
         if (event.key !== "Tab") return
         const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex="0"]')).filter(element => element.getClientRects().length > 0)
@@ -31,10 +42,8 @@ export default function WorkspaceNavigation({ sticky = false }: { sticky?: boole
       }}
       onClose={() => { trigger.current?.setAttribute("aria-expanded", "false"); trigger.current?.focus() }}
       onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX > bounds.right) close() } }}>
-      <button autoFocus type="button" className="m-3 rounded-lg border p-3" onClick={close}>Close navigation</button>
+      <div className="flex min-h-16 items-center gap-2 border-b px-3 py-2"><button autoFocus type="button" aria-label="Close navigation" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100" onClick={close}><ChevronUp size={20} /></button><span className="text-lg font-bold">ReJoyce</span></div>
       <Sidebar mobile onNavigate={close} />
     </dialog>
   </>
 }
-
-

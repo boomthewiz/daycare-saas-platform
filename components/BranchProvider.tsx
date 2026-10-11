@@ -80,9 +80,9 @@ export function BranchSelector() {
 
   const { branches, selectedBranchId, selectBranch, loading, error, reload } = useBranches()
   if (error) return <button type="button" onClick={() => void reload()} className="text-sm text-red-700">Retry loading branches</button>
-  return <label className="text-xs text-gray-600">{t("Client branch")}<select aria-label={t("Client branch")} value={selectedBranchId} disabled={loading}
+  return <label className="min-w-0 text-xs text-gray-600">{t("Client branch")}<select aria-label={t("Client branch")} value={selectedBranchId} disabled={loading}
       onChange={event => selectBranch(event.target.value)}
-      className="mt-1 block max-w-52 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
+      className="mt-1 block min-h-11 w-full max-w-52 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900">
       <option value="">{loading ? "Loading branches…" : "All branches"}</option>
       {branches.filter(branch => branch.active).map(branch =>
         <option key={branch.id} value={branch.id}>{branch.name}</option>)}

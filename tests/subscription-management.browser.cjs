@@ -103,7 +103,9 @@ const token=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base6
   await page.getByRole('button',{name:'Add Session Type',exact:true}).click()
   await page.locator('form input').first().fill('Retained at expiration')
   mode='expired'
-  await page.getByText('Read-only access: you can browse records, but organization changes are unavailable.').waitFor()
+  assert.equal(await page.getByText('Read-only access:',{exact:false}).count(),0)
+  await page.getByText('Access info',{exact:true}).click()
+  await page.getByText(/current subscription/).waitFor()
   assert.equal(await page.locator('form input').first().isDisabled(),true)
   assert.equal(await page.locator('form input').first().inputValue(),'Retained at expiration')
   accessFailure=true
