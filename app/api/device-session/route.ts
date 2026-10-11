@@ -12,7 +12,9 @@ async function handle(request: Request, action: string, pin?: unknown) {
     const identity = await verifiedIdentity(request)
     if (!identity) return NextResponse.json({ state: "full_login" }, { status: 401, headers })
     const { user, sessionId } = identity
-    const status = await deviceState(user.id, sessionId)
+    // The RPC verifies account status, ownership, revocation and deadlines
+    // atomically. Only PIN verification needs a preliminary status read.
+    const status = await deviceState(user.id, sessionId, action === "unlock" ? "status" : action)
     if (status.state === "full_login" || status.state === "inactive") {
       return NextResponse.json(status, { status: 401, headers })
     }
@@ -45,7 +47,7 @@ async function handle(request: Request, action: string, pin?: unknown) {
       }
       return NextResponse.json(unlocked, { headers })
     }
-    return NextResponse.json(await deviceState(user.id, sessionId, action), { headers })
+    return NextResponse.json(status, { headers })
   } catch {
     return NextResponse.json({ error: "Sign-in is temporarily unavailable. Please try again." }, { status: 503, headers })
   }

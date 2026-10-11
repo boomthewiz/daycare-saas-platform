@@ -322,3 +322,17 @@ test('unexpected email provider errors remain service failures', async () => {
   assert.equal(response.status,503)
   assert.deepEqual(await response.json(),{error:'Unable to send a code right now. Please try again shortly.'})
 })
+
+
+test('status and non-PIN actions use one atomic ownership-checked RPC', async () => {
+  for (const action of ['status', 'activity', 'lock', 'logout']) {
+    const h = load('device-session', { states: [status(action === 'logout' ? 'full_login' : 'locked')] })
+    const response = action === 'status' ? await h.GET(req()) : await h.POST(req({ action, userId: 'victim', sessionId: 'victim' }))
+    assert.equal(response.status, action === 'logout' ? 401 : 200)
+    const calls = h.calls.filter(c => c[0] === 'manage_device_session')
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0][1].p_action, action)
+    assert.equal(calls[0][1].p_user_id, userId)
+    assert.equal(calls[0][1].p_session_id, sessionId)
+  }
+})
