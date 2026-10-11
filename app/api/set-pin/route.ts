@@ -6,10 +6,10 @@ import { verifiedIdentity, deviceState } from "@/lib/device-session-server"
 export async function POST(req: Request) {
   try {
     const identity = await verifiedIdentity(req)
-    if (!identity) return NextResponse.json({ error: "Please sign in with your email." }, { status: 401 })
+    if (!identity) return NextResponse.json({ error: "Please sign in with an email code or password." }, { status: 401 })
     const sessionState = await deviceState(identity.user.id, identity.sessionId)
     if (sessionState.state === "full_login" || sessionState.state === "inactive" || !sessionState.canSetPin) {
-      return NextResponse.json({ error: "Please sign in with your email again before setting or resetting your PIN." }, { status: 401 })
+      return NextResponse.json({ error: "Please sign in again with an email code or password before setting or resetting your PIN." }, { status: 401 })
     }
     const { pin } = await req.json()
 

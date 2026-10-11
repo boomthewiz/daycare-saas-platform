@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [resendAt, setResendAt] = useState(0)
   const [remaining, setRemaining] = useState(0)
   const [restored, setRestored] = useState(false)
+  const [method, setMethod] = useState<"email" | "password">("email")
+  const [password, setPassword] = useState("")
+  const [passwordRetryAt, setPasswordRetryAt] = useState(0)
+  const [passwordRemaining, setPasswordRemaining] = useState(0)
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     try {
@@ -57,11 +62,14 @@ export default function LoginPage() {
   }, [email, sent, resendAt, restored])
 
   useEffect(() => {
-    const tick = () => setRemaining(Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)))
+    const tick = () => {
+      setRemaining(Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)))
+      setPasswordRemaining(Math.max(0, Math.ceil((passwordRetryAt - Date.now()) / 1000)))
+    }
     tick()
     const timer = window.setInterval(tick, 1000)
     return () => window.clearInterval(timer)
-  }, [resendAt])
+  }, [resendAt, passwordRetryAt])
 
   const sendCode = async () => {
     if (busy || Date.now() < resendAt) return
@@ -101,18 +109,46 @@ export default function LoginPage() {
       try { window.sessionStorage.removeItem(LOGIN_FLOW_STORAGE_KEY) } catch {
         // Storage may be unavailable; the authenticated redirect can still continue.
       }
-      const destination = new URLSearchParams(window.location.search).get("next") === "/profile" ? "/profile" : "/dashboard"
+      const destination = recovery || new URLSearchParams(window.location.search).get("next") === "/profile" ? "/profile" : "/dashboard"
       window.location.assign(result.hasOrganization === false ? "/onboarding-owner" : result.state === "setup" ? "/set-pin" : destination)
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to sign in.") }
     finally { setBusy(false) }
   }
 
+  const signInPassword = async () => {
+    if (busy || Date.now() < passwordRetryAt) return
+    setBusy(true); setError("")
+    try {
+      const response = await fetch("/api/password-login", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }),
+      })
+      const result = await response.json()
+      if (response.status === 429) {
+        const retry = Number(response.headers.get("Retry-After"))
+        setPasswordRetryAt(Date.now() + (Number.isSafeInteger(retry) && retry > 0 ? retry : 60) * 1000)
+      }
+      if (!response.ok) throw new Error(result.error || "Unable to sign in with your password.")
+      const { error: sessionError } = await supabase.auth.setSession(result.session)
+      if (sessionError) throw new Error("Unable to save your sign-in. Please try again.")
+      try { window.sessionStorage.removeItem(LOGIN_FLOW_STORAGE_KEY) } catch { /* Storage may be unavailable. */ }
+      const destination = new URLSearchParams(window.location.search).get("next") === "/profile" ? "/profile" : "/dashboard"
+      window.location.assign(result.hasOrganization === false ? "/onboarding-owner" : result.state === "setup" ? "/set-pin" : destination)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to sign in.") }
+    finally { setPassword(""); setBusy(false) }
+  }
+
+  const swapMethod = () => {
+    setMethod(method === "email" ? "password" : "email")
+    setPassword(""); setCode(""); setSent(false); setError(""); setRecovery(false)
+  }
+
   return <main className="min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-yellow-100 flex items-center justify-center p-6">
     <section className="w-full max-w-md bg-white/95 rounded-3xl shadow-xl p-8 border border-white">
       <p className="text-center font-semibold text-teal-700 mb-3">ReJoyce</p>
-      <h1 className="text-center text-3xl font-bold text-slate-800">{sent ? "Check your email" : "Welcome back"}</h1>
-      <p className="text-center text-slate-600 mt-3 mb-7">{sent ? `If your account is active, a sign-in code is on its way to ${email}. Enter it below.` : "Sign in to your account with a code sent to your email."}</p>
-      <form onSubmit={event => { event.preventDefault(); void (sent ? verifyCode() : sendCode()) }}>
+      <h1 className="text-center text-3xl font-bold text-slate-800">{method === "email" && sent ? "Check your email" : "Welcome back"}</h1>
+      <p className="text-center text-slate-600 mt-3 mb-7">{method === "password" ? "Sign in with the password you set in Profile." : sent ? `If your account is active, a sign-in code is on its way to ${email}. Enter it below.` : "Sign in to your account with a code sent to your email."}</p>
+      {recovery && <p className="mb-5 text-sm text-slate-600">Use an email code to sign in, then set a new password in Profile. Recovery requires email delivery.</p>}
+      <form onSubmit={event => { event.preventDefault(); void (method === "password" ? signInPassword() : sent ? verifyCode() : sendCode()) }}>
         {sent ? <>
           <label htmlFor="email-code" className="block text-sm font-medium text-slate-700 mb-2">Email code</label>
           <input id="email-code" key="code" autoFocus required type="text" inputMode="numeric" autoComplete="one-time-code" pattern="([0-9]{6}|[0-9]{8})" maxLength={8} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, ""))} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300 text-center text-2xl tracking-widest" />
@@ -121,16 +157,22 @@ export default function LoginPage() {
           <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-2">Email address</label>
           <input id="login-email" key="email" autoFocus required type="email" autoComplete="email" maxLength={254} value={email} onChange={event => setEmail(event.target.value)} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300" />
         </>}
-        {remaining > 0 && <p role="status" aria-live="polite" className="mt-4 text-sm text-slate-600">{sent
+        {method === "password" && <div className="mt-4"><label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-2">Password</label><input id="login-password" type="password" autoComplete="current-password" required maxLength={1024} value={password} onChange={e => { setPassword(e.target.value); setError("") }} disabled={busy} className="w-full p-4 rounded-xl border border-slate-300" /></div>}
+        {method === "password" && passwordRemaining > 0 && <p role="status" className="mt-4 text-sm text-slate-600">Try password sign-in again in {passwordRemaining} seconds.</p>}
+        {method === "email" && remaining > 0 && <p role="status" aria-live="polite" className="mt-4 text-sm text-slate-600">{sent
           ? <>We sent your code. You can request another in <strong>{remaining} seconds</strong>.</>
           : <>For your security, please wait <strong>{remaining} seconds</strong> before requesting a code.</>}</p>}
         {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-        <button disabled={busy || (sent && ![6, 8].includes(code.length)) || (!sent && remaining > 0)} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : sent ? "Sign in" : remaining > 0 ? `Try again in ${remaining}s` : "Send sign-in code"}</button>
+        <button disabled={busy || (method === "password" && passwordRemaining > 0) || (method === "email" && ((sent && ![6, 8].includes(code.length)) || (!sent && remaining > 0)))} className="mt-5 w-full py-4 rounded-xl font-semibold text-white bg-teal-700 disabled:opacity-50">{busy ? "Please wait…" : method === "password" ? "Sign in with password" : sent ? "Sign in" : remaining > 0 ? `Try again in ${remaining}s` : "Send sign-in code"}</button>
       </form>
       {sent && <div className="mt-5 flex flex-col gap-3 text-center text-sm">
         <button disabled={busy || remaining > 0} onClick={() => void sendCode()} className="text-teal-800 underline disabled:text-slate-400">{remaining > 0 ? `Send another code in ${remaining}s` : "Send another code"}</button>
         <button disabled={busy} onClick={() => { setSent(false); setCode(""); setError(""); setResendAt(0) }} className="text-slate-600 underline">Use a different email</button>
       </div>}
+      <div className="mt-5 flex flex-col gap-3 text-center text-sm">
+        <button type="button" disabled={busy} onClick={swapMethod} className="text-teal-800 underline">{method === "email" ? "Use password instead" : "Use email code instead"}</button>
+        {method === "password" && <button type="button" disabled={busy} onClick={() => { swapMethod(); setRecovery(true) }} className="text-slate-600 underline">Forgot password or haven’t set one up?</button>}
+      </div>
       <div className="mt-8 text-center text-sm text-slate-600"><p>New to ReJoyce?</p><Link href="/onboarding-owner" className="inline-block mt-2 font-semibold text-teal-800 underline">Create an organization — 30 days free</Link></div>
     </section>
   </main>
