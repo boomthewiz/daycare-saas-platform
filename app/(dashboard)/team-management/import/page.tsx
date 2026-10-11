@@ -7,7 +7,7 @@ import { useSetupAccess } from "@/lib/use-setup-access"
 import { useBranches } from "@/components/BranchProvider"
 import { usePortal } from "@/components/PortalProvider"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
-import { clientFields, staffFields, importRoles, parseTable, normalizeHeader, validateImportRows, invitationOutcome, csvReport, type ImportKind, type ImportRow } from "@/lib/people-import"
+import { clientFields, staffFields, importRoles, parseTable, normalizeHeader, importSources, suggestImportMapping, validateImportRows, invitationOutcome, csvReport, type ImportSource, type ImportKind, type ImportRow } from "@/lib/people-import"
 
 type PreviewRow = ImportRow & { status: string; done?: boolean }
 function download(name: string, content: string) {
@@ -20,6 +20,11 @@ export default function PeopleImportPage() {
   const [method, setMethod] = useState("file")
   const [pasted, setPasted] = useState(""), [delimiter, setDelimiter] = useState<"," | "\t">("\t")
   const [kind, setKind] = useState<ImportKind>("clients")
+  const [source, setSource] = useState<ImportSource>("generic")
+  const [idPrefix, setIdPrefix] = useState("")
+  const [roleMapping, setRoleMapping] = useState<Record<string, string>>({})
+  const [sourceStatus, setSourceStatus] = useState(-1), [activeReviewed, setActiveReviewed] = useState(false)
+  const [combineName, setCombineName] = useState(false), [nameColumns, setNameColumns] = useState<[number, number]>([-1,-1])
   const [csv, setCsv] = useState<string[][]>([]), [mapping, setMapping] = useState<Record<string, number>>({})
   const [preview, setPreview] = useState<PreviewRow[]>([]), [branch, setBranch] = useState("")
   const previewOrganization = useRef<string | null>(null)
@@ -36,10 +41,15 @@ export default function PeopleImportPage() {
   const fields = kind === "clients" ? clientFields : staffFields
   const allowed = !access.loading && !access.error && (kind === "clients" ? access.clients : access.users)
   const ready = preview.filter(row => !row.error && !row.done && row.status === "Ready")
-  function reset(next: ImportKind) { setKind(next); setCsv([]); setPreview([]); setFileName(""); setError(""); setMessage(""); setMapping({}); setPasted("") }
-  function loadTable(source: string, separator: "," | "\t", name: string) {
-    const rows = parseTable(source, separator)
-    setMapping(Object.fromEntries(fields.map(field => [field, rows[0].findIndex(header => normalizeHeader(header) === field)])))
+  function reset(next: ImportKind) { setKind(next); setCsv([]); setPreview([]); setFileName(""); setError(""); setMessage(""); setMapping({}); setPasted(""); setRoleMapping({}); setSourceStatus(-1); setActiveReviewed(false); setCombineName(false); setNameColumns([-1,-1]) }
+  function mapSource(headers: string[], next: ImportSource) {
+    setMapping(suggestImportMapping(headers,kind,next)); setPreview([]); setRoleMapping({}); setActiveReviewed(false); setCombineName(false); setNameColumns([-1,-1])
+    const statuses = headers.map((header,index)=>["status","enrollment_status"].includes(normalizeHeader(header)) ? index : -1).filter(index=>index >= 0)
+    setSourceStatus(next !== "generic" && statuses.length === 1 ? statuses[0] : -1)
+  }
+  function loadTable(contents: string, separator: "," | "\t", name: string) {
+    const rows = parseTable(contents, separator)
+    mapSource(rows[0],source)
     setCsv(rows); setFileName(name)
   }
   function readPaste() {
@@ -63,8 +73,9 @@ export default function PeopleImportPage() {
     setError(""); setMessage(""); setPreview([]); setBusy(true)
     try {
       if (!allowed) throw new Error("You do not have permission to import these people.")
+      if (source !== "generic" && sourceStatus < 0 && !activeReviewed) throw new Error("Confirm that this roster contains only the people you intend to import or invite, or map a source status column.")
       if (kind === "clients" && (!branch || branches.loading || branches.error || !branches.branches.some(item => item.id === branch && item.active))) throw new Error(t("Choose an active branch for these clients. Create a branch in Setup if needed."))
-      const rows = validateImportRows(csv, kind, mapping)
+      const rows = validateImportRows(csv, kind, mapping, { roleMapping: source !== "generic" && kind === "staff" ? roleMapping : undefined, statusColumn: sourceStatus, staffNameColumns: kind === "staff" && combineName ? nameColumns : undefined, idPrefix: kind === "clients" ? idPrefix : undefined })
       const org = await supabase.rpc("current_organization_id")
       if (org.error || !org.data) throw new Error("Unlock your session and try again.")
       const keys = rows.filter(row => !row.error).map(row => kind === "clients" ? row.values.external_id : row.values.email)
@@ -135,6 +146,9 @@ export default function PeopleImportPage() {
     <fieldset disabled={busy} className="rj-card space-y-4 p-5">
       <legend className="font-semibold">1. Choose a list</legend>
       <label className="block">People to import<select className="rj-input mt-1 w-full" value={kind} onChange={event => reset(event.target.value as ImportKind)}><option value="clients">{terms.client_plural}</option><option value="staff">{terms.frontline_plural}</option></select></label>
+      <label className="block">Exported from<select className="rj-input mt-1 w-full" value={source} onChange={event => { const next = event.target.value as ImportSource; setSource(next); mapSource(csv[0] || [],next); setError(""); setMessage("") }}>{importSources.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <p className="text-sm">{importSources.find(item=>item.id===source)?.guide}</p>
+      {source !== "generic" && <p className="text-sm">Keep the original CSV headings and column order. Suggested mappings must be reviewed; extra columns are ignored. Missing IDs or email cannot be inferred. Files may contain up to 100 people and 1 MB.</p>}
       {!allowed && !access.loading && <p>Management permission is required for this list.</p>}
       <button className="rj-button rj-button-secondary" onClick={() => download(`rejoyce-${kind}-template.csv`, template)}>Download CSV template</button>
       {kind === "clients" ? <><p className="text-sm">{t("Use a stable, unique external ID from your existing system for each person. If you do not have IDs yet, assign one per person in your spreadsheet (for example C-001, C-002) and keep those IDs for future uploads. Repeat uploads skip matching IDs without overwriting records. People created manually should be reviewed before importing.")} Use distinct source prefixes when combining systems (for example brightwheel:C-001); keep the exact same ID on every upload. Preserve leading zeros by formatting ID columns as text.</p><label className="block">Branch for this list<select className="rj-input mt-1 w-full" value={branch} onChange={event => { setBranch(event.target.value); setPreview([]) }}><option value="">Choose an active branch</option>{branches.branches.filter(item => item.active).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><Link className="underline" href="/setup/preferences">Manage branches in Setup</Link></> : <><p className="text-sm">Supported roles: {importRoles.join(", ")}. Review roles before sending. Invitations use the same permissions and email limits as individual invitations. Owner and admin accounts are added individually.</p><p className="text-sm">{t("Loading and previewing staff rows creates no records or accounts and sends no email. Confirming requests account invitations; record-only staff import is not available yet. An invitation request does not mean delivery, acceptance, or readiness for sessions. Review confirmed email, PIN setup, account status, branches, and care assignments in People.")}</p></>}
@@ -146,7 +160,15 @@ export default function PeopleImportPage() {
       {fileName && <p className="text-sm">{fileName}: {csv.length - 1} rows loaded.</p>}
     </fieldset>
     {csv.length > 0 && <fieldset disabled={busy} className="rj-card space-y-4 p-5"><legend className="font-semibold">2. Match columns</legend>
-      {fields.map(field => <label className="block" key={field}>{field.replaceAll("_", " ")}{["external_id", "first_name", "full_name", "email", "role"].includes(field) ? " (required)" : " (optional)"}<select className="rj-input mt-1 w-full" value={mapping[field] ?? -1} onChange={event => { setMapping(current => ({ ...current, [field]: Number(event.target.value) })); setPreview([]) }}><option value={-1}>Not mapped</option>{csv[0].map((header, index) => <option key={index} value={index}>{header || `Column ${index + 1}`}</option>)}</select></label>)}
+      {fields.filter(field=>!(field === "full_name" && combineName)).map(field => <label className="block" key={field}>{field.replaceAll("_", " ")}{["external_id", "first_name", "full_name", "email", "role"].includes(field) ? " (required)" : " (optional)"}<select className="rj-input mt-1 w-full" value={mapping[field] ?? -1} onChange={event => { setMapping(current => ({ ...current, [field]: Number(event.target.value) })); setPreview([]); if(field === "role") setRoleMapping({}) }}><option value={-1}>Not mapped</option>{csv[0].map((header, index) => <option key={index} value={index}>{header || `Column ${index + 1}`}</option>)}</select></label>)}
+      {kind === "clients" && <p className="text-sm">If the export contains only one name column, you may map its entire value to first name and leave last name unmapped. ReJoyce preserves that value without guessing where to split it. Keep the same ID column and source prefix on later imports.</p>}
+      {kind === "clients" && <label className="block">ID namespace (optional)<input className="rj-input mt-1 w-full" value={idPrefix} maxLength={40} onChange={event=>{setIdPrefix(event.target.value);setPreview([])}} /><span className="block text-sm mt-1">For a new source/site, choose a stable prefix such as brightwheel.site1 to keep IDs distinct. Leave blank for existing imports that used raw IDs. Preview shows the final ID; changing its column or prefix can create duplicates.</span></label>}
+      {kind === "staff" && <><label className="flex gap-2 items-start"><input type="checkbox" checked={combineName} onChange={event=>{setCombineName(event.target.checked);setMapping(current=>({...current,full_name:-1}));setPreview([])}} />Combine separate first and last name columns</label>{combineName && nameColumns.map((value,part)=><label className="block" key={part}>{part === 0 ? "Staff first name column" : "Staff last name column"}<select className="rj-input mt-1 w-full" value={value} onChange={event=>{setNameColumns(current=>part===0?[Number(event.target.value),current[1]]:[current[0],Number(event.target.value)]);setPreview([])}}><option value={-1}>Not mapped</option>{csv[0].map((header,index)=><option key={index} value={index}>{header}</option>)}</select></label>)}</>}
+      {source !== "generic" && <>
+        <label className="block">Source status column (optional)<select className="rj-input mt-1 w-full" value={sourceStatus} onChange={event=>{setSourceStatus(Number(event.target.value));setPreview([]);setActiveReviewed(false)}}><option value={-1}>Not included</option>{csv[0].map((header,index)=><option key={index} value={index}>{header}</option>)}</select></label>
+        {sourceStatus >= 0 ? <p className="text-sm">Only active, current, or enrolled rows are eligible. Blank, inactive, archived, and unknown statuses are excluded. Source account activation does not establish ReJoyce readiness.</p> : <label className="flex gap-2 items-start"><input type="checkbox" checked={activeReviewed} onChange={event=>{setActiveReviewed(event.target.checked);setPreview([])}} />I reviewed the exported roster and included only the people I intend to import or invite.</label>}
+        {kind === "staff" && mapping.role >= 0 && <div className="space-y-3"><h3 className="font-semibold">Map exported roles</h3><p className="text-sm">Choose a ReJoyce role for each exported role. Unmapped roles are invalid; owner/admin invitations require the individual invitation screen.</p>{[...new Set(csv.slice(1).map(cells=>cells[mapping.role] || ""))].filter(Boolean).map(role=><label className="block" key={role}>ReJoyce role for {role}<select className="rj-input mt-1 w-full" value={Object.hasOwn(roleMapping,role)?roleMapping[role]:""} onChange={event=>{setRoleMapping(current=>({...current,[role]:event.target.value}));setPreview([])}}><option value="">Do not import this role</option>{importRoles.map(value=><option key={value} value={value}>{value}</option>)}</select></label>)}</div>}
+      </>}
       <button className="rj-button rj-button-secondary" disabled={!allowed} onClick={() => void inspect()}>Preview import</button>
     </fieldset>}
     {preview.length > 0 && <section className="rj-card space-y-4 p-5"><h2 className="rj-heading-3">3. Review and confirm</h2>

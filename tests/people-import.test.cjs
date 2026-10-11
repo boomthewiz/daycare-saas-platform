@@ -2,7 +2,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const load = require('./helpers/load-ts.cjs')
-const { parseCsv, parseTable, validatePeopleRows, validateImportRows, invitationOutcome, csvReport } = load('lib/people-import.ts')
+const { parseCsv, parseTable, suggestImportMapping, importSources, validatePeopleRows, validateImportRows, invitationOutcome, csvReport } = load('lib/people-import.ts')
 const { defaultTerms, vocabularyPresets, translatePortalText } = load('lib/portal-presets.ts')
 
 test('CSV handles BOM, CRLF, commas and escaped quotes without losing columns', () => {
@@ -63,6 +63,49 @@ test('invitation responses distinguish acceptance, duplicate, limit, and uncerta
     assert.equal(outcome.pause,true)
     assert.match(outcome.status,/uncertain/)
   }
+})
+
+test('Brightwheel original headings and extra data map without editing the file', () => {
+  const csv=parseCsv('Student ID,Last Name,Brightwheel ID,First Name,Parent Email,Rooms\ncustom-1,Example,00001,Sam,parent@example.invalid,North')
+  const mapping=suggestImportMapping(csv[0],'clients','brightwheel')
+  assert.equal(mapping.external_id,2)
+  const row=validateImportRows(csv,'clients',mapping,{idPrefix:'brightwheel.site1'})[0]
+  assert.equal(row.error,null)
+  assert.deepEqual(row.values,{external_id:'brightwheel.site1:00001',first_name:'Sam',last_name:'Example',preferred_name:''})
+  assert.throws(()=>validateImportRows(csv,'clients',mapping,{idPrefix:'bad:prefix'}),/namespace/)
+})
+
+test('all five source profiles accept reordered canonical columns but never infer guardian IDs', () => {
+  for(const source of importSources.filter(source=>source.id!=='generic')) {
+    const csv=parseCsv('last_name,external_id,first_name,Unrelated Field\nExample,0001,Sam,Ignored')
+    assert.equal(validateImportRows(csv,'clients',suggestImportMapping(csv[0],'clients',source.id))[0].error,null,source.id)
+    const ambiguous=suggestImportMapping(['Child ID','Student ID','First Name','Child First Name','Parent Email'],'clients',source.id)
+    assert.equal(ambiguous.first_name,-1)
+    assert.equal(suggestImportMapping(['Parent Email','Name','Role'],'staff',source.id).email,-1)
+  }
+  assert.equal(suggestImportMapping(['Child ID','Student ID','First Name'],'clients','playground').external_id,-1)
+})
+
+test('exported staff roles require explicit mapping and source activation never creates readiness', () => {
+  const csv=parseCsv('Name,Email,Role,Account activation status\nAlex Example,alex@example.invalid,Lead Teacher,Activated\nAdmin Example,admin@example.invalid,Administrator,Activated')
+  const mapping=suggestImportMapping(csv[0],'staff','brightwheel')
+  assert.ok(validateImportRows(csv,'staff',mapping,{roleMapping:{}}).every(row=>row.error))
+  const rows=validateImportRows(csv,'staff',mapping,{roleMapping:{'Lead Teacher':'teacher'}})
+  assert.equal(rows[0].error,null)
+  assert.ok(rows[1].error)
+  assert.deepEqual(Object.keys(rows[0].values),['full_name','email','role'])
+  const hostile=parseCsv('Name,Email,Role\nAlex,alex@example.invalid,__proto__')
+  assert.ok(validateImportRows(hostile,'staff',suggestImportMapping(hostile[0],'staff','brightwheel'),{roleMapping:{}})[0].error)
+})
+
+test('inactive source rows do not suppress later active IDs and separate staff names can be combined', () => {
+  const csv=parseCsv('Child ID,First Name,Status\n1,Inactive,inactive\n1,Active,Current\n2,Blank,')
+  const rows=validateImportRows(csv,'clients',suggestImportMapping(csv[0],'clients','famly'),{statusColumn:2})
+  assert.deepEqual(rows.map(row=>!!row.error),[true,false,true])
+  const staff=parseCsv('First Name,Last Name,Email,Role\nAlex,Example,alex@example.invalid,Teacher')
+  const mapping={full_name:-1,email:2,role:3}
+  assert.equal(validateImportRows(staff,'staff',mapping,{staffNameColumns:[0,1],roleMapping:{Teacher:'teacher'}})[0].values.full_name,'Alex Example')
+  assert.throws(()=>validateImportRows(staff,'staff',mapping,{staffNameColumns:[0,2]}),/distinct/)
 })
 test('vocabulary supports case and plural forms without recursive replacement or changing substrings', () => {
   const education = vocabularyPresets.find(preset=>preset.id==='education').terms

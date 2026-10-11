@@ -14,6 +14,8 @@ API integrations and SFTP scheduling are future extensions, not configured by th
 
 The import foundation also accepts TSV files and pasted spreadsheet cells (explicit tabs/CSV format), through the same mapping/validation/preview workflow. Workbooks must be exported as CSV/TSV or pasted first. Empty headings, normalized duplicate headings, invalid mappings and oversized/empty batches are rejected. Invalid rows do not block a later valid row with the same ID. Confirmation is bound to the organization used for preview; only active branches are selectable. No new migration is required.
 
+Source profiles now cover Brightwheel, Procare, Playground, Famly and Lillio/HiMama. They suggest mappings for original export headings, preserve manual mapping for ambiguity, and ignore unrelated columns. Vendor staff roles require explicit mapping; source status can exclude inactive rows. Optional ID namespaces and staff split-name mapping avoid editing source CSVs. See [export compatibility](import-export-compatibility.md) for documented formats, evidence limits and instructions.
+
 Staff confirmation now labels successful responses as invitation requests accepted, with delivery unverified. Uncertain/incomplete responses pause the batch and remain excluded from automatic continuation. Record-only staff import is not available: loading/previewing creates nothing; account/invitation confirmation is explicit, and acceptance/readiness/assignments remain separate. SMTP settings are unchanged. API/SFTP panels list prerequisites and do not connect or collect credentials.
 
 ## Appearance and vocabulary

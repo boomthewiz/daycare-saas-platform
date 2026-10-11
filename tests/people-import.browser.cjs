@@ -122,6 +122,29 @@ const session = { access_token:token, refresh_token:'synthetic', expires_at:Math
     await page.getByRole('button',{name:'Preview import',exact:true}).click()
     await page.getByText('0 ready; 1 invalid; 0 completed or skipped.',{exact:true}).waitFor()
     assert.equal(await page.getByRole('button',{name:'Import 0 students',exact:true}).isDisabled(),true)
+    for(const source of ['brightwheel','procare','playground','famly','lillio']){
+      await page.getByLabel('Exported from').selectOption(source)
+      const idColumn=source==='brightwheel'?'Brightwheel ID':source==='playground'?'Student ID':'Child ID'
+      await page.getByLabel('CSV or TSV file').setInputFiles({name:`${source}-synthetic.csv`,mimeType:'text/csv',buffer:Buffer.from(`Last Name,${idColumn},First Name,Unrelated Column\nExample,0009,Source Example,Ignored`)})
+      await page.getByRole('button',{name:'Preview import',exact:true}).click()
+      await page.getByRole('alert').filter({hasText:'Confirm that this roster'}).waitFor()
+      await page.getByLabel('I reviewed the exported roster').check()
+      await page.getByLabel('ID namespace (optional)').fill(`${source}.site1`)
+      await page.getByRole('button',{name:'Preview import',exact:true}).click()
+      await page.getByText('1 ready; 0 invalid; 0 completed or skipped.',{exact:true}).waitFor()
+      await page.getByRole('cell',{name:`${source}.site1:0009`,exact:true}).waitFor()
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390)
+      assert.equal(calls.length,3,'source preview sends no writes')
+    }
+    await page.getByLabel('Exported from').selectOption('brightwheel')
+    await page.getByLabel('People to import').selectOption('staff')
+    await load('Name\tEmail\tRole\tStatus\nVendor Teacher\tvendor@example.invalid\tTeacher\tactive\nInactive Teacher\tinactive@example.invalid\tTeacher\tinactive')
+    await page.getByRole('combobox',{name:/^ReJoyce role for Teacher/}).selectOption('teacher')
+    await page.getByRole('button',{name:'Preview import',exact:true}).click()
+    await page.getByText('1 ready; 1 invalid; 0 completed or skipped.',{exact:true}).waitFor()
+    await page.screenshot({path:path.join(dir,'brightwheel-mobile.png'),fullPage:true})
+    assert.equal(calls.length,3)
+    await page.getByLabel('Exported from').selectOption('generic')
     for(const restriction of ['permission','subscription']){
       denied=restriction==='permission';readonly=restriction==='subscription'
       await open()
@@ -135,7 +158,7 @@ const session = { access_token:token, refresh_token:'synthetic', expires_at:Math
       assert.equal(calls.length,3)
     }
     assert.deepEqual(errors,[])
-    fs.writeFileSync(path.join(dir,'results.json'),JSON.stringify({passed:true,syntheticOnly:true,calls:calls.length,layouts:evidence,pageErrors:errors},null,2))
+    fs.writeFileSync(path.join(dir,'results.json'),JSON.stringify({passed:true,syntheticOnly:true,calls:calls.length,sourceProfiles:['brightwheel','procare','playground','famly','lillio'],layouts:evidence,pageErrors:errors},null,2))
     console.log('Synthetic import browser checks passed: partial/repeated imports, tenant context, invitation pause/continue, restrictions, vocabulary, four viewport widths.')
   } finally {await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1})
