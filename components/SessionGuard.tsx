@@ -8,6 +8,7 @@ import type { DeviceState } from "@/lib/device-session-server"
 import SubscriptionBanner from "@/components/SubscriptionBanner"
 
 const IDLE = 5 * 60 * 1000
+const HEARTBEAT = 60 * 1000
 const publicPaths = new Set(["/login", "/set-pin", "/request-access", "/onboarding", "/onboarding-owner"])
 type Screen = DeviceState["state"] | "checking" | "offline"
 
@@ -29,15 +30,26 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
   const lastHeartbeat = useRef(0)
   const lastCheck = useRef(0)
   const generation = useRef(0)
+  const policyCache = useRef<{ enabled: boolean; checkedAt: number } | null>(null)
+  const pending = useRef<number | null>(null)
+  const signingOut = useRef(false)
 
   const show = useCallback((next: Screen) => { mode.current = next; setScreen(next) }, [])
   const check = useCallback(async (action = "status", enteredPin?: string) => {
+    if (signingOut.current || ((action === "status" || action === "activity") && pending.current !== null)) return
     const current = ++generation.current
+    pending.current = current
+    const started = performance.now()
     try {
-      const response = await fetch("/api/session-policy", { cache: "no-store" })
-      const policy = await response.json()
-      if (!response.ok || typeof policy.enabled !== "boolean") throw new Error("Unable to check session protection.")
-      const active = policy.enabled || new URL(window.location.href).searchParams.get("session-policy-preview") === "1"
+      let cached = policyCache.current
+      if (!cached || performance.now() - cached.checkedAt >= 60000) {
+        const response = await fetch("/api/session-policy", { cache: "no-store" })
+        const policy = await response.json()
+        if (!response.ok || typeof policy.enabled !== "boolean") throw new Error("Unable to check session protection.")
+        cached = { enabled: policy.enabled, checkedAt: performance.now() }
+        policyCache.current = cached
+      }
+      const active = cached.enabled || new URL(window.location.href).searchParams.get("session-policy-preview") === "1"
       if (generation.current !== current) return
       setEnabled(active)
       if (!active) { setMounted(true); return }
@@ -48,7 +60,8 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
         const remaining = Math.min(Date.parse(state.unlockedUntil || "") - now,
           Date.parse(state.fullAuthUntil || "") - now, Date.parse(state.pinRequiredBy || "") - now)
         if (!Number.isFinite(remaining) || remaining <= 0) { show("locked"); return }
-        deadline.current = performance.now() + remaining
+        deadline.current = started + remaining
+        lastCheck.current = performance.now()
         if (action === "unlock" || lastActivity.current === 0) lastActivity.current = performance.now()
         setMounted(true)
         setError("")
@@ -59,6 +72,8 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
       if (generation.current !== current) return
       setError(e instanceof Error ? e.message : "Unable to connect. Please try again.")
       if (action !== "unlock") show("offline")
+    } finally {
+      if (pending.current === current) pending.current = null
     }
   }, [show])
 
@@ -74,6 +89,8 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
     setCurtain(document.hidden)
     hiddenAt.current = document.hidden ? performance.now() : null
     lastActivity.current = 0
+    lastHeartbeat.current = performance.now()
+    lastCheck.current = performance.now()
     void supabase.auth.getUser().then(({ data }) => setIdentity(data.user?.id || ""))
     void check()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -91,7 +108,7 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
       lastActivity.current = now
       // Only genuine foreground interaction renews the server lease. Polls,
       // token refreshes, session timers and background tabs do not count.
-      if (now-lastHeartbeat.current >= 10000) {
+      if (pending.current === null && now-lastHeartbeat.current >= HEARTBEAT) {
         lastHeartbeat.current = now
         void check("activity")
       }
@@ -108,23 +125,24 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
         setCurtain(false)
       }
     }
-    const events = ["pointerdown", "keydown", "touchstart", "scroll"]
+    const events = ["pointerdown", "keydown", "touchstart", "wheel"]
     events.forEach(name => window.addEventListener(name, activity, { passive: true, capture: true }))
     document.addEventListener("visibilitychange", visibility)
     const timer = window.setInterval(() => {
       const now = performance.now()
       if (mode.current === "unlocked" && (now >= deadline.current || (lastActivity.current && now-lastActivity.current >= IDLE))) lock()
-      else if (!document.hidden && mode.current === "unlocked" && lastActivity.current > lastHeartbeat.current && now-lastActivity.current >= 1000) {
+      else if (!document.hidden && mode.current === "unlocked" && pending.current === null && lastActivity.current > lastHeartbeat.current && now-lastHeartbeat.current >= HEARTBEAT) {
         lastHeartbeat.current = now
         void check("activity")
       }
-      if (!document.hidden && now-lastCheck.current >= 30000) { lastCheck.current = now; void check() }
+      if (!document.hidden && !signingOut.current && pending.current === null && now-lastCheck.current >= HEARTBEAT) { lastCheck.current = now; void check() }
     }, 1000)
     return () => {
       // This is a request-generation counter, not a DOM ref. Invalidate every
       // pending response on cleanup rather than capturing an earlier value.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       generation.current++
+      pending.current = null
       subscription.unsubscribe()
       events.forEach(name => window.removeEventListener(name, activity, true))
       document.removeEventListener("visibilitychange", visibility)
@@ -140,6 +158,10 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
     setPin(""); setBusy(false)
   }
   const signOut = async () => {
+    if (signingOut.current) return
+    signingOut.current = true
+    generation.current++
+    setCurtain(true)
     setBusy(true)
     try {
       await sessionRequest("logout")
@@ -147,7 +169,14 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
       if (signOutError) throw signOutError
       setMounted(false)
       window.location.assign("/login")
-    } catch { setError("Unable to finish signing out. Please reconnect and try again."); setBusy(false) }
+    } catch {
+      signingOut.current = false
+      pending.current = null
+      show("offline")
+      setCurtain(false)
+      setError("Unable to finish signing out. Please reconnect and try again.")
+      setBusy(false)
+    }
   }
 
   if (exempt) return <>{children}</>
