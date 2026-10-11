@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS route harness. */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
@@ -37,12 +38,12 @@ function load(route, options = {}) {
     const filename = path.resolve(__dirname, '..', file)
     const mod = new Module(filename, module)
     mod.filename = filename; mod.paths = module.paths
-    mod.require = name => name === '@/lib/supabase-admin' ? { supabaseAdmin: admin }
+    mod.require = name => name === 'fixture-fetch' ? async (url, init) => { calls.push(['password-update', url, init]); return { ok: options.updateOk !== false } } : name === '@/lib/supabase-admin' ? { supabaseAdmin: admin }
       : name === '@/lib/device-session-server' ? compile('lib/device-session-server.ts')
       : name === 'bcryptjs' ? { compare: async () => { calls.push(['compare']); return options.matches !== false } }
-      : name === '@supabase/supabase-js' ? { createClient: () => ({ auth: { signInWithOtp: async args => { calls.push(['email', args]); return { error: options.emailError || null } }, verifyOtp: async args => { calls.push(['otp', args]); return options.otp || { data: { user: { id: userId }, session: { access_token: token, refresh_token: 'refresh' } }, error: null } } } }) }
+      : name === '@supabase/supabase-js' ? { createClient: () => ({ auth: { signInWithPassword: async args => { calls.push(['password', args]); return options.passwordAuth || { data: { user: { id: userId }, session: { access_token: token, refresh_token: 'refresh' } }, error: null } }, signInWithOtp: async args => { calls.push(['email', args]); return { error: options.emailError || null } }, verifyOtp: async args => { calls.push(['otp', args]); return options.otp || { data: { user: { id: userId }, session: { access_token: token, refresh_token: 'refresh' } }, error: null } } } }) }
       : require(name)
-    mod._compile(ts.transpileModule(fs.readFileSync(filename,'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, filename)
+    mod._compile("const fetch = require('fixture-fetch');\n" + ts.transpileModule(fs.readFileSync(filename,'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText, filename)
     cache.set(file, mod.exports)
     return mod.exports
   }
@@ -51,6 +52,92 @@ function load(route, options = {}) {
 const req = (body, bearer = token) => new Request('https://www.rejoyceapp.com/api/device-session', {
   method: body === undefined ? 'GET' : 'POST', headers: { ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}), 'Content-Type':'application/json' },
   body: body === undefined ? undefined : JSON.stringify(body),
+})
+
+test('password login uses Auth-verified identity and the existing device proof gate', async () => {
+  for (const state of ['unlocked', 'setup']) {
+    const h = load('password-login', { states: [status(state)] })
+    const response = await h.POST(req({ email: ' Person@Example.invalid ', password: 'a synthetic password', userId: 'victim', sessionId: 'victim' }))
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).state, state)
+    assert.deepEqual(h.calls.find(c => c[0] === 'password')[1], { email: 'person@example.invalid', password: 'a synthetic password' })
+    const trust = h.calls.find(c => c[0] === 'manage_device_session')[1]
+    assert.equal(trust.p_user_id, userId)
+    assert.equal(trust.p_session_id, sessionId)
+    assert.equal(trust.p_action, 'complete_email')
+    assert.match(trust.p_proof_hash, /^[a-f0-9]{64}$/)
+    assert.ok(h.calls.findIndex(c => c[0] === 'password') < h.calls.findIndex(c => c[0] === 'insert'))
+    assert.equal(h.calls.some(c => c[0] === 'email'), false)
+  }
+})
+
+test('invalid password, inactive account and missing proof never return password session tokens', async () => {
+  for (const options of [
+    { passwordAuth: { data: { user: null, session: null }, error: { message: 'private auth detail' } } },
+    { states: [status('inactive')] }, { states: [status('full_login')] }, { challengeError: {} },
+    { auth: { data: { user: { id: 'other' } }, error: null } },
+  ]) {
+    const h = load('password-login', options)
+    const response = await h.POST(req({ email: 'person@example.invalid', password: 'synthetic password' }))
+    assert.ok([401, 503].includes(response.status))
+    const body = await response.json()
+    assert.equal(body.session, undefined)
+    assert.doesNotMatch(JSON.stringify(body), /private auth detail/)
+    if (options.passwordAuth) assert.equal(h.calls.some(c => c[0] === 'insert'), false)
+  }
+})
+
+test('password login rejects malformed inputs and fails closed when rate limited', async () => {
+  for (const password of [null, '', 123, 'x'.repeat(1025)]) {
+    const h = load('password-login')
+    assert.equal((await h.POST(req({ email: 'person@example.invalid', password }))).status, 400)
+    assert.equal(h.calls.length, 0)
+  }
+  for (const limit of [{ data: [{ allowed: false, retry_after: 35 }], error: null }, { data: null, error: {} }]) {
+    const h = load('password-login', { limit })
+    const response = await h.POST(req({ email: 'person@example.invalid', password: 'synthetic password' }))
+    assert.equal(response.status, limit.data ? 429 : 503)
+    if (limit.data) assert.equal(response.headers.get('retry-after'), '35')
+    assert.equal(h.calls.some(c => c[0] === 'password'), false)
+  }
+})
+
+test('password Auth rate limits and outages stay recoverable without exposing provider details', async () => {
+  for (const [statusCode, code, expected] of [[429, 'over_request_rate_limit', 429], [504, 'unexpected_failure', 503], [400, 'invalid_credentials', 401]]) {
+    const h = load('password-login', { passwordAuth: { data: { user: null, session: null }, error: { status: statusCode, code, message: 'private provider detail' } } })
+    const response = await h.POST(req({ email: 'person@example.invalid', password: 'synthetic password' }))
+    assert.equal(response.status, expected)
+    assert.doesNotMatch(JSON.stringify(await response.json()), /private provider detail/)
+    assert.equal(h.calls.some(c => c[0] === 'insert'), false)
+    if (expected === 429) assert.equal(response.headers.get('retry-after'), '60')
+  }
+})
+
+test('password changes require a recently unlocked verified account', async () => {
+  for (const state of ['locked', 'inactive', 'full_login', 'setup']) {
+    const h = load('account-password', { states: [status(state)] })
+    assert.equal((await h.POST(req({ password: 'synthetic password' }))).status, 401)
+    assert.equal(h.calls.some(c => c[0] === 'password-update'), false)
+  }
+  const stale = load('account-password', { states: [{ state: 'unlocked', canSetPin: false }] })
+  assert.equal((await stale.POST(req({ password: 'synthetic password' }))).status, 401)
+  const missing = load('account-password')
+  assert.equal((await missing.POST(req({ password: 'synthetic password' }, null))).status, 401)
+})
+
+test('password updates reject weak and oversized Unicode passwords, use only the caller token and report failures', async () => {
+  for (const password of ['short', 'é'.repeat(37)]) {
+    const h = load('account-password', { states: [status('unlocked')] })
+    assert.equal((await h.POST(req({ password }))).status, 400)
+    assert.equal(h.calls.some(c => c[0] === 'password-update'), false)
+  }
+  const h = load('account-password', { states: [status('unlocked')] })
+  assert.equal((await h.POST(req({ password: 'synthetic password', userId: 'victim' }))).status, 200)
+  const update = h.calls.find(c => c[0] === 'password-update')
+  assert.equal(update[2].headers.Authorization, 'Bearer ' + token)
+  assert.deepEqual(JSON.parse(update[2].body), { password: 'synthetic password' })
+  const failed = load('account-password', { states: [status('unlocked')], updateOk: false })
+  assert.equal((await failed.POST(req({ password: 'synthetic password' }))).status, 400)
 })
 
 test('missing, invalid, anonymous and mismatched bearer identities cannot manage sessions', async () => {
