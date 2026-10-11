@@ -10,7 +10,11 @@ Client columns: `external_id`, `first_name`, optional `last_name`, optional `pre
 
 Staff columns: `full_name`, `email`, `role`, all required. Supported roles are listed in the interface. Owner and admin accounts must be added individually. Confirming explicitly sends invitations through `/api/invite-user` one at a time, preserving its role, tenant, subscription, device and email-limit safeguards. Existing accounts are skipped without resending invitations or changing their roles. A failed or uncertain response pauses the batch; failed rows require review in People/the individual invitation screen. Remaining ready rows can be continued. Navigating away stops subsequent invitations, though an in-flight request can complete. Download the report before leaving; previews are not persisted.
 
-API integrations and SFTP scheduling are future extensions, not configured by this release. The authenticated client import RPC is an internal portal action, not a public integration-key API.
+API integrations and SFTP scheduling are future extensions, not configured by this release. The authenticated client import RPC is an internal portal action, not a public integration-key API. See [People import integrations](people-import-integrations.md) for the exporter comparison, connection requirements and current shared foundation.
+
+The import foundation also accepts TSV files and pasted spreadsheet cells (explicit tabs/CSV format), through the same mapping/validation/preview workflow. Workbooks must be exported as CSV/TSV or pasted first. Empty headings, normalized duplicate headings, invalid mappings and oversized/empty batches are rejected. Invalid rows do not block a later valid row with the same ID. Confirmation is bound to the organization used for preview; only active branches are selectable. No new migration is required.
+
+Staff confirmation now labels successful responses as invitation requests accepted, with delivery unverified. Uncertain/incomplete responses pause the batch and remain excluded from automatic continuation. Record-only staff import is not available: loading/previewing creates nothing; account/invitation confirmation is explicit, and acceptance/readiness/assignments remain separate. SMTP settings are unchanged. API/SFTP panels list prerequisites and do not connect or collect credentials.
 
 ## Appearance and vocabulary
 
