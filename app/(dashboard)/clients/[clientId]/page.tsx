@@ -44,6 +44,8 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import { TARGET_TYPES, RESPONSE_MODES, MEASUREMENT_TYPES } from "@/lib/client-program-options"
+import ReusableBehaviorPicker from "@/components/ReusableBehaviorPicker"
 
 type ClientStatus =
   | "active"
@@ -165,89 +167,12 @@ const FRONTLINE_ROLES = [
   "staff",
 ]
 
-const TARGET_TYPES = [
-  {
-    value: "skill_acquisition",
-    label: "Skill acquisition",
-  },
-  {
-    value: "communication",
-    label: "Communication",
-  },
-  {
-    value: "academic",
-    label: "Academic",
-  },
-  {
-    value: "daily_living",
-    label: "Daily living",
-  },
-  {
-    value: "social",
-    label: "Social",
-  },
-  {
-    value: "behavior_reduction",
-    label: "Behavior reduction",
-  },
-  {
-    value: "other",
-    label: "Other",
-  },
-]
-
-const RESPONSE_MODES = [
-  {
-    value: "independent_prompted",
-    label: "Independent / prompted",
-  },
-  {
-    value: "correct_incorrect",
-    label: "Correct / incorrect",
-  },
-  {
-    value: "frequency",
-    label: "Frequency count",
-  },
-  {
-    value: "duration",
-    label: "Duration",
-  },
-  {
-    value: "rating",
-    label: "Rating scale",
-  },
-]
-
-const MEASUREMENT_TYPES = [
-  {
-    value: "frequency",
-    label: "Frequency",
-    description: "Count each occurrence.",
-  },
-  {
-    value: "duration",
-    label: "Duration",
-    description: "Track how long the event lasts.",
-  },
-  {
-    value: "intensity",
-    label: "Intensity",
-    description: "Rate the event’s intensity.",
-  },
-  {
-    value: "frequency_duration",
-    label: "Frequency and duration",
-    description: "Count occurrences and track total duration.",
-  },
-]
-
 const EMPTY_TARGET_FORM: TargetFormState = {
   title: "",
   instruction: "",
   category: "",
-  targetType: "skill_acquisition",
-  responseMode: "independent_prompted",
+  targetType: "discrete_trial",
+  responseMode: "independent_prompted_retry",
   materials: "",
 }
 
@@ -1537,6 +1462,8 @@ export default function ClientDetailPage() {
                 Add Behavior
               </button></SubscriptionWriteControls>
             </div>
+
+            <ReusableBehaviorPicker clientId={client.id} organizationId={client.organization_id} assigned={behaviors} onApplied={() => loadClientWorkspace(true)} />
 
             {behaviors.length === 0 ? (
               <EmptyState
