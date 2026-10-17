@@ -28,12 +28,12 @@ test('inventory references form a closed, acyclic graph with source-backed autho
 test('all research bookmarks survive, with truthful initial report maturity and staff authority', () => {
   const research = new Set(reports.flatMap(report => report.researchIds))
   for (let id = 1; id <= 18; id++) assert.ok(research.has(`R${id}`), `Lost R${id}`)
-  for (const id of ['D1', 'D2', 'D3']) assert.equal(reports.find(report => report.id === id).maturity, 'planned')
+  for (const id of ['D1', 'D2', 'D3']) assert.equal(reports.find(report => report.id === id).maturity, 'implemented')
   assert.ok(reports.find(report => report.id === 'D2').authorization.includes('users'))
   for (const id of ['D4', 'D5', 'D6', 'D7.care', 'D7.pickup']) assert.equal(reports.find(report => report.id === id).maturity, 'blocked')
   const roster = getFeatureInventory('people.roster')
   assert.equal(roster.maturity, 'implemented')
-  assert.equal(roster.reports.find(report => report.id === 'D1').maturity, 'planned')
+  assert.equal(roster.reports.find(report => report.id === 'D1').maturity, 'implemented')
 })
 
 test('base tutorial definitions have no clinical dependency or required clinical learning', () => {

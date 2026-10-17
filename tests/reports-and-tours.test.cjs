@@ -1,0 +1,42 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS test harness. */
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const load = require('./helpers/load-ts.cjs')
+const { normalizeCapabilities, reportAvailable } = load('lib/effective-capabilities.ts')
+const { csvCell, reportCsv, reportCell } = load('lib/operational-reports.ts')
+const { tourSteps, tourStorageKey, parseTourProgress } = load('lib/page-tours.ts')
+const source = {userId:'u',organizationId:'o',clients:false,users:false,sessions:false,reports:false,reviews:false,billing:false,accessRequests:false,canWrite:false,owner:false,reportingTimezone:null,reportingToday:null}
+test('capabilities fail closed, ignore role/legacy/entitlement fields and preserve source-specific report scope', () => {
+  for(const value of [null,{}, {...source,reports:'true'},Object.create(source)]) assert.equal(normalizeCapabilities(value),null)
+  const member=normalizeCapabilities({...source,role:'owner',can_manage_team:true,entitled:true})
+  assert.equal(member.people,false); assert.equal(member.owner,false); assert.equal(reportAvailable('D1',member),false)
+  const viewer=normalizeCapabilities({...source,reports:true})
+  for(const id of ['D1','D2','D3','R7']) assert.equal(reportAvailable(id,viewer),false)
+  const scheduler=normalizeCapabilities({...source,reports:true,sessions:true})
+  assert.equal(reportAvailable('D1',scheduler),true); assert.equal(reportAvailable('D2',scheduler),false); assert.equal(reportAvailable('D3',scheduler),true)
+  assert.equal(reportAvailable('D2',normalizeCapabilities({...source,reports:true,users:true})),true)
+})
+test('CSV neutralizes formulas, quotes delimiters/newlines, whitelists fields and labels snapshot context', () => {
+  for(const value of ['=1+1','+SUM(A1)','-1+2','@cmd',' \t=1','\r=1','\nhello']) assert.ok(csvCell(value).startsWith('"\''),value)
+  assert.equal(csvCell('A,"B"\nC'),'"A,""B""\nC"')
+  const csv=reportCsv({report:'D1',asOf:'2026-10-17T12:00:00Z',timezone:null,from:null,to:null,page:0,hasMore:false,rows:[{id:'secret-id',name:'=SUM(A1)',status:'active',current_branches:'North',pin_hash:'never-export'}]}, {branch:'',status:'',search:''})
+  assert.ok(csv.includes('Current snapshot')); assert.ok(csv.includes("'=SUM(A1)")); assert.ok(!csv.includes('secret-id')); assert.ok(!csv.includes('never-export'))
+  assert.equal(reportCell(null,'pin_ready',null),'Unknown'); assert.equal(reportCell(false,'pin_ready',null),'No')
+  assert.match(reportCell('2026-03-09T04:59:59Z','scheduled_start','America/Chicago'),/Mar 8, 2026/)
+})
+test('personal tours filter authority and persist only scoped, bounded learning metadata', () => {
+  const scheduler=normalizeCapabilities({...source,sessions:true,reports:true})
+  assert.ok(!tourSteps('people',scheduler).some(step=>step.title==='Check staff readiness'))
+  assert.equal(tourSteps('reports',normalizeCapabilities(source)).length,0)
+  assert.equal(tourSteps('setup',null).length,0)
+  const base=normalizeCapabilities({...source,clients:true,users:true,sessions:true,reports:true})
+  for(const family of ['setup','people','reports']) {
+    const steps=tourSteps(family,base)
+    assert.ok(steps.length>=4 && steps.length<=6)
+    assert.ok(steps.every(step=>!step.target.startsWith('clinical')))
+  }
+  assert.notEqual(tourStorageKey('u','a','setup'),tourStorageKey('u','b','setup'))
+  assert.notEqual(tourStorageKey('u','a','setup'),tourStorageKey('v','a','setup'))
+  for(const raw of ['broken','{"step":999,"status":"paused"}','{"step":-1,"status":"completed"}','{"step":0,"status":"entitled"}']) assert.deepEqual(parseTourProgress(raw,4),{step:0,status:'new'})
+  assert.deepEqual(parseTourProgress('{"step":2,"status":"paused","child":"ignored"}',4),{step:2,status:'paused'})
+})

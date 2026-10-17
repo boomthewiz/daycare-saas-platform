@@ -3,11 +3,12 @@
 import { usePortal } from "@/components/PortalProvider"
 
 import { StaffReadinessLabel, useStaffReadiness } from "@/components/StaffReadiness"
-import PageGuide from "@/components/PageGuide"
+import PageTour from "@/components/PageTour"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
   FormEvent,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -30,7 +31,7 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useBranches } from "@/components/BranchProvider"
 import ClientBranchPicker from "@/components/ClientBranchPicker"
 import { initialClientBranches } from "@/lib/branches"
@@ -59,6 +60,14 @@ type TeamMemberRecord = {
 }
 
 export default function PeopleManagementPage() {
+  return <Suspense fallback={<p>Loading People…</p>}><PeopleRoute /></Suspense>
+}
+function PeopleRoute() {
+  const params = useSearchParams()
+  const initialTab: Tab = params.get("tab") === "team" ? "team" : "clients"
+  return <PeopleContent key={initialTab} initialTab={initialTab} />
+}
+function PeopleContent({ initialTab }: { initialTab: Tab }) {
   const { t } = usePortal()
   const readiness = useStaffReadiness()
 
@@ -66,7 +75,7 @@ export default function PeopleManagementPage() {
   const [clientBranchIds, setClientBranchIds] = useState<string[]>([])
   const [canManageClients, setCanManageClients] = useState(false)
   const [activeTab, setActiveTab] =
-    useState<Tab>("clients")
+    useState<Tab>(initialTab)
 
   const [clients, setClients] =
     useState<ClientRecord[]>([])
@@ -333,7 +342,7 @@ export default function PeopleManagementPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <header className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-border)] bg-white p-6 shadow-[var(--rj-shadow-soft)] sm:p-8">
+      <header data-tour="people-heading" className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-border)] bg-white p-6 shadow-[var(--rj-shadow-soft)] sm:p-8">
         <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--rj-lavender-100)] opacity-65" />
 
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -372,6 +381,7 @@ export default function PeopleManagementPage() {
             {activeTab === "clients" ? (
               <SubscriptionWriteControls><button
                 type="button"
+                data-tour="people-add"
                 disabled={branchContext.loading || !!branchContext.error || !canManageClients}
                 onClick={() => {
                   if (!showClientForm) setClientBranchIds(initialClientBranches(branchContext.selectedBranchId, branchContext.branches))
@@ -390,7 +400,7 @@ export default function PeopleManagementPage() {
           </div>
         </div>
       </header>
-      <PageGuide guide="team" />
+      <PageTour family="people" blocked={showClientForm} />
       {activeTab === "team" && <div role="status">{readiness.loading ? "Checking invitations and readiness…" : readiness.error ? <>{readiness.error} <button className="underline" onClick={() => void readiness.refresh()}>Retry readiness</button></> : "Account status, invitation acceptance and session readiness are shown separately. Email delivery and invitation expiry are not tracked. Use Manage to resend through the existing invitation flow."}</div>}
 
       {branchContext.error && <div role="alert" className="rj-card p-4 text-red-700">
@@ -411,7 +421,7 @@ export default function PeopleManagementPage() {
         />
       )}
 
-      <section className="rj-card p-2">
+      <section data-tour="people-tabs" className="rj-card p-2">
         <div className="grid grid-cols-2 gap-2">
           <TabButton
             active={activeTab === "clients"}
@@ -527,6 +537,7 @@ export default function PeopleManagementPage() {
             />
 
             <input
+              data-tour="people-search"
               type="search"
               value={search}
               onChange={(event) =>

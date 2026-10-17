@@ -11,23 +11,13 @@ import {
   ClipboardCheck,
 } from "lucide-react"
 
-export type PermissionKey =
-  | "can_manage_billing"
-  | "can_manage_access"
-  | "can_manage_team"
-  | "can_manage_operations"
-  | "can_manage_clients"
-  | "can_manage_sessions"
-  | "can_review_sessions"
-  | "can_view_reports"
-  | "can_manage_settings"
-  | "can_manage_users"
+import type { CapabilityKey } from "@/lib/effective-capabilities"
 
 export type NavigationItem = {
   name: string
   href: string
   icon: typeof LayoutDashboard
-  permission: PermissionKey | null
+  permission: CapabilityKey | null
 }
 
 export const navigationItems: NavigationItem[] = [
@@ -61,7 +51,7 @@ export const navigationItems: NavigationItem[] = [
     name: "Sessions",
     href: "/sessions",
     icon: CalendarDays,
-    permission: "can_manage_sessions",
+    permission: "sessions",
   },
 
   {
@@ -75,35 +65,35 @@ export const navigationItems: NavigationItem[] = [
     name: "People",
     href: "/team-management",
     icon: Users,
-    permission: "can_manage_team",
+    permission: "people",
   },
 
   {
     name: "Access Requests",
     href: "/access-requests",
     icon: Inbox,
-    permission: "can_manage_access",
+    permission: "accessRequests",
   },
 
   {
     name: "Reviews",
     href: "/reviews",
     icon: ClipboardCheck,
-    permission: "can_review_sessions",
+    permission: "reviews",
   },
 
   {
     name: "Billing",
     href: "/billing",
     icon: CreditCard,
-    permission: "can_manage_billing",
+    permission: "billing",
   },
 
   {
     name: "Reports",
     href: "/reports",
     icon: BarChart3,
-    permission: "can_view_reports",
+    permission: "reports",
   },
 
   {
