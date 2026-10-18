@@ -1,5 +1,8 @@
 /** Supported per-user grants. Adding a key also requires database enforcement. */
 export const permissionDefinitions = [
+  { key: "can_view_attendance", label: "View attendance", description: "Read minimal child identity and branch-level attendance within separately assigned attendance branches. No clinical access is granted.", grantAuthority: "delegate" },
+  { key: "can_record_attendance", label: "Record attendance", description: "With View attendance and an attendance branch assignment, check children in and out.", grantAuthority: "delegate" },
+  { key: "can_correct_attendance", label: "Correct attendance", description: "With View attendance and branch scope, apply reasoned corrections or void visits within seven local calendar dates. Owner/admin-controlled.", grantAuthority: "owner_admin" },
   { key: "can_delegate_permissions", label: "May delegate permissions", description: "With Manage users, allows editing other team members’ permission grants. Only owners and administrators can change this setting or billing grants.", grantAuthority: "owner_admin" },
   { key: "can_manage_users", label: "Manage users", description: "Invite, edit, and deactivate organization accounts. Only owners and administrators can manage administrators.", grantAuthority: "delegate" },
   { key: "can_manage_clients", label: "Manage clients", description: "Create and edit client profiles, care-team assignments, targets, and behaviors, and set up staff branches and care groups.", grantAuthority: "delegate" },

@@ -1,4 +1,4 @@
-export type CapabilityKey = "clients" | "users" | "sessions" | "reports" | "reviews" | "billing" | "accessRequests" | "people"
+export type CapabilityKey = "clients" | "users" | "sessions" | "reports" | "reviews" | "billing" | "accessRequests" | "people" | "attendance"
 export type EffectiveCapabilities = Record<CapabilityKey, boolean> & {
   userId: string; organizationId: string; canWrite: boolean; owner: boolean
   reportingTimezone: string | null; reportingToday: string | null
@@ -15,7 +15,8 @@ export function normalizeCapabilities(value: unknown): EffectiveCapabilities | n
     !(source.reportingToday === null || typeof source.reportingToday === "string")) return null
   return { ...Object.fromEntries(booleans.map(key => [key, source[key]])), userId: source.userId,
     organizationId: source.organizationId, reportingTimezone: source.reportingTimezone, reportingToday: source.reportingToday,
-    people: source.clients === true || source.users === true || source.sessions === true } as EffectiveCapabilities
+    people: source.clients === true || source.users === true || source.sessions === true,
+    attendance: Object.hasOwn(source, "attendance") && source.attendance === true } as EffectiveCapabilities
 }
 export function reportAvailable(report: string, capabilities: EffectiveCapabilities | null): boolean {
   if (!capabilities?.reports) return false

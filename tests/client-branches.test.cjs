@@ -54,10 +54,11 @@ function harness(selectedBranchId = "north") {
   const Component = loadTs("app/(dashboard)/team-management/page.tsx", {
     "@/components/StaffReadiness": { StaffReadinessLabel: () => null, useStaffReadiness: () => ({ data: null, loading: false, error: "", refresh: async () => {} }) },
     "@/components/PageGuide": { default: () => null },
+    "@/components/PageTour": { default: () => null },
     "@/components/SubscriptionWriteControls": { default: ({ children }) => children },
     react:mockReact,
     "@/lib/supabase":{supabase},
-    "next/navigation":{useRouter:() => ({push:route => routes.push(route)})},
+    "next/navigation":{useRouter:() => ({push:route => routes.push(route)}),useSearchParams:()=>new URLSearchParams()},
     "next/link":{default:() => null},
     "@/components/BranchProvider":{useBranches:() => context},
     "@/components/ClientBranchPicker":{default:ClientBranchPicker},
@@ -65,7 +66,13 @@ function harness(selectedBranchId = "north") {
     "@/components/CareTeamPicker":{default:() => null},
     "@/lib/care-team":loadTs("lib/care-team.ts"),
   }).default
-  function render() { index=0; return Component() }
+  function render() {
+    index=0
+    let tree=Component()
+    // Resolve the route's Suspense/search-parameter wrappers while retaining child component boundaries.
+    while(tree?.type===React.Suspense || typeof tree?.type==='function') tree=tree.type===React.Suspense?tree.props.children:tree.type(tree.props)
+    return tree
+  }
   function all(node,predicate,result=[]) {
     if (Array.isArray(node)) { node.forEach(child => all(child,predicate,result)); return result }
     if (!node || typeof node !== "object") return result

@@ -1,5 +1,7 @@
 # Attendance: proposed branch-level contract
 
+**October 18 update:** scope approved by the user. The [implementation record](../attendance-session-context.md) describes the code, tests and release prerequisites; this document preserves the reviewed contract.
+
 Design only. [Scope decisions](README.md) must be reviewed before implementation. Names below are proposed schema/API identifiers, not existing tables, grants or RPCs.
 
 ## Records and invariants

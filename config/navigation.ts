@@ -21,6 +21,7 @@ export type NavigationItem = {
 }
 
 export const navigationItems: NavigationItem[] = [
+  { name: "Attendance", href: "/attendance", icon: ClipboardCheck, permission: "attendance" },
   {
     name: "Home",
     href: "/dashboard",

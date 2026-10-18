@@ -44,6 +44,9 @@ import {
 } from "@/lib/permissions"
 
 const PERMISSION_ICONS = {
+  can_view_attendance: CheckCircle2,
+  can_record_attendance: CalendarDays,
+  can_correct_attendance: ShieldCheck,
   can_delegate_permissions: ShieldCheck,
   can_manage_users: Users,
   can_manage_clients: UserRound,
