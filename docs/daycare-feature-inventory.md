@@ -1,5 +1,7 @@
 # Daycare-first feature inventory
 
+**Implementation update:** this document preserves the slice 1 audit. See [slice 2](daycare-slice-2.md) for the implemented Reports/tour consumers, capability RPCs and migrations awaiting release; the registry now reflects that code maturity.
+
 Audited against fetched main `258844931a4a0929b1f23baeb111255e05418ef5`, October 17, 2026. This is slice 1 of the daycare-first handoff. No live database or production deployment was inspected during this audit.
 
 `lib/feature-registry.ts` is the single typed, environment-independent inventory. Server code can import it without React, browser APIs, database clients or secrets. Stable feature keys own domain, proposed bundle, workflow maturity, dependencies, sensitivity and authorization references. Reports and tutorials join through `featureKey`; `getFeatureInventory()` resolves the report/module map. Their own maturity remains independent: a working roster does not make its proposed report implemented. All R1–R18 research IDs remain represented, including the split daycare/clinical interpretations of R17/R18.

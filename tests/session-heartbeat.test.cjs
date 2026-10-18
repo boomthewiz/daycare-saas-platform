@@ -8,13 +8,13 @@ const ts = require('typescript')
 function guard() {
   let now = 1000, interval, effect, stateIndex = 0, refIndex = 0
   const pending = [], refs = []
-  const events = {}, calls = [], values = []
+  const events = {}, calls = [], values = [], deviceStates = []
   let delay = false, hidden = false
   const state = () => ({ state: 'unlocked', serverNow: new Date(now).toISOString(), unlockedUntil: new Date(now + 300000).toISOString(), fullAuthUntil: new Date(now + 86400000).toISOString(), pinRequiredBy: new Date(now + 86400000).toISOString() })
   const jsx = (type, props) => ({ type, props })
   const context = {
-    exports: {}, URL, Date, performance: { now: () => now },
-    window: { location: { href: 'https://example.invalid/dashboard', assign: () => calls.push('redirect') }, setTimeout: fn => fn(), setInterval: fn => { interval = fn; return 1 }, clearInterval() {}, addEventListener: (name, fn) => { events[name] = fn }, removeEventListener() {} },
+    exports: {}, URL, Date, CustomEvent: class { constructor(type, options) { this.type=type; this.detail=options.detail } }, performance: { now: () => now },
+    window: { location: { href: 'https://example.invalid/dashboard', assign: () => calls.push('redirect') }, dispatchEvent: event => { if(event.type==='rejoyce:device-state')deviceStates.push(event.detail) }, setTimeout: fn => fn(), setInterval: fn => { interval = fn; return 1 }, clearInterval() {}, addEventListener: (name, fn) => { events[name] = fn }, removeEventListener() {} },
     document: { get hidden() { return hidden }, addEventListener: (name, fn) => { events[name] = fn }, removeEventListener() {} },
     fetch: async () => { calls.push('policy'); return { ok: true, json: async () => ({ enabled: true }) } },
     require: name => name === 'react' ? { useRef: value => { const index = refIndex++; return refs[index] || (refs[index] = { current: value }) }, useState: value => { const index = stateIndex++; if (values.length <= index) values[index] = value; return [values[index], next => { values[index] = next }] }, useCallback: fn => fn, useEffect: fn => { effect = fn } }
@@ -29,7 +29,7 @@ function guard() {
   render()
   const cleanup = effect()
   const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
-  return { calls, values, cleanup, flush, render, tick: async ms => { now += ms; interval(); await flush() }, activity: async (trusted = true) => { events.keydown({ isTrusted: trusted }); await flush() }, hide: async value => { hidden = value; events.visibilitychange(); await flush() }, delay: () => { delay = true }, resolve: async () => { delay = false; pending.splice(0).forEach(resolve => resolve()); await flush() } }
+  return { calls, values, deviceStates, cleanup, flush, render, tick: async ms => { now += ms; interval(); await flush() }, activity: async (trusted = true) => { events.keydown({ isTrusted: trusted }); await flush() }, hide: async value => { hidden = value; events.visibilitychange(); await flush() }, delay: () => { delay = true }, resolve: async () => { delay = false; pending.splice(0).forEach(resolve => resolve()); await flush() } }
 }
 
 test('typing pauses cannot bypass one-minute renewal limit; renewals replace polling', async () => {
@@ -45,6 +45,8 @@ test('untrusted events and unattended polling never renew; five-minute expiry lo
   for (let i = 0; i < 5; i++) { await h.activity(false); await h.tick(60000) }
   assert.equal(h.calls.includes('activity'), false)
   assert.equal(h.values[0], 'locked')
+  assert.ok(h.deviceStates.includes('unlocked'))
+  assert.equal(h.deviceStates.at(-1),'locked','coaching and capability consumers receive the device transition')
   assert.equal(h.values[1], true) // workspace stays mounted to preserve unsaved work
   h.cleanup()
 })

@@ -1,34 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { usePortal } from "@/components/PortalProvider"
-import { supabase } from "@/lib/supabase"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 import { useDailySchedule } from "@/components/DailyScheduleProvider"
 import {
   LoaderCircle,
 } from "lucide-react"
 
-import {
-  navigationItems,
-  type PermissionKey,
-} from "@/config/navigation"
-
-type UserPermissions = Record<PermissionKey, boolean>
-
-const defaultPermissions: UserPermissions = {
-  can_manage_billing: false,
-  can_manage_access: false,
-  can_manage_team: false,
-  can_manage_operations: false,
-  can_manage_clients: false,
-  can_manage_sessions: false,
-  can_review_sessions: false,
-  can_view_reports: false,
-  can_manage_settings: false,
-  can_manage_users: false,
-}
+import { navigationItems } from "@/config/navigation"
 
 export default function Sidebar({ sticky = false, mobile = false, collapsed = false, onNavigate }: { sticky?: boolean; mobile?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const { t } = usePortal()
@@ -36,177 +18,18 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
   const daily = useDailySchedule()
 
 
-  const [permissions, setPermissions] =
-    useState<UserPermissions>(defaultPermissions)
-
-  const [loadingPermissions, setLoadingPermissions] =
-    useState(true)
-
-  const [isOwner, setIsOwner] = useState(false)
-  const [isNoteAdmin, setIsNoteAdmin] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-
-    const fetchPermissions = async () => {
-      setLoadingPermissions(true)
-
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-
-        if (!user || !mounted) {
-          return
-        }
-
-        /*
-         * Get the user's role.
-         *
-         * We still retrieve the role because the owner has
-         * organization-level authority that may not be fully
-         * represented by the user_permissions row.
-         */
-        const { data: userData, error: userError } =
-          await supabase
-            .from("users")
-            .select("role")
-            .eq("id", user.id)
-            .single()
-
-        if (userError) {
-          console.error(
-            "Unable to load user role:",
-            userError
-          )
-        }
-
-        const owner =
-          userData?.role === "owner"
-
-        if (mounted) {
-          setIsOwner(owner)
-          setIsNoteAdmin(owner || userData?.role === "admin")
-        }
-
-        /*
-         * Get this user's organization permissions.
-         */
-        const { data: permissionData, error: permissionError } =
-          await supabase
-            .from("user_permissions")
-            .select(`
-              can_manage_billing,
-              can_manage_access,
-              can_manage_team,
-              can_manage_operations,
-              can_manage_clients,
-              can_manage_sessions,
-              can_review_sessions,
-              can_view_reports,
-              can_manage_settings,
-              can_manage_users
-            `)
-            .eq("user_id", user.id)
-            .maybeSingle()
-
-        if (permissionError) {
-          console.error(
-            "Unable to load user permissions:",
-            permissionError
-          )
-        }
-
-        if (!mounted) {
-          return
-        }
-
-        if (permissionData) {
-          setPermissions({
-            can_manage_billing:
-              permissionData.can_manage_billing ?? false,
-
-            can_manage_access:
-              permissionData.can_manage_access ?? false,
-
-            can_manage_team:
-              permissionData.can_manage_team ?? false,
-
-            can_manage_operations:
-              permissionData.can_manage_operations ?? false,
-
-            can_manage_clients:
-              permissionData.can_manage_clients ?? false,
-
-            can_manage_sessions:
-              permissionData.can_manage_sessions ?? false,
-
-            can_review_sessions:
-              permissionData.can_review_sessions ?? false,
-
-            can_view_reports:
-              permissionData.can_view_reports ?? false,
-
-            can_manage_settings:
-              permissionData.can_manage_settings ?? false,
-
-            can_manage_users:
-              permissionData.can_manage_users ?? false,
-          })
-        }
-      } catch (error) {
-        console.error(
-          "Unexpected sidebar permission error:",
-          error
-        )
-      } finally {
-        if (mounted) {
-          setLoadingPermissions(false)
-        }
-      }
-    }
-
-    fetchPermissions()
-
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  /*
-   * Only show navigation after permission loading is complete.
-   *
-   * This prevents administrative links from briefly appearing
-   * before we know what the current user is allowed to access.
-   */
-  const visibleNavItems = useMemo(() => {
-    if (loadingPermissions) {
-      return []
-    }
-
-    return navigationItems.filter((item) => {
-      if (item.href === "/team-management" && (isOwner || permissions.can_manage_clients || permissions.can_manage_users)) return true
-      if (item.href === "/reviews" && isNoteAdmin) return true
-      /*
-       * Public-to-authenticated-user navigation.
-       */
-      if (item.permission === null) {
-        return true
-      }
-
-      /*
-       * Permission-based navigation.
-       */
-      return permissions[item.permission] === true
-    })
-  }, [permissions, loadingPermissions, isNoteAdmin, isOwner])
-
+  const { data: capabilities, loading: loadingPermissions, error, refresh } = useEffectiveCapabilities()
+  const isOwner = capabilities?.owner === true
+  const visibleNavItems = useMemo(() => loadingPermissions ? [] : navigationItems.filter(item =>
+    item.permission === null || capabilities?.[item.permission] === true
+  ), [capabilities, loadingPermissions])
   return (
     <aside
       className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-[calc(100dvh-4rem)]"} ${mobile ? "w-full" : "w-20"} shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
         mobile ? "" : collapsed ? "sm:w-20" : "sm:w-64"
       }`}
     >
+      {error && <button className="p-3 text-sm underline" onClick={() => void refresh()}>Retry access check</button>}
       {/* Navigation */}
       <nav
         className="flex flex-col gap-2 px-2 pt-3"

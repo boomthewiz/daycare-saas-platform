@@ -54,8 +54,8 @@ export const features: readonly FeatureDefinition[] = [
   feature("operations.schedule", ["shared", "daycare"], "base", "implemented", ["people.roster"], ["schedule"], "child", "Scheduled activity is not attendance, staff availability or payroll. Current branch filters are not historical location."),
   feature("operations.groups", ["shared", "daycare"], "base", "partial", ["people.roster", "people.accounts"], ["clients"], "child", "Care groups are selection shortcuts; they do not implement classroom enrollment, shifts, ratios or access grants."),
   feature("operations.tasks", ["shared", "daycare"], "base", "partial", ["people.roster"], ["tasks"], "child", "Legacy children/classrooms references, UTC day selection and console-only load errors need repair before completeness reporting."),
-  feature("operations.reports", ["shared"], "base", "planned", ["security.baseline"], ["reports"], "child", "Reports is a construction page; queries, organization timezone, filters, export scope and CSV safety are not implemented."),
-  feature("onboarding.tours", ["shared"], "base", "partial", ["security.baseline"], ["setup"], "learning", "Written PageGuide exists. Anchored tours, personal org/user persistence and product-aware eligibility do not."),
+  feature("operations.reports", ["shared"], "base", "partial", ["security.baseline"], ["reports"], "child", "D1–D3 shell, scoped queries, explicit reporting timezone and CSV page export implemented in slice 2; release awaits migrations and authorization. Broader reports remain model-gated."),
+  feature("onboarding.tours", ["shared"], "base", "partial", ["security.baseline"], ["setup"], "learning", "Anchored base Setup/People/Reports tours and user/org-scoped browser learning progress implemented. Clinical modules and cross-device persistence remain planned; no product gates added."),
   feature("daycare.attendance", ["daycare"], "base", "blocked", ["people.roster"], ["future"], "child", "Requires append-only attendance events, correction authority/history and event-time room attribution."),
   feature("daycare.classrooms", ["daycare"], "base", "blocked", ["daycare.attendance", "operations.groups"], ["future"], "child", "Requires room/enrollment history, capacity, staff presence, shift history and rule configuration."),
   feature("daycare.guardians_pickup", ["daycare"], "base", "blocked", ["people.roster"], ["future"], "child", "Requires explicit relationships, verified pickup authority, revocation and change history; staff accounts are not guardians."),
@@ -78,18 +78,18 @@ export type ReportDefinition = {
   title: string
   featureKey: FeatureKey
   researchIds: readonly string[]
-  maturity: "planned" | "blocked"
+  maturity: "implemented" | "planned" | "blocked"
   authorization: readonly AuthorizationReference[]
   interpretation: string
 }
 function report(id: string, title: string, featureKey: FeatureKey, researchIds: readonly string[], maturity: ReportDefinition["maturity"], authorization: readonly AuthorizationReference[], interpretation: string): ReportDefinition {
   return { id, title, featureKey, researchIds, maturity, authorization: ["baseline", "subscription", "reports", ...authorization], interpretation }
 }
-/** All reports remain unimplemented. Domain/bundle/dependencies resolve through featureKey. */
+/** Report implementation maturity is independent of source workflow maturity. Release status is documented separately. */
 export const reports: readonly ReportDefinition[] = [
-  report("D1", "People roster and current status", "people.roster", ["R10", "R6"], "planned", ["clients"], "Current snapshot, not historical enrollment/starts/leavers. No guardian or demographic columns without a source."),
-  report("D2", "Staff account and setup readiness", "people.accounts", ["R9"], "planned", ["users"], "Manage users required in addition to report access. Show accepted, active, PIN/account-ready and assignment-ready separately; not attendance or delivery proof."),
-  report("D3", "Schedule and activity overview", "operations.schedule", ["R1", "R3", "R12"], "planned", ["schedule"], "Recorded scheduled/completed/canceled activity, not attendance or payroll. No historical branch claim from current membership."),
+  report("D1", "People roster and current status", "people.roster", ["R10", "R6"], "implemented", ["clients"], "Current snapshot, not historical enrollment/starts/leavers. No guardian or demographic columns without a source."),
+  report("D2", "Staff account and setup readiness", "people.accounts", ["R9"], "implemented", ["users"], "Manage users required in addition to report access. Acceptance, current account status, PIN/account readiness and active branch assignment are separate facts. Branch assignment does not establish classroom or shift readiness; this is not attendance or delivery proof."),
+  report("D3", "Schedule and activity overview", "operations.schedule", ["R1", "R3", "R12"], "implemented", ["schedule"], "Recorded scheduled/completed/canceled activity, not attendance or payroll. No historical branch claim from current membership."),
   report("D4", "Attendance and missing check-outs", "daycare.attendance", ["R3"], "blocked", ["future"], "Requires attendance events and correction workflow first."),
   report("D5", "Daily task completion and exceptions", "operations.tasks", ["R15"], "blocked", ["tasks", "future"], "Connect current child/classroom ownership and local-day semantics before reporting completeness."),
   report("D6", "Classroom capacity and staff coverage", "daycare.classrooms", ["R16"], "blocked", ["future"], "Separate enrollment, expected schedule and presence; no licensing-compliance calculation from session overlap."),
@@ -112,18 +112,18 @@ export type TutorialDefinition = {
   id: string
   featureKey: FeatureKey
   pageFamily: string
-  maturity: "planned"
+  maturity: "implemented" | "planned"
   authorization: readonly AuthorizationReference[]
   requiredForBaseReadiness: false
 }
-/** Definitions only: no runtime eligibility, persistence, business mutations or completion side effects. */
+/** Only the base Setup/People/Reports families have a runtime consumer. No tour changes business readiness. */
 export const tutorials: readonly TutorialDefinition[] = [
   { id: "base.welcome", featureKey: "onboarding.tours", pageFamily: "dashboard", authorization: ["baseline"], maturity: "planned", requiredForBaseReadiness: false },
-  { id: "base.setup", featureKey: "operations.preferences", pageFamily: "setup", authorization: ["baseline", "setup"], maturity: "planned", requiredForBaseReadiness: false },
-  { id: "base.people", featureKey: "people.roster", pageFamily: "people", authorization: ["baseline", "clients"], maturity: "planned", requiredForBaseReadiness: false },
-  { id: "base.staff", featureKey: "people.accounts", pageFamily: "people", authorization: ["baseline", "users", "grants"], maturity: "planned", requiredForBaseReadiness: false },
+  { id: "base.setup", featureKey: "operations.preferences", pageFamily: "setup", authorization: ["baseline", "setup"], maturity: "implemented", requiredForBaseReadiness: false },
+  { id: "base.people", featureKey: "people.roster", pageFamily: "people", authorization: ["baseline", "clients"], maturity: "implemented", requiredForBaseReadiness: false },
+  { id: "base.staff", featureKey: "people.accounts", pageFamily: "people", authorization: ["baseline", "users", "grants"], maturity: "implemented", requiredForBaseReadiness: false },
   { id: "base.schedule", featureKey: "operations.schedule", pageFamily: "schedule", authorization: ["baseline", "schedule"], maturity: "planned", requiredForBaseReadiness: false },
-  { id: "base.reports", featureKey: "operations.reports", pageFamily: "reports", authorization: ["baseline", "reports"], maturity: "planned", requiredForBaseReadiness: false },
+  { id: "base.reports", featureKey: "operations.reports", pageFamily: "reports", authorization: ["baseline", "reports"], maturity: "implemented", requiredForBaseReadiness: false },
   { id: "base.daily_work", featureKey: "operations.tasks", pageFamily: "tasks", authorization: ["baseline", "tasks", "future"], maturity: "planned", requiredForBaseReadiness: false },
   { id: "clinical.care_setup", featureKey: "care.eligibility", pageFamily: "care_setup", authorization: ["baseline", "clients"], maturity: "planned", requiredForBaseReadiness: false },
   { id: "clinical.program_setup", featureKey: "aba.program_setup", pageFamily: "client", authorization: ["baseline", "clients"], maturity: "planned", requiredForBaseReadiness: false },

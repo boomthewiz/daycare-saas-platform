@@ -8,12 +8,14 @@ import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
   FormEvent,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import {
   CheckCircle2,
   CircleAlert,
@@ -105,13 +107,22 @@ const DEFAULT_TERMINOLOGY: Omit<
 }
 
 export default function PreferencesPage() {
+  return <Suspense fallback={<p>Loading preferences…</p>}><PreferencesRoute /></Suspense>
+}
+function PreferencesRoute() {
+  const params = useSearchParams()
+  const tab = params.get("tab")
+  const initialTab: OperationsTab = tab === "locations" || tab === "target-categories" || tab === "terminology" ? tab : "session-types"
+  return <PreferencesContent key={initialTab} initialTab={initialTab} />
+}
+function PreferencesContent({ initialTab }: { initialTab: OperationsTab }) {
   const access = useSetupAccess()
   const canEdit = activeTabPermission
   function activeTabPermission(tab: OperationsTab) {
     return !access.loading && !access.error && (tab === "session-types" || tab === "locations" ? access.sessions : tab === "target-categories" ? access.clients : access.clients || access.sessions)
   }
   const [activeTab, setActiveTab] =
-    useState<OperationsTab>("session-types")
+    useState<OperationsTab>(initialTab)
 
   const [organizationId, setOrganizationId] =
     useState<string | null>(null)

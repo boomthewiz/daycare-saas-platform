@@ -34,7 +34,10 @@ export default function SessionGuard({ children }: { children: React.ReactNode }
   const pending = useRef<number | null>(null)
   const signingOut = useRef(false)
 
-  const show = useCallback((next: Screen) => { mode.current = next; setScreen(next) }, [])
+  const show = useCallback((next: Screen) => {
+    mode.current = next; setScreen(next)
+    window.dispatchEvent(new CustomEvent("rejoyce:device-state", { detail: next }))
+  }, [])
   const check = useCallback(async (action = "status", enteredPin?: string) => {
     if (signingOut.current || ((action === "status" || action === "activity") && pending.current !== null)) return
     const current = ++generation.current
