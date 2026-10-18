@@ -2,6 +2,8 @@
 
 Design only, October 17, 2026. No schema or workflow below exists as a result of this proposal. Review this bounded attendance proposal before implementing broader classroom, guardian or daily-care systems.
 
+**Slice 3 review package:** [scope and recommended decisions](daycare-foundations/README.md), [attendance contract](daycare-foundations/attendance.md), [classroom and shift history](daycare-foundations/classrooms-and-shifts.md), [guardians and pickup](daycare-foundations/guardians-and-pickup.md), and [daily care and sharing](daycare-foundations/daily-care.md). These expand this initial proposal; they do not mark any workflow implemented.
+
 ## Proposed first boundary: child presence ledger
 
 Reuse tenant-scoped client identity. Add dedicated attendance visits and append-only events; do not repurpose therapeutic sessions, timers or care-group membership. A visit identifies organization, child and opening event. An event records organization, visit, child, event kind (check-in/check-out/absence/correction/void), effective timestamp, server-recorded timestamp, authenticated actor, event-time branch/room, reason, idempotency key and any superseded event. Preserve original event values; expose corrections with reasons and actors. An absence is an explicit declaration, not inferred from a missing check-in or canceled session.
