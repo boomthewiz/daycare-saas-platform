@@ -3,6 +3,8 @@
 import { usePortal } from "@/components/PortalProvider"
 
 import PageGuide from "@/components/PageGuide"
+import SearchableChoice from "@/components/SearchableChoice"
+import SessionContextChoices, { useSessionContext } from "@/components/SessionContextChoices"
 import SessionPeopleWarning from "@/components/SessionPeopleWarning"
 import SubscriptionWriteControls, { useOrganizationWriteAccess } from "@/components/SubscriptionWriteControls"
 
@@ -160,6 +162,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
   const [scheduledEnd, setScheduledEnd] = useState("")
   const [canSchedule, setCanSchedule] = useState(false)
   const [permissionError, setPermissionError] = useState("")
+  const contextChoices = useSessionContext(canSchedule)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [newTypeDuration,setNewTypeDuration] = useState("60")
+  const sessionOperation = useRef<{key:string;id:string}|null>(null)
   const appliedDraft = useRef<string | null>(null)
 
   useEffect(() => {
@@ -636,29 +642,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
     setSuccess(null)
 
     try {
-      const { data, error } =
-        await supabase.rpc(
-          "create_prepared_session",
-          {
-            requested_client_id: clientId,
-
-            requested_provider_id:
-              providerId,
-
-            requested_scheduled_start:
-              startDate.toISOString(),
-
-            requested_scheduled_end:
-              endDate.toISOString(),
-
-            requested_session_type:
-              sessionType,
-
-            requested_location:
-              finalLocation || null,
-          }
-        )
-
+      const payload = { p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
+      const fingerprint=JSON.stringify(payload)
+      if(sessionOperation.current?.key!==fingerprint)sessionOperation.current={key:fingerprint,id:crypto.randomUUID()}
+      const {data,error}=await supabase.rpc("create_context_session",{...payload,p_operation:sessionOperation.current.id})
       if (error) {
         throw new Error(error.message)
       }
@@ -666,6 +653,9 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
       const result =
         data as CreateSessionResult
 
+      sessionOperation.current=null
+      setSelectedTags([])
+      void contextChoices.refresh()
       setSuccess(result)
       window.dispatchEvent(new Event("rejoyce:schedule-changed"))
 
@@ -889,120 +879,15 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
-            <FormField label={t("Client")}>
-              <select
-                value={clientId}
-                onChange={(event) => {
-  const nextClientId =
-    event.target.value
-
-  setClientId(nextClientId)
-
-  const nextClient =
-    clients.find(
-      (client) =>
-        client.id === nextClientId
-    )
-
-  if (
-    nextClient?.assigned_provider_id &&
-    providers.some(
-      (provider) =>
-        provider.id ===
-        nextClient.assigned_provider_id
-    )
-  ) {
-    setProviderId(
-      nextClient.assigned_provider_id
-    )
-  }
-}}
-                className="rj-input"
-                required
-              >
-                <option value="">{t("Select a client")}</option>
-
-                {clients.map((client) => (
-                  <option
-                    key={client.id}
-                    value={client.id}
-                  >
-                    {getClientName(client)}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label={t("Assigned frontline worker")}>
-              <select
-                value={providerId}
-                onChange={(event) =>
-                  setProviderId(
-                    event.target.value
-                  )
-                }
-                className="rj-input"
-                required
-              >
-                <option value="">{t("Select a team member")}</option>
-
-                {providers.map((provider) => (
-                  <option
-                    key={provider.id}
-                    value={provider.id}
-                  >
-                    {provider.full_name ||
-                      provider.email ||
-                      "Unnamed user"}{" "}
-                    — {formatLabel(
-                      provider.role
-                    )}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label={t("Session type")}>
-              <select
-                value={sessionType}
-                onChange={(event) => {
-                  const nextType =
-                    event.target.value
-
-                  setSessionType(nextType)
-
-                  if (scheduledStart) {
-                    applyDefaultEndTime(
-                      scheduledStart,
-                      nextType
-                    )
-                  }
-                }}
-                className="rj-input"
-                required
-              >
-                <option value="">{t("Select a session type")}</option>
-
-                {sessionTypes.map((type) => (
-                  <option
-                    key={type.id}
-                    value={type.code}
-                  >
-                    {type.name}
-                    {type.default_duration_minutes
-                      ? ` · ${type.default_duration_minutes} min`
-                      : ""}
-                  </option>
-                ))}
-              </select>
-
-              <SessionTypeDescription
-                sessionType={
-                  selectedSessionType
-                }
-              />
-            </FormField>
-
+            {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
+            <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
+            <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
+            <SearchableChoice label={t("Assigned frontline worker")} value={providerId} required options={providers.map(provider=>({value:provider.id,label:provider.full_name||provider.email||"Unnamed user",recent:!!contextChoices.data?.recent.some(recent=>recent.provider_id===provider.id)}))} onChange={setProviderId} />
+            <SearchableChoice label={t("Session type")} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+duration*60000)))}} />
+            <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
+            <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
+            <SessionTypeDescription sessionType={selectedSessionType} />
+            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag")));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
@@ -1055,67 +940,9 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               </FormField>
             </div>
 
-            <FormField label="Location">
-              <div className="relative">
-                <MapPin
-                  size={19}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                />
-
-                <select
-                  value={selectedLocation}
-                  onChange={(event) => {
-                    const nextLocation =
-                      event.target.value
-
-                    setSelectedLocation(
-                      nextLocation
-                    )
-
-                    if (
-                      nextLocation !== "custom"
-                    ) {
-                      setCustomLocation("")
-                    }
-                  }}
-                  className="rj-input pl-12"
-                >
-                  <option value="">
-                    No location selected
-                  </option>
-
-                  {locationOptions.map(
-                    (location) => (
-                      <option
-                        key={location.id}
-                        value={location.name}
-                      >
-                        {location.name}
-                      </option>
-                    )
-                  )}
-
-                  <option value="custom">
-                    Other / custom location
-                  </option>
-                </select>
-              </div>
-
-              {selectedLocation ===
-                "custom" && (
-                <input
-                  type="text"
-                  value={customLocation}
-                  onChange={(event) =>
-                    setCustomLocation(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Enter a custom location"
-                  className="rj-input mt-3"
-                />
-              )}
-            </FormField>
+            <SearchableChoice label="Location" value={selectedLocation==="custom"?customLocation:selectedLocation} options={[...new Set([...locationOptions.map(location=>location.name),...sessions.map(session=>session.location).filter((value):value is string=>!!value),...(contextChoices.data?.choices.filter(choice=>choice.kind==="location").map(choice=>choice.label)||[]),...(contextChoices.data?.recent.map(recent=>recent.location).filter((value):value is string=>!!value)||[])])].map(value=>({value,label:value,recent:!!contextChoices.data?.recent.some(recent=>recent.location===value)}))} onChange={value=>{if(locationOptions.some(location=>location.name===value)){setSelectedLocation(value);setCustomLocation("")}else{setSelectedLocation(value?"custom":"");setCustomLocation(value)}}} createLabel="Create and save location choice" onCreate={async label=>{const result=await supabase.rpc("save_session_choice",{p_kind:"location",p_label:label,p_domain:"shared"});if(result.error)throw new Error(result.error.message);const latest=await contextChoices.refresh();const saved=latest?.choices.find(choice=>choice.id===result.data);if(!saved)throw new Error("Location saved; reload choices before selecting it.");setSelectedLocation("custom");setCustomLocation(saved.label)}} />
+            <p className="text-sm">A saved location choice is a scheduling label, not an attendance branch or classroom. Session times use the timezone configured on this device.</p>
+            <SessionContextChoices context={contextChoices.data} selected={selectedTags} onChange={setSelectedTags} onSaved={contextChoices.refresh} disabled={creating||!canWrite||!canSchedule} />
 
             <button
               type="submit"
@@ -1362,7 +1189,7 @@ function SessionRowCard({
 
   return (
     <article className="p-5 transition-colors hover:bg-[var(--rj-surface-muted)] sm:p-6">
-      <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+      <div className="flex flex-col justify-between gap-5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold">
@@ -1386,7 +1213,7 @@ function SessionRowCard({
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <SessionDetail
               icon={CalendarDays}
               label="Schedule"
@@ -1421,7 +1248,7 @@ function SessionRowCard({
           <p className="rj-caption mt-4">
             {sessionTypeName}
             {" · "}
-            Attendance:{" "}
+            Recorded session participation:{" "}
             {formatLabel(
               session.attendance_status
             )}

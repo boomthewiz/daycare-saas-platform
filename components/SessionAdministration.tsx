@@ -3,6 +3,7 @@
 import { usePortal } from "@/components/PortalProvider"
 
 import PageGuide from "@/components/PageGuide"
+import SessionTags from "@/components/SessionTags"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
 import {
@@ -1101,6 +1102,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         </div>
       </header>
       <PageGuide guide="session" />
+      <SessionTags sessionId={sessionId} />
 
       {pageError && (
         <MessageBanner
@@ -1339,6 +1341,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               </select>
             </FormField>
 
+            <p className="text-sm">This session participation field does not update the separate branch attendance ledger.</p>
             <FormField label="Attendance">
               <select
                 value={attendanceStatus}

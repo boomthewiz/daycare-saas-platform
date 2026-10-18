@@ -10,6 +10,7 @@ test('permission normalization accepts only explicit true and drops unknown and 
     user_id: 'victim', organization_id: 'foreign', can_do_anything: true,
   })
   assert.deepEqual(grants, {
+    can_view_attendance: false, can_record_attendance: false, can_correct_attendance: false,
     can_delegate_permissions: false, can_manage_users: true, can_manage_clients: false,
     can_manage_sessions: false, can_review_sessions: false, can_view_reports: false,
     can_manage_billing: false,
@@ -30,7 +31,7 @@ test('editor checks preserve explicit delegation and sensitive grant restriction
   const editor = { role: 'manager', canManageUsers: true, canDelegatePermissions: false, isSelf: false, targetIsOwner: false }
   assert.equal(canEditPermission(editor, 'can_view_reports'), false)
   assert.equal(canEditPermission({ ...editor, canDelegatePermissions: true }, 'can_view_reports'), true)
-  for (const key of ['can_manage_billing', 'can_delegate_permissions']) {
+  for (const key of ['can_manage_billing', 'can_delegate_permissions', 'can_correct_attendance']) {
     assert.equal(canEditPermission({ ...editor, canDelegatePermissions: true }, key), false)
     for (const role of ['owner', 'admin']) assert.equal(canEditPermission({ ...editor, role }, key), true)
   }

@@ -1,5 +1,7 @@
 # Slice 3: daycare foundations for product review
 
+**October 18 update:** the user approved the recommended attendance scope and requested reusable session choices/tags supporting daycare and ABA context. See [implementation and remaining boundaries](../attendance-session-context.md). Approval covers implementation/testing; production release remains separate. The other three foundation proposals are still future scope.
+
 October 17, 2026. **Proposed, not approved or implemented.** This package follows slices 1–2 and provides the product review requested by the handoff: “Choose a bounded first implementation after product review.” No migration, grant, runtime UI, product entitlement, customer record or registry maturity changes are included.
 
 ## Recommended first implementation
