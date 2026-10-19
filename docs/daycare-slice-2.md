@@ -1,5 +1,7 @@
 # Daycare operational reports and guided setup
 
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
 Slice 2 implements the code and forward migrations for D1–D3 and the base Setup/People/Reports tours. It depends on the inventory in PR #35. No production migration, deployment, invitations, imports, subscriptions or customer records were changed during implementation.
 
 ## Implemented behavior

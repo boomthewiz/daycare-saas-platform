@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-type Row = { id:string; status:string; scheduled_start:string|null; completed_at:string|null; clients:{first_name:string;preferred_name:string|null}|null; session_notes:{status:string}|null }
+type Row = { id:string; workflow_intent?:string; status:string; scheduled_start:string|null; completed_at:string|null; clients:{first_name:string;preferred_name:string|null}|null; session_notes:{status:string}|null }
 export default function SessionHistoryPage() {
   const { t } = usePortal()
 
@@ -20,7 +20,7 @@ export default function SessionHistoryPage() {
     try {
       const auth=await supabase.auth.getUser()
       if(auth.error||!auth.data.user) throw new Error('Sign in to see your session history.')
-      let query=supabase.from('sessions').select('id,status,scheduled_start,completed_at,clients(first_name,preferred_name),session_notes(status)')
+      let query=supabase.from('sessions').select('id,workflow_intent,status,scheduled_start,completed_at,clients(first_name,preferred_name),session_notes(status)')
         .eq('provider_id',auth.data.user.id)
       query=filter==='all' ? query.in('status',['completed','canceled','client_absent','provider_absent','no_show']) : query.eq('status',filter)
       const result=await query.order('scheduled_start',{ascending:false,nullsFirst:false}).order('id').range(page*25,page*25+24)
@@ -37,10 +37,10 @@ export default function SessionHistoryPage() {
     {error && <div role="alert">{error}<button className="rj-button rj-button-secondary" onClick={()=>void load()}>Try again</button></div>}
     {busy ? <p role="status">Loading history…</p> : <>
       {!rows.length&&!error&&<p>{t("No sessions match this page.")}</p>}
-      {rows.map(row=><Link key={row.id} href={`/session/${row.id}/complete`} className="rj-card block p-5">
+      {rows.map(row=><Link key={row.id} href={row.workflow_intent === "activity" ? `/activity/${row.id}` : `/session/${row.id}/complete`} className="rj-card block p-5">
         <h2 className="rj-heading-3">{row.clients?.preferred_name||row.clients?.first_name||'Session'}</h2>
         <p>{row.scheduled_start?new Date(row.scheduled_start).toLocaleString():'Unscheduled'} · {row.status.replaceAll('_',' ')}</p>
-        <p>Note: {row.session_notes?.status || 'not created'}</p>
+        <p>{row.workflow_intent === 'activity' ? 'Ordinary activity — no clinical note required' : `Note: ${row.session_notes?.status || 'not created'}`}</p>
       </Link>)}
     </>}
     <nav aria-label="History pages" className="flex flex-wrap items-center gap-3"><button className="rj-button rj-button-secondary" disabled={busy||page===0} onClick={()=>setPage(value=>value-1)}>Previous</button><span>Page {page+1}</span><button className="rj-button rj-button-secondary" disabled={busy||!more} onClick={()=>setPage(value=>value+1)}>Next</button></nav>

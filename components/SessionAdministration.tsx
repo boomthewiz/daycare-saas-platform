@@ -3,6 +3,7 @@
 import { usePortal } from "@/components/PortalProvider"
 
 import PageGuide from "@/components/PageGuide"
+import ActivityWorkspace from "@/components/ActivityWorkspace"
 import SessionTags from "@/components/SessionTags"
 import SubscriptionWriteControls from "@/components/SubscriptionWriteControls"
 
@@ -67,6 +68,7 @@ type SessionRecord = {
   provider_id: string | null
   supervisor_id: string | null
   session_type: string
+  workflow_intent: "activity" | "clinical"
   status: SessionStatus
   attendance_status: AttendanceStatus
   scheduled_start: string | null
@@ -309,6 +311,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             client_id,
             provider_id,
             supervisor_id,
+            workflow_intent,
             session_type,
             status,
             attendance_status,
@@ -334,6 +337,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 
         const loadedSession =
           sessionData as SessionRecord
+
+        if (loadedSession.workflow_intent === "activity") { setSession(loadedSession); return }
 
         const [
           clientResult,
@@ -981,6 +986,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
   if (loading) {
     return <SessionDetailLoading />
   }
+
+  if (session?.id === sessionId && session.workflow_intent === "activity") return <ActivityWorkspace sessionId={session.id} editing={editing} />
 
   if (!session || session.id !== sessionId || !client) {
     return (

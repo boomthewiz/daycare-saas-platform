@@ -1,5 +1,9 @@
 # Attendance and reusable session context
 
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
+Current status, October 19: the October 18 implementation below shipped with PR #38. The unreleased P1 follow-up, compatibility decision, forward migration plan and ordered P2 queue are in [P1 activity and attendance activation](p1-activity-attendance-activation.md). The original implementation notes below retain their dated pre-release context.
+
 Implementation, October 18, 2026. The user approved the branch-level attendance scope and requested reusable choices/tags that support both daycare and ABA/client-care workflows. This code is stacked on PR #37 and the earlier report/inventory work. No production migrations or deployment have been authorized or performed.
 
 ## Attendance

@@ -1,10 +1,11 @@
+require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- CommonJS offline PostgreSQL test harness. */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs'), path = require('node:path')
 const { loadCareDatabase, applyCareMigration } = require('./helpers/care-db.cjs')
 test('imports are atomic, repeat-safe and retain grants, business, device and subscription boundaries', {
-  skip: !process.env.REJOYCE_BASELINE_SQL || !process.env.REJOYCE_PGLITE_MODULE,
+  skip: false,
 }, async () => {
   const db=await loadCareDatabase()
   try {

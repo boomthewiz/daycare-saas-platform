@@ -1,6 +1,7 @@
+require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- Independent local PostgreSQL connections. */
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{randomUUID}=require('node:crypto')
-test('independent PostgreSQL transactions serialize duplicate check-ins, retries and stale corrections',{skip:!process.env.REJOYCE_POSTGRES_CLIENT||!process.env.REJOYCE_BASELINE_SQL},async()=>{
+test('independent PostgreSQL transactions serialize duplicate check-ins, retries and stale corrections',{skip:false},async()=>{
  const dbName=`attendance_test_${process.pid}`
  const postgres=require(process.env.REJOYCE_POSTGRES_CLIENT)
  const run=async(sql,database=dbName)=>{
@@ -19,7 +20,7 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
    CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$SELECT auth.jwt()->>'role'$$;
    GRANT USAGE ON SCHEMA auth TO authenticated;GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;`)
   await run(fs.readFileSync(process.env.REJOYCE_BASELINE_SQL,'utf8'))
-  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
   await run(`INSERT INTO rejoyce_security.session_policy(singleton,enforced) VALUES(true,true) ON CONFLICT(singleton) DO UPDATE SET enforced=true;
    INSERT INTO public.organizations(id,name) VALUES('${org}','Concurrent synthetic');INSERT INTO auth.users(id,email) VALUES('${user}','synthetic@example.invalid');
    INSERT INTO public.users(id,organization_id,role,status,pin_hash,pin_reset_required) VALUES('${user}','${org}','owner','active','synthetic',false);
@@ -41,5 +42,13 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   const edits=await Promise.allSettled([run(correction().replace('(SELECT check_out FROM rejoyce_security.attendance_visits LIMIT 1)',`'${closed}'::timestamptz`)),run(correction().replace('(SELECT check_out FROM rejoyce_security.attendance_visits LIMIT 1)',`'${closed}'::timestamptz`))])
   assert.equal(edits.filter(result=>result.status==='fulfilled').length,1,'one correction wins and the stale editor is rejected')
   assert.equal(await run('SELECT count(*) FROM rejoyce_security.attendance_events'),'3')
+  await run(`INSERT INTO public.session_types(organization_id,name,code,default_duration_minutes) VALUES('${org}','Play','play',60)`)
+  const creation=op=>`${auth}SELECT public.create_scheduled_context_session('${client}','${user}','2026-10-20T12:00:00Z','2026-10-20T13:00:00Z','play',NULL,'{}','${op}','activity')`
+  const sessionOp=randomUUID(),created=await Promise.all([run(creation(sessionOp)),run(creation(sessionOp))]);assert.equal(created[0],created[1])
+  const racing=randomUUID(),outcome=await Promise.allSettled([run(creation(racing)),run(`${auth}SELECT public.recover_session_creation('${racing}',true)`)]),recovered=JSON.parse(outcome[1].value)
+  assert.ok(['committed','canceled'].includes(recovered.state))
+  assert.equal(await run(`SELECT count(*) FROM rejoyce_security.session_creation_operations WHERE operation_id='${racing}'`),recovered.state==='committed'?'1':'0')
+  if(recovered.state==='canceled')assert.equal(outcome[0].status,'rejected','cancel-first fences delayed creation')
+
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

@@ -1,9 +1,10 @@
+require('./setup.cjs')
 const { test } = require('node:test')
 const fs = require('node:fs')
 const path = require('node:path')
 const { loadCareDatabase, applyCareMigration } = require('./helpers/care-db.cjs')
 test('Setup settings and account editors preserve direct-request authorization boundaries', {
-  skip: !process.env.REJOYCE_BASELINE_SQL || !process.env.REJOYCE_PGLITE_MODULE,
+  skip: false,
 }, async () => {
   const db = await loadCareDatabase()
   try {

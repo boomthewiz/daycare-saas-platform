@@ -2,6 +2,9 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import SessionChoiceManager from "@/components/SessionChoiceManager"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
+import { recoveryKey, validOperation } from "@/lib/session-save-recovery"
 import PageGuide from "@/components/PageGuide"
 import SearchableChoice from "@/components/SearchableChoice"
 import SessionContextChoices, { useSessionContext } from "@/components/SessionContextChoices"
@@ -9,7 +12,6 @@ import SessionPeopleWarning from "@/components/SessionPeopleWarning"
 import SubscriptionWriteControls, { useOrganizationWriteAccess } from "@/components/SubscriptionWriteControls"
 
 import {
-  FormEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -97,6 +99,7 @@ type SessionRow = {
   client_id: string
   provider_id: string | null
   session_type: string
+  workflow_intent: "activity" | "clinical"
   status: string
   attendance_status: string
   scheduled_start: string | null
@@ -116,6 +119,7 @@ type CreateSessionResult = {
   scheduled_start: string
   scheduled_end: string
   status: string
+  workflow_intent?: "activity" | "clinical"
   targets_added: number
 }
 
@@ -131,6 +135,7 @@ const FRONTLINE_ROLES = [
 
 export default function AdminSessionsPage() {
   const { t } = usePortal()
+  const {data:caps}=useEffectiveCapabilities()
   const { allowed: canWrite } = useOrganizationWriteAccess()
   const [peopleReadiness, setPeopleReadiness] = useState<{ missing_clients: boolean; missing_staff: boolean } | null>(null)
 
@@ -157,16 +162,48 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
   const [clientId, setClientId] = useState("")
   const [providerId, setProviderId] = useState("")
+  const [intent, setIntent] = useState<"activity" | "clinical">("activity")
   const [sessionType, setSessionType] = useState("")
   const [scheduledStart, setScheduledStart] = useState(requestedStart)
   const [scheduledEnd, setScheduledEnd] = useState("")
   const [canSchedule, setCanSchedule] = useState(false)
   const [permissionError, setPermissionError] = useState("")
-  const contextChoices = useSessionContext(canSchedule)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const contextChoices = useSessionContext(canSchedule,undefined,selectedTags)
   const [newTypeDuration,setNewTypeDuration] = useState("60")
   const sessionOperation = useRef<{key:string;id:string}|null>(null)
   const appliedDraft = useRef<string | null>(null)
+  const [recoveryAttempt,setRecoveryAttempt]=useState<string|null>(null)
+  const [recoveryReady,setRecoveryReady]=useState(false)
+  const [recoveryError,setRecoveryError]=useState("")
+  const [recoveredSession,setRecoveredSession]=useState("")
+  const saveScope=caps?.sessions?`${caps.organizationId}:${caps.userId}`:""
+  const scopeRef=useRef(saveScope)
+  useEffect(()=>{
+    scopeRef.current=saveScope;sessionOperation.current=null;setRecoveryAttempt(null);setRecoveryReady(false);setRecoveryError("");setRecoveredSession("")
+    if(!caps?.sessions)return
+    const key=recoveryKey(caps.organizationId,caps.userId)
+    const read=()=>{try{const value=localStorage.getItem(key);if(value&&!validOperation(value))throw new Error("Invalid save-recovery marker. Contact an administrator before creating another session.");setRecoveryAttempt(value);setRecoveryReady(true)}catch{setRecoveryError("Browser save recovery is unavailable. Enable local storage before saving a session.")}}
+    read();window.addEventListener("storage",read)
+    return()=>{scopeRef.current="";window.removeEventListener("storage",read)}
+  },[saveScope,caps?.organizationId,caps?.userId,caps?.sessions])
+  const recoverAttempt=async(cancel=false)=>{
+    if(!caps||!recoveryAttempt)return
+    const scope=saveScope;setCreating(true);setRecoveryError("")
+    try{
+      const result=await supabase.rpc("recover_session_creation",{p_operation:recoveryAttempt,p_cancel:cancel})
+      if(scopeRef.current!==scope)return
+      if(result.error)throw new Error(result.error.message)
+      if(result.data.state==="unconfirmed"){setRecoveryError("No committed receipt yet. Check again, retry unchanged details in this tab, or cancel this attempt before creating another. Cancellation blocks a delayed save.");return}
+      if(!["committed","canceled"].includes(result.data.state))throw new Error("Unrecognized recovery response")
+      const key=recoveryKey(caps.organizationId,caps.userId)
+      if(localStorage.getItem(key)===recoveryAttempt)localStorage.removeItem(key)
+      if(result.data.state==="committed")setRecoveredSession(result.data.session_id)
+      setRecoveryAttempt(null);sessionOperation.current=null;await fetchPageData(true)
+    }catch(cause){if(scopeRef.current===scope)setRecoveryError(cause instanceof Error?cause.message:"Unable to verify save outcome.")}
+    finally{if(scopeRef.current===scope)setCreating(false)}
+  }
+
 
   useEffect(() => {
     appliedDraft.current = null
@@ -308,6 +345,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               scheduled_start,
               scheduled_end,
               location,
+              workflow_intent,
               prepared_at,
               created_at,
               clients (
@@ -580,15 +618,17 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
   }
 
   const handleCreateSession = async (
-    event: FormEvent<HTMLFormElement>
+    event?: {preventDefault:()=>void}
   ) => {
-    event.preventDefault()
+    event?.preventDefault()
 
     if (!canSchedule || !canWrite) {
       setPageError("Scheduling is unavailable with your current access. Ask your primary administrator to review permissions and the account subscription.")
       return
     }
 
+    if(!recoveryReady||!caps?.sessions){setPageError("Verify save-recovery access before creating a session.");return}
+    if(recoveryAttempt&&!sessionOperation.current){setRecoveryError("Resolve the previous save attempt first.");return}
     if (
       !clientId ||
       !providerId ||
@@ -642,13 +682,21 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
     setSuccess(null)
 
     try {
-      const payload = { p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
+      const payload = { p_intent:intent,p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
       const fingerprint=JSON.stringify(payload)
+      if(recoveryAttempt&&sessionOperation.current?.key!==fingerprint)throw new Error("Retry unchanged details or cancel the unconfirmed attempt first.")
       if(sessionOperation.current?.key!==fingerprint)sessionOperation.current={key:fingerprint,id:crypto.randomUUID()}
-      const {data,error}=await supabase.rpc("create_context_session",{...payload,p_operation:sessionOperation.current.id})
+      const key=recoveryKey(caps.organizationId,caps.userId),existing=localStorage.getItem(key)
+      if(existing&&existing!==sessionOperation.current.id){sessionOperation.current=null;setRecoveryAttempt(existing);throw new Error("Another save needs recovery before creating a session.")}
+      localStorage.setItem(key,sessionOperation.current.id)
+      const requestScope=saveScope
+      const {data,error}=await supabase.rpc("create_scheduled_context_session",{...payload,p_operation:sessionOperation.current.id})
+      if(scopeRef.current!==requestScope)return
       if (error) {
         throw new Error(error.message)
       }
+      if(localStorage.getItem(key)===sessionOperation.current.id)localStorage.removeItem(key)
+      setRecoveryAttempt(null);setRecoveryError("")
 
       const result =
         data as CreateSessionResult
@@ -686,6 +734,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
       await fetchPageData()
     } catch (error) {
+      if(sessionOperation.current)setRecoveryAttempt(sessionOperation.current.id)
       console.error(
         "Create session error:",
         error
@@ -792,8 +841,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                 <h2 className="font-bold text-[var(--rj-mint-700)]">{t("Session created successfully")}</h2>
 
                 <p className="mt-1 text-sm text-[var(--rj-text-secondary)]">
-                  {success.targets_added}{t(success.targets_added === 1 ? " active target" : " active targets")}{" "}
-                  were prepared automatically.
+                  {success.workflow_intent === "activity" ? "Activity scheduled. No clinical targets prepared; this is not recorded attendance." : `${success.targets_added} active targets prepared automatically.`}
                 </p>
               </div>
             </div>
@@ -807,6 +855,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
         </section>
       )}
 
+      {recoveredSession&&<p role="status">Recovered the committed save. <Link className="underline" href={`/sessions/${recoveredSession}`}>Open recovered session</Link></p>}
+      {recoveryError&&<p role="alert">{recoveryError}</p>}
+      {recoveryAttempt&&<section className="rj-card space-y-2 p-4" aria-label="Recover interrupted session save"><h2 className="rj-heading-2">Resolve an interrupted save</h2><p>Only an opaque operation ID is stored in this browser. Check the server receipt before creating another session.</p><button className="rj-button rj-button-secondary" disabled={creating} onClick={()=>void recoverAttempt()}>Check save outcome</button> <button className="rj-button rj-button-secondary" disabled={creating||!canWrite} onClick={()=>void recoverAttempt(true)}>Cancel unconfirmed attempt</button> {sessionOperation.current&&<button className="underline" disabled={creating} onClick={()=>void handleCreateSession()}>Retry unchanged save</button>}</section>}
+      <SessionChoiceManager onChanged={()=>void contextChoices.refresh()} />
       {/* Summary */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SessionSummaryCard
@@ -849,12 +901,12 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               <p className="rj-label">{t("New Session")}</p>
 
               <h2 className="rj-heading-2 mt-1">
-                Create and prepare
+                Schedule an activity or clinical session
               </h2>
             </div>
           </div>
 
-          <p className="rj-caption mt-3">{t("Active client targets are copied into the session automatically.")}</p>
+          <p className="rj-caption mt-3">{intent === "clinical" ? "Clinical preparation copies active client targets. Existing clinical permissions and safeguards apply." : "Schedule one child’s activity without treatment targets. Attendance is recorded separately."}</p>
 {requestedClientId && selectedClient && (
   <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-blue-50)] p-4">
     <div className="flex gap-3">
@@ -875,10 +927,11 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 )}
           {permissionError && <p role="alert" className="mt-3 text-sm text-red-700">{permissionError}</p>}
           {!canSchedule && !permissionError && <p className="mt-3 text-sm text-gray-500" title="Ask your account's primary administrator to review your scheduling permissions.">Scheduling requires permission from your primary administrator.</p>}
-          <fieldset disabled={!canSchedule} className="contents"><SubscriptionWriteControls><form
+          <fieldset disabled={!canSchedule||!recoveryReady||!!recoveryAttempt} className="contents"><SubscriptionWriteControls><form
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
+            <label className="block">Scheduling workflow<select className="rj-input" value={intent} onChange={event=>setIntent(event.target.value as "activity" | "clinical")}><option value="activity">Ordinary daycare activity</option><option value="clinical">Clinical session with preparation</option></select></label>
             {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
             <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
             <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
@@ -887,7 +940,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
             <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
             <SessionTypeDescription sessionType={selectedSessionType} />
-            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag")));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
+            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag"&&choice.active!==false)));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
@@ -940,7 +993,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               </FormField>
             </div>
 
-            <SearchableChoice label="Location" value={selectedLocation==="custom"?customLocation:selectedLocation} options={[...new Set([...locationOptions.map(location=>location.name),...sessions.map(session=>session.location).filter((value):value is string=>!!value),...(contextChoices.data?.choices.filter(choice=>choice.kind==="location").map(choice=>choice.label)||[]),...(contextChoices.data?.recent.map(recent=>recent.location).filter((value):value is string=>!!value)||[])])].map(value=>({value,label:value,recent:!!contextChoices.data?.recent.some(recent=>recent.location===value)}))} onChange={value=>{if(locationOptions.some(location=>location.name===value)){setSelectedLocation(value);setCustomLocation("")}else{setSelectedLocation(value?"custom":"");setCustomLocation(value)}}} createLabel="Create and save location choice" onCreate={async label=>{const result=await supabase.rpc("save_session_choice",{p_kind:"location",p_label:label,p_domain:"shared"});if(result.error)throw new Error(result.error.message);const latest=await contextChoices.refresh();const saved=latest?.choices.find(choice=>choice.id===result.data);if(!saved)throw new Error("Location saved; reload choices before selecting it.");setSelectedLocation("custom");setCustomLocation(saved.label)}} />
+            <SearchableChoice savedKind="location" label="Location" value={selectedLocation==="custom"?customLocation:selectedLocation} options={[...new Set([...(selectedLocation==="custom"&&customLocation?[customLocation]:[]),...locationOptions.map(location=>location.name),...sessions.map(session=>session.location).filter((value):value is string=>!!value),...(contextChoices.data?.choices.filter(choice=>choice.kind==="location"&&choice.active!==false).map(choice=>choice.label)||[]),...(contextChoices.data?.recent.map(recent=>recent.location).filter((value):value is string=>!!value)||[])])].map(value=>({value,label:value,recent:!!contextChoices.data?.recent.some(recent=>recent.location===value)}))} onChange={value=>{if(locationOptions.some(location=>location.name===value)){setSelectedLocation(value);setCustomLocation("")}else{setSelectedLocation(value?"custom":"");setCustomLocation(value)}}} createLabel="Create and save location choice" onCreate={async label=>{const result=await supabase.rpc("save_session_choice",{p_kind:"location",p_label:label,p_domain:"shared"});if(result.error)throw new Error(result.error.message);const latest=await contextChoices.refresh([result.data as string]);const saved=latest?.choices.find(choice=>choice.id===result.data);if(!saved)throw new Error("Location saved; reload choices before selecting it.");setSelectedLocation("custom");setCustomLocation(saved.label)}} />
             <p className="text-sm">A saved location choice is a scheduling label, not an attendance branch or classroom. Session times use the timezone configured on this device.</p>
             <SessionContextChoices context={contextChoices.data} selected={selectedTags} onChange={setSelectedTags} onSaved={contextChoices.refresh} disabled={creating||!canWrite||!canSchedule} />
 
@@ -1183,6 +1236,7 @@ function SessionRowCard({
   const targetCount =
     session.session_targets?.length || 0
 
+  const isActivity = session.workflow_intent === "activity"
   const isPrepared =
     Boolean(session.prepared_at) &&
     targetCount > 0
@@ -1202,12 +1256,12 @@ function SessionRowCard({
 
             <span
               className={`rj-badge ${
-                isPrepared
+                isActivity || isPrepared
                   ? "rj-badge-success"
                   : "rj-badge-warning"
               }`}
             >
-              {isPrepared
+              {isActivity ? "Activity scheduled" : isPrepared
                 ? "Prepared"
                 : t("Needs targets")}
             </span>
@@ -1231,8 +1285,8 @@ function SessionRowCard({
 
             <SessionDetail
               icon={ListChecks}
-              label={t("Prepared targets")}
-              value={`${targetCount} ${t(targetCount === 1 ? "target" : "targets")}`}
+              label={isActivity ? "Workflow" : t("Prepared targets")}
+              value={isActivity ? "Ordinary activity — no targets required" : `${targetCount} ${t(targetCount === 1 ? "target" : "targets")}`}
             />
 
             <SessionDetail
@@ -1248,8 +1302,8 @@ function SessionRowCard({
           <p className="rj-caption mt-4">
             {sessionTypeName}
             {" · "}
-            Recorded session participation:{" "}
-            {formatLabel(
+            {isActivity ? "Attendance recorded separately" : "Recorded session participation:"}{" "}
+            {!isActivity && formatLabel(
               session.attendance_status
             )}
           </p>
@@ -1257,10 +1311,10 @@ function SessionRowCard({
 
         <div className="flex shrink-0 flex-col flex-wrap gap-3 sm:flex-row">
           <Link
-            href={`/session/${session.id}`}
+            href={isActivity ? `/activity/${session.id}` : `/session/${session.id}`}
             className="rj-button rj-button-secondary"
           >
-            Open Workspace
+            {isActivity ? "View activity" : "Open Workspace"}
             <ExternalLink size={17} />
           </Link>
 

@@ -1,3 +1,4 @@
+require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- CommonJS Node test harness, consistent with tests/helpers. */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
@@ -20,7 +21,7 @@ test('duration rejects empty, zero, negative, fractional, nondecimal and out-of-
   assert.match(validate('1441'), /1,440/)
 })
 test('database rejects invalid INSERT, UPDATE and UPSERT without rounding and preserves legacy rows', {
-  skip: !process.env.REJOYCE_BASELINE_SQL || !process.env.REJOYCE_PGLITE_MODULE,
+  skip: false,
 }, async () => {
   const db = await loadCareDatabase()
   try {

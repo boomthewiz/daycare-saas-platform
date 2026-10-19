@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node tests/run-required.cjs",
+    "test:unit": "node tests/run-required.cjs --unit",
+    "test:concurrency": "node --require ./tests/setup.cjs --test tests/attendance-concurrency.test.cjs",
+    "test:browser": "node --require ./tests/setup.cjs tests/attendance-context.browser.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/ssr": "0.10.2",
@@ -26,6 +31,9 @@
     "eslint-config-next": "16.3.5",
     "supabase": "2.117.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@electric-sql/pglite": "0.5.8",
+    "postgres": "3.4.9",
+    "playwright": "1.62.1"
   }
 }

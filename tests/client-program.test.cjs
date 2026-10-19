@@ -1,3 +1,4 @@
+require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- Node CommonJS test runner. */
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
@@ -13,7 +14,7 @@ test('behavior dropdown isolates organizations and deduplicates reusable definit
 })
 
 test('production-compatible targets, reusable assignment and session use preserve database boundaries', {
-  skip: !process.env.REJOYCE_BASELINE_SQL || !process.env.REJOYCE_PGLITE_MODULE,
+  skip: false,
 }, async () => {
   const db = await createDatabase()
   const apply = async (client = ids.client, source = ids.source) => (await db.query('SELECT public.apply_client_behavior($1,$2) id', [client,source])).rows[0].id

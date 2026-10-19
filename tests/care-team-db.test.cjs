@@ -1,3 +1,4 @@
+require('./setup.cjs')
 // Offline PostgreSQL verification. Set REJOYCE_BASELINE_SQL to a schema-only
 // pre-migration snapshot and REJOYCE_PGLITE_MODULE to an installed PGlite module.
 // No network connections or production writes are made by this test.
@@ -7,7 +8,7 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 test('care-team migration enforces access, tenants, branches, atomicity, versions, device and subscription safeguards', {
-  skip: !process.env.REJOYCE_BASELINE_SQL || !process.env.REJOYCE_PGLITE_MODULE,
+  skip: false,
 }, async () => {
   const { PGlite } = require(process.env.REJOYCE_PGLITE_MODULE)
   const db = new PGlite()

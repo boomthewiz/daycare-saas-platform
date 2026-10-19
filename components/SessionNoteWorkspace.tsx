@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { noteActions, noteFailure, type NoteAction, type SessionNote } from '@/lib/session-notes'
 import { useSubscriptionAccess } from '@/lib/use-subscription-access'
 
-type Session = { id: string; provider_id: string | null; status: string; session_type: string; started_at: string | null; completed_at: string | null; scheduled_start: string | null; clients?: {first_name:string;last_name:string|null;preferred_name:string|null}|null }
+type Session = { id: string; provider_id: string | null; status: string; session_type: string; workflow_intent: "activity" | "clinical"; started_at: string | null; completed_at: string | null; scheduled_start: string | null; clients?: {first_name:string;last_name:string|null;preferred_name:string|null}|null }
 type Identity = { userId: string; frontline: boolean; reviewer: boolean; admin: boolean }
 type Remark = { id: string; author_name: string; body: string; created_at: string }
 type History = { id: string; actor_name: string; action: string; occurred_at: string; snapshot: SessionNote }
@@ -51,7 +51,7 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
       if (auth.error || !auth.data.user) throw new Error('Sign in to view this record.')
       const userId = auth.data.user.id
       const results = await Promise.all([
-        supabase.from('sessions').select('id,provider_id,status,session_type,started_at,completed_at,scheduled_start,clients(first_name,last_name,preferred_name)').eq('id', sessionId).single(),
+        supabase.from('sessions').select('id,provider_id,status,workflow_intent,session_type,started_at,completed_at,scheduled_start,clients(first_name,last_name,preferred_name)').eq('id', sessionId).single(),
         supabase.from('session_notes').select('*').eq('session_id', sessionId).maybeSingle(),
         supabase.from('users').select('role,status').eq('id', userId).single(),
         supabase.rpc('is_frontline_staff'), supabase.rpc('can_review_sessions'),
@@ -63,6 +63,7 @@ export default function SessionNoteWorkspace({ sessionId, review = false }: { se
       const account = u.data as { role: string; status: string }
       const current: Identity = { userId, frontline: frontline.data === true, reviewer: reviewer.data === true, admin: account.status === 'active' && ['owner', 'admin'].includes(account.role) }
       if (review && !current.reviewer && !current.admin) throw new Error('Review access is required.')
+      if ((s.data as unknown as Session).workflow_intent === "activity") throw new Error("Ordinary activities do not have clinical notes or review. View the activity schedule instead.")
       const currentNote = n.data as SessionNote | null
       setSession(s.data as unknown as Session); setIdentity(current); setNote(currentNote)
       setText(currentNote?.final_note || currentNote?.generated_note || '')

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase"
 export type CalendarSession = {
   id: string
   status: string
+  workflow_intent?: "activity" | "clinical"
   session_type: string
   scheduled_start: string | null
   scheduled_end: string | null
@@ -19,7 +20,7 @@ export async function readCalendarSessions(start: Date, end: Date, branchId: str
     const clientFields = branchId
       ? "clients!inner(first_name,preferred_name,client_locations!inner(location_id))"
       : "clients(first_name,preferred_name)"
-    let query = supabase.from("sessions").select(`id,status,session_type,scheduled_start,scheduled_end,location,${clientFields},provider:users!sessions_provider_id_fkey(full_name,email)`)
+    let query = supabase.from("sessions").select(`id,status,workflow_intent,session_type,scheduled_start,scheduled_end,location,${clientFields},provider:users!sessions_provider_id_fkey(full_name,email)`)
       .lt("scheduled_start", end.toISOString())
       .or(`scheduled_end.gt.${start.toISOString()},and(scheduled_end.is.null,scheduled_start.gte.${start.toISOString()})`)
       .order("scheduled_start").order("id")

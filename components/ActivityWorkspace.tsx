@@ -1,0 +1,72 @@
+"use client"
+import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
+import SessionTags from "@/components/SessionTags"
+
+type Activity = { id: string; child_name: string; provider_name: string | null; updated_at: string; workflow_intent: string; session_type: string; scheduled_start: string; scheduled_end: string; location: string | null; status: string }
+const local = (value: string) => { const d = new Date(value); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
+export default function ActivityWorkspace({ sessionId, editing = false }: { sessionId: string; editing?: boolean }) {
+  const { data: caps } = useEffectiveCapabilities()
+  const [activity, setActivity] = useState<Activity | null>(null)
+  const [start, setStart] = useState("")
+  const [end, setEnd] = useState("")
+  const [location, setLocation] = useState("")
+  const [status, setStatus] = useState("confirmed")
+  const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [busy, setBusy] = useState(false)
+  const generation = useRef(0)
+  const scope = caps ? `${caps.organizationId}:${caps.userId}` : ""
+  const load = useCallback(async () => {
+    const request = ++generation.current
+    setActivity(null); setNotice(""); setError(""); setBusy(false)
+    if (!scope) return
+    const result = await supabase.rpc("activity_schedule", { p_session: sessionId })
+    if (request !== generation.current) return
+    if (result.error || result.data?.workflow_intent !== "activity") { setError("Activity unavailable. Unlock your device and retry."); return }
+    const value = result.data as Activity
+    setActivity(value); setStart(local(value.scheduled_start)); setEnd(local(value.scheduled_end)); setLocation(value.location || ""); setStatus(value.status)
+    return true
+  }, [scope, sessionId])
+  useEffect(() => {
+    const counter = generation
+    void load()
+    const device = (event: Event) => { if ((event as CustomEvent<string>).detail === "unlocked") void load(); else { generation.current++; setActivity(null); setBusy(false); setNotice("") } }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { generation.current++; setActivity(null); setNotice(""); setBusy(false); window.setTimeout(() => void load(), 0) })
+    window.addEventListener("rejoyce:device-state", device)
+    return () => { counter.current++; subscription.unsubscribe(); window.removeEventListener("rejoyce:device-state", device) }
+  }, [load])
+  return <section className="rj-card mx-auto max-w-2xl space-y-4 p-5">
+    <Link href={caps?.sessions ? "/sessions" : "/my-sessions"} className="underline">Back to schedule</Link>
+    <h1 className="rj-heading-1">Ordinary activity</h1>
+    {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    <button className="underline" disabled={busy} onClick={() => void load()}>Refresh activity</button>
+    {activity && <><h2 className="rj-heading-2">{activity.child_name}</h2><p>Assigned team member: {activity.provider_name || "Assigned staff"}</p><p>Activity scheduled · {activity.session_type.replaceAll("_", " ")} · {activity.status.replaceAll("_", " ")}</p>
+      <p>{new Date(activity.scheduled_start).toLocaleString()} – {new Date(activity.scheduled_end).toLocaleString()} · {activity.location || "No location"}</p>
+      <p>No treatment targets, clinical execution or clinical note required. This schedule does not record attendance or workforce hours.</p>
+      {caps?.sessions && <SessionTags sessionId={sessionId} />}
+      {!editing && caps?.sessions && <Link className="rj-button rj-button-secondary" href={`/sessions/${sessionId}/edit`}>Edit activity schedule</Link>}
+      {editing && caps?.sessions && <form className="space-y-3" onSubmit={async event => {
+        event.preventDefault(); const request = ++generation.current; setBusy(true); setError(""); setNotice("")
+        try {
+          const from = new Date(start), to = new Date(end)
+          if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from || to.getTime() - from.getTime() > 86400000) throw new Error("Choose valid times within 24 hours.")
+          const result = await supabase.from("sessions").update({ scheduled_start: from.toISOString(), scheduled_end: to.toISOString(), location: location.trim() || null, status }).eq("id", sessionId).eq("updated_at", activity.updated_at).select("id")
+          if (request !== generation.current) return
+          if (result.error || !result.data?.length) throw new Error(result.error?.message || "Activity changed or access expired. Refresh and retry.")
+          if (await load()) setNotice("Activity schedule saved.")
+          window.dispatchEvent(new Event("rejoyce:schedule-changed"))
+        } catch (cause) { if (request === generation.current) setError(cause instanceof Error ? cause.message : "Unable to save activity.") }
+        finally { if (request === generation.current) setBusy(false) }
+      }}>
+        <label className="block">Start (your local time)<input className="rj-input" required type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></label>
+        <label className="block">End (your local time)<input className="rj-input" required type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /></label>
+        <label className="block">Location<input className="rj-input" maxLength={120} value={location} onChange={e => setLocation(e.target.value)} /></label>
+        <label className="block">Schedule status<select className="rj-input" value={status} onChange={e => setStatus(e.target.value)}>{["scheduled", "confirmed", "canceled"].map(value => <option key={value}>{value}</option>)}</select></label>
+        <button className="rj-button rj-button-primary" disabled={busy || !caps.canWrite || !["scheduled", "confirmed"].includes(activity.status)}>Save activity schedule</button>
+      </form>}
+    </>}
+  </section>
+}

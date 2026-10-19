@@ -1,0 +1,42 @@
+name: Required checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['55439:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      PGPASSWORD: postgres
+      NEXT_PUBLIC_SUPABASE_URL: https://workflow-test.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: synthetic-service-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Lint affected flows
+        run: npx eslint components/SearchableChoice.tsx components/SessionContextChoices.tsx components/SessionChoiceManager.tsx components/AttendanceWorkspace.tsx components/TasksWorkspace.tsx 'app/(dashboard)/sessions/page.tsx' 'app/(dashboard)/tasks/page.tsx' lib/session-save-recovery.ts lib/organization-local-time.ts
+      - run: npx next build --webpack
+      - run: npx playwright install --with-deps chromium
+      - name: Synthetic production-mode browser flow
+        run: |
+          npm start -- --port 3047 > /tmp/rejoyce-test-server.log 2>&1 &
+          for attempt in $(seq 1 30); do curl --fail --silent http://localhost:3047/login > /dev/null && break; sleep 1; done
+          npm run test:browser
