@@ -33,7 +33,7 @@ export default function SessionChoiceManager({onChanged}:{onChanged:()=>void}) {
  }
  if(!scope)return null
  return <details className="rj-card space-y-3 p-4" open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary className="cursor-pointer font-semibold">Manage saved tags and locations</summary>
-  <p>Review duplicates before renaming, archiving or restoring. Names are unique by kind across active and archived choices. Archived choices keep their identity and historical snapshots; creating the same name again requires restoring that choice.</p>
+  <p>Review duplicates before renaming, archiving or restoring. Names are unique by kind across active and archived choices. Archived choices keep their identity and historical snapshots. Archiving a location removes its reusable choice, while previously recorded/custom location text remains historical context; creating the same name again requires restoring that choice.</p>
   <label className="block">Choice kind<select className="rj-input" value={kind} onChange={e=>{setKind(e.target.value);setPage(0);setEditing(null)}}><option value="tag">Tags</option><option value="location">Locations</option></select></label>
   <label className="block">Search active and archived choices<input className="rj-input" type="search" maxLength={120} value={query} onChange={e=>{setQuery(e.target.value);setPage(0);setEditing(null)}}/></label>
   {error&&<p role="alert">{error} <button className="underline" onClick={()=>void load()}>Reload choices</button></p>}{notice&&<p role="status">{notice}</p>}

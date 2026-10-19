@@ -142,14 +142,14 @@ BEGIN
  IF p_page IS NULL OR p_page<0 OR p_page>100000 THEN RAISE EXCEPTION 'Invalid task page' USING ERRCODE='22023'; END IF;
  day:=coalesce(p_date,(statement_timestamp() AT TIME ZONE tz)::date);manager:=public.can_manage_clients() OR public.can_manage_sessions();
  SELECT coalesce(jsonb_agg(to_jsonb(q) ORDER BY q.created_at DESC,q.id),'[]') INTO rows FROM (
-  SELECT t.id,t.title,t.description,coalesce(t.completed,false) completed,t.due_at,t.generated_date,t.created_at,
+  SELECT t.id,t.title,t.description,t.teacher_id,(SELECT u.full_name FROM public.users u WHERE u.id=t.teacher_id AND u.organization_id=org) assignee_name,coalesce(t.completed,false) completed,t.due_at,t.generated_date,t.created_at,
    CASE WHEN t.client_id IS NOT NULL AND public.can_access_client(t.client_id) THEN (SELECT coalesce(nullif(c.preferred_name,''),c.first_name) FROM public.clients c WHERE c.id=t.client_id AND c.organization_id=org) END client_name,
    t.child_id IS NOT NULL OR t.classroom_id IS NOT NULL legacy_reference,t.due_at IS NULL legacy_date_only
   FROM public.tasks t WHERE t.organization_id=org AND (manager OR t.teacher_id=auth.uid())
    AND ((t.due_at IS NOT NULL AND t.due_at>=day::timestamp AT TIME ZONE tz AND t.due_at<(day+1)::timestamp AT TIME ZONE tz) OR (t.due_at IS NULL AND t.generated_date=day))
   ORDER BY t.created_at DESC,t.id LIMIT 51 OFFSET p_page*50
  ) q;
- RETURN jsonb_build_object('organizationId',org,'userId',auth.uid(),'date',day,'timezone',tz,'manager',manager,'canWrite',rejoyce_security.organization_can_write(org),'rows',CASE WHEN jsonb_array_length(rows)>50 THEN rows-50 ELSE rows END,'hasMore',jsonb_array_length(rows)>50);
+ RETURN jsonb_build_object('organizationId',org,'userId',auth.uid(),'date',day,'timezone',tz,'manager',manager,'canWrite',rejoyce_security.organization_can_write(org),'rows',CASE WHEN jsonb_array_length(rows)>50 THEN rows-50 ELSE rows END,'hasMore',jsonb_array_length(rows)>50,'staff',CASE WHEN manager THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',u.id,'name',u.full_name) ORDER BY u.full_name,u.id) FROM public.users u WHERE u.organization_id=org AND u.status='active'),'[]') ELSE '[]'::jsonb END);
 END; $$;
 CREATE FUNCTION public.task_workspace(p_date date DEFAULT NULL,p_page integer DEFAULT 0) RETURNS jsonb LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$ SELECT rejoyce_security.task_workspace(p_date,p_page) $$;
 CREATE FUNCTION rejoyce_security.set_task_completed(p_task uuid,p_expected boolean,p_completed boolean) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
@@ -164,8 +164,21 @@ BEGIN
 END; $$;
 CREATE FUNCTION public.set_task_completed(p_task uuid,p_expected boolean,p_completed boolean) RETURNS void LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT rejoyce_security.set_task_completed(p_task,p_expected,p_completed) $$;
 
+CREATE FUNCTION rejoyce_security.set_task_owner(p_task uuid,p_user uuid,p_expected uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE org uuid; t public.tasks%rowtype;
+BEGIN
+ PERFORM rejoyce_security.require_unlocked();org:=public.current_organization_id();
+ IF org IS NULL OR NOT (public.can_manage_clients() OR public.can_manage_sessions()) OR NOT rejoyce_security.organization_can_write(org) THEN RAISE EXCEPTION 'Task management and editing access required' USING ERRCODE='42501'; END IF;
+ SELECT * INTO t FROM public.tasks WHERE id=p_task AND organization_id=org FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Task unavailable' USING ERRCODE='42501'; END IF;
+ IF t.teacher_id IS DISTINCT FROM p_expected THEN RAISE EXCEPTION 'Task assignment changed; reload' USING ERRCODE='40001'; END IF;
+ IF p_user IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.users WHERE id=p_user AND organization_id=org AND status='active') THEN RAISE EXCEPTION 'Active organization assignee required' USING ERRCODE='42501'; END IF;
+ UPDATE public.tasks SET teacher_id=p_user WHERE id=t.id AND organization_id=org;
+END; $$;
+CREATE FUNCTION public.set_task_owner(p_task uuid,p_user uuid,p_expected uuid) RETURNS void LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT rejoyce_security.set_task_owner(p_task,p_user,p_expected) $$;
+
 DO $$ DECLARE f regprocedure; BEGIN
- FOR f IN SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','rejoyce_security') AND p.proname IN ('search_session_choices','session_context_v2','update_session_choice','recover_session_creation','attendance_local_options','correct_attendance_local','task_workspace','set_task_completed') LOOP
+ FOR f IN SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','rejoyce_security') AND p.proname IN ('search_session_choices','session_context_v2','update_session_choice','recover_session_creation','attendance_local_options','correct_attendance_local','task_workspace','set_task_completed','set_task_owner') LOOP
  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,anon',f);EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated',f);
  END LOOP;
 END; $$;

@@ -3,14 +3,15 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
-type Task={id:string;title:string;description:string|null;completed:boolean;due_at:string|null;client_name:string|null;legacy_reference:boolean;legacy_date_only:boolean}
-type Result={organizationId:string;userId:string;date:string;timezone:string;manager:boolean;canWrite:boolean;rows:Task[];hasMore:boolean}
+type Task={id:string;teacher_id:string|null;assignee_name:string|null;title:string;description:string|null;completed:boolean;due_at:string|null;client_name:string|null;legacy_reference:boolean;legacy_date_only:boolean}
+type Result={organizationId:string;userId:string;date:string;timezone:string;manager:boolean;canWrite:boolean;rows:Task[];hasMore:boolean;staff:{id:string;name:string|null}[]}
 export default function TasksWorkspace(){
  const {data:caps}=useEffectiveCapabilities()
  const [date,setDate]=useState(""),[page,setPage]=useState(0),[data,setData]=useState<Result|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("")
+ const [assigning,setAssigning]=useState<string|null>(null),[assignee,setAssignee]=useState("")
  const generation=useRef(0),scope=caps?`${caps.organizationId}:${caps.userId}`:""
  const load=useCallback(async()=>{
-  const request=++generation.current;setData(null);setError("");setBusy(false)
+  const request=++generation.current;setData(null);setError("");setBusy(false);setAssigning(null)
   if(!scope)return
   setBusy(true)
   try{
@@ -38,6 +39,13 @@ export default function TasksWorkspace(){
   {data&&data.organizationId===caps?.organizationId&&data.userId===caps?.userId&&<><p>{data.date} · {data.timezone} · {data.manager?"Organization tasks":"My assigned tasks"} · Page {page+1}</p>
    {!data.rows.length&&<p>No matching recorded tasks on this page. This does not establish that all care work is complete.</p>}
    {data.rows.map(task=><article className="rj-card space-y-2 p-4" key={task.id}><h2 className="rj-heading-3">{task.title}</h2>{task.description&&<p>{task.description}</p>}{task.client_name&&<p>Client: {task.client_name}</p>}
+    <p>Assigned to: {task.assignee_name||"Unassigned — authorized managers only"}</p>
+    {data.manager&&(assigning===task.id?<div><label className="block">Task assignee<select className="rj-input" value={assignee} onChange={event=>setAssignee(event.target.value)}><option value="">Unassigned (managers only)</option>{data.staff.map(user=><option key={user.id} value={user.id}>{user.name||user.id}</option>)}</select></label><button className="rj-button rj-button-secondary" disabled={busy||!data.canWrite} onClick={async()=>{
+      const request=++generation.current;setBusy(true);setError("")
+      try{const result=await supabase.rpc("set_task_owner",{p_task:task.id,p_user:assignee||null,p_expected:task.teacher_id});if(request!==generation.current)return;if(result.error)throw new Error(result.error.message);await load()}
+      catch(cause){if(request===generation.current)setError(cause instanceof Error?cause.message:"Assignment was not confirmed")}
+      finally{if(request===generation.current)setBusy(false)}
+    }}>Save task assignment</button> <button onClick={()=>setAssigning(null)}>Cancel assignment</button></div>:<button className="underline" disabled={busy||!data.canWrite} onClick={()=>{setAssigning(task.id);setAssignee(task.teacher_id||"")}}>Review task assignment</button>)}
     {task.legacy_reference&&<p>Legacy child/classroom reference retained; no current client or classroom membership is inferred.</p>}
     <p>{task.legacy_date_only?"Legacy date-only task; original timezone not recorded":task.due_at?new Date(task.due_at).toLocaleString(undefined,{timeZone:data.timezone}):"No due time"}</p><p>{task.completed?"Recorded complete":"Pending"}</p>
     <button className="rj-button rj-button-secondary" disabled={busy||!data.canWrite} onClick={async()=>{
