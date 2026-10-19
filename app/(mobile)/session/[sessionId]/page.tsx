@@ -45,6 +45,7 @@ type SessionStatus =
   | "no_show"
 
 type SessionRecord = {
+  workflow_intent: "activity" | "clinical"
   id: string
   organization_id: string
   client_id: string
@@ -205,6 +206,7 @@ export default function ActiveSessionPage() {
           .select(`
             id,
             organization_id,
+            workflow_intent,
             client_id,
             provider_id,
             status,
@@ -226,6 +228,11 @@ export default function ActiveSessionPage() {
 
       const typedSession = sessionData as SessionRecord
 
+      if (typedSession.workflow_intent === "activity") {
+        setSession(null)
+        setPageError("This is an ordinary activity. Open it from My sessions to view its schedule; clinical execution is unavailable.")
+        return
+      }
       setSession(typedSession)
       setElapsedSeconds(
         calculateElapsedSeconds(typedSession)

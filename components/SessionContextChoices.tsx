@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase"
 import SearchableChoice from "@/components/SearchableChoice"
 import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 export type SavedSessionChoice={id:string;kind:"tag"|"location";label:string;domain:"shared"|"daycare"|"care_services"|"aba"}
-export type RecentSessionChoice={id:string;child_id:string;provider_id:string;session_type:string;location:string|null;tag_ids:string[];duration_minutes:number}
+export type RecentSessionChoice={id:string;child_id:string;provider_id:string;session_type:string;location:string|null;tag_ids:string[];duration_minutes:number;workflow_intent?:"activity"|"clinical"}
 export type SessionContext={organizationId:string;userId:string;choices:SavedSessionChoice[];recent:RecentSessionChoice[];tags:{id:string;label:string;domain:string}[]}
 export function useSessionContext(enabled:boolean,sessionId?:string){
  const {data:caps}=useEffectiveCapabilities()

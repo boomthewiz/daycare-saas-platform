@@ -97,6 +97,7 @@ type SessionRow = {
   client_id: string
   provider_id: string | null
   session_type: string
+  workflow_intent: "activity" | "clinical"
   status: string
   attendance_status: string
   scheduled_start: string | null
@@ -116,6 +117,7 @@ type CreateSessionResult = {
   scheduled_start: string
   scheduled_end: string
   status: string
+  workflow_intent?: "activity" | "clinical"
   targets_added: number
 }
 
@@ -157,6 +159,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
   const [clientId, setClientId] = useState("")
   const [providerId, setProviderId] = useState("")
+  const [intent, setIntent] = useState<"activity" | "clinical">("activity")
   const [sessionType, setSessionType] = useState("")
   const [scheduledStart, setScheduledStart] = useState(requestedStart)
   const [scheduledEnd, setScheduledEnd] = useState("")
@@ -308,6 +311,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               scheduled_start,
               scheduled_end,
               location,
+              workflow_intent,
               prepared_at,
               created_at,
               clients (
@@ -642,10 +646,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
     setSuccess(null)
 
     try {
-      const payload = { p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
+      const payload = { p_intent:intent,p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
       const fingerprint=JSON.stringify(payload)
       if(sessionOperation.current?.key!==fingerprint)sessionOperation.current={key:fingerprint,id:crypto.randomUUID()}
-      const {data,error}=await supabase.rpc("create_context_session",{...payload,p_operation:sessionOperation.current.id})
+      const {data,error}=await supabase.rpc("create_scheduled_context_session",{...payload,p_operation:sessionOperation.current.id})
       if (error) {
         throw new Error(error.message)
       }
@@ -792,8 +796,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                 <h2 className="font-bold text-[var(--rj-mint-700)]">{t("Session created successfully")}</h2>
 
                 <p className="mt-1 text-sm text-[var(--rj-text-secondary)]">
-                  {success.targets_added}{t(success.targets_added === 1 ? " active target" : " active targets")}{" "}
-                  were prepared automatically.
+                  {success.workflow_intent === "activity" ? "Activity scheduled. No clinical targets prepared; this is not recorded attendance." : `${success.targets_added} active targets prepared automatically.`}
                 </p>
               </div>
             </div>
@@ -849,12 +852,12 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               <p className="rj-label">{t("New Session")}</p>
 
               <h2 className="rj-heading-2 mt-1">
-                Create and prepare
+                Schedule an activity or clinical session
               </h2>
             </div>
           </div>
 
-          <p className="rj-caption mt-3">{t("Active client targets are copied into the session automatically.")}</p>
+          <p className="rj-caption mt-3">{intent === "clinical" ? "Clinical preparation copies active client targets. Existing clinical permissions and safeguards apply." : "Schedule one child’s activity without treatment targets. Attendance is recorded separately."}</p>
 {requestedClientId && selectedClient && (
   <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-blue-50)] p-4">
     <div className="flex gap-3">
@@ -879,6 +882,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
+            <label className="block">Scheduling workflow<select className="rj-input" value={intent} onChange={event=>setIntent(event.target.value as "activity" | "clinical")}><option value="activity">Ordinary daycare activity</option><option value="clinical">Clinical session with preparation</option></select></label>
             {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
             <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
             <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
@@ -887,7 +891,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
             <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
             <SessionTypeDescription sessionType={selectedSessionType} />
-            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag")));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
+            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag")));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
@@ -1183,6 +1187,7 @@ function SessionRowCard({
   const targetCount =
     session.session_targets?.length || 0
 
+  const isActivity = session.workflow_intent === "activity"
   const isPrepared =
     Boolean(session.prepared_at) &&
     targetCount > 0
@@ -1202,12 +1207,12 @@ function SessionRowCard({
 
             <span
               className={`rj-badge ${
-                isPrepared
+                isActivity || isPrepared
                   ? "rj-badge-success"
                   : "rj-badge-warning"
               }`}
             >
-              {isPrepared
+              {isActivity ? "Activity scheduled" : isPrepared
                 ? "Prepared"
                 : t("Needs targets")}
             </span>
@@ -1231,8 +1236,8 @@ function SessionRowCard({
 
             <SessionDetail
               icon={ListChecks}
-              label={t("Prepared targets")}
-              value={`${targetCount} ${t(targetCount === 1 ? "target" : "targets")}`}
+              label={isActivity ? "Workflow" : t("Prepared targets")}
+              value={isActivity ? "Ordinary activity — no targets required" : `${targetCount} ${t(targetCount === 1 ? "target" : "targets")}`}
             />
 
             <SessionDetail
@@ -1248,8 +1253,8 @@ function SessionRowCard({
           <p className="rj-caption mt-4">
             {sessionTypeName}
             {" · "}
-            Recorded session participation:{" "}
-            {formatLabel(
+            {isActivity ? "Attendance recorded separately" : "Recorded session participation:"}{" "}
+            {!isActivity && formatLabel(
               session.attendance_status
             )}
           </p>
@@ -1257,10 +1262,10 @@ function SessionRowCard({
 
         <div className="flex shrink-0 flex-col flex-wrap gap-3 sm:flex-row">
           <Link
-            href={`/session/${session.id}`}
+            href={isActivity ? `/activity/${session.id}` : `/session/${session.id}`}
             className="rj-button rj-button-secondary"
           >
-            Open Workspace
+            {isActivity ? "View activity" : "Open Workspace"}
             <ExternalLink size={17} />
           </Link>
 

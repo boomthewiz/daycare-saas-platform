@@ -51,6 +51,7 @@ type AssignedSession = {
   id: string
   client_id: string
   provider_id: string | null
+  workflow_intent?: string
   session_type: string
   status: SessionStatus
   attendance_status: string
@@ -115,6 +116,7 @@ export default function MySessionsPage() {
             id,
             client_id,
             provider_id,
+            workflow_intent,
             session_type,
             status,
             attendance_status,
@@ -457,7 +459,7 @@ function FeaturedSessionCard({
   )
 
   return (
-    <article className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-teal-100)] bg-white p-6 shadow-[var(--rj-shadow-medium)]">
+    session.workflow_intent === "activity" ? <article className="rj-card p-5"><h3 className="rj-heading-3">{getClientName(session.clients)}</h3><p>Activity scheduled · {formatLabel(session.session_type)}</p><p>No clinical targets or note required. Attendance is separate.</p><Link className="rj-button rj-button-primary mt-3" href={`/activity/${session.id}`}>View activity</Link></article> : <article className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-teal-100)] bg-white p-6 shadow-[var(--rj-shadow-medium)]">
       <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[var(--rj-teal-100)] opacity-65" />
 
       <div className="relative">
@@ -610,7 +612,7 @@ function CompactSessionCard({
   return (
     <Link
       href={
-        completed
+        session.workflow_intent === "activity" ? `/activity/${session.id}` : completed
           ? `/session/${session.id}/complete`
           : `/session/${session.id}`
       }
@@ -657,12 +659,12 @@ function CompactSessionCard({
 
             <span
               className={`rj-badge ${
-                prepared
+                session.workflow_intent === "activity" || prepared
                   ? "rj-badge-success"
                   : "rj-badge-warning"
               }`}
             >
-              {prepared
+              {session.workflow_intent === "activity" ? "Activity scheduled" : prepared
                 ? `${targetCount} targets`
                 : t("Needs targets")}
             </span>

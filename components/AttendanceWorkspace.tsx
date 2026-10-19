@@ -1,6 +1,7 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import AttendanceActivation from "@/components/AttendanceActivation"
 import { supabase } from "@/lib/supabase"
 import { csvCell } from "@/lib/operational-reports"
 type Branch = { id: string; name: string; active: boolean }
@@ -29,6 +30,7 @@ export default function AttendanceWorkspace() {
   const [busy, setBusy] = useState(false)
   const [staff, setStaff] = useState("")
   const [scopes, setScopes] = useState<string[]>([])
+  const [activationRevision, setActivationRevision] = useState(0)
   const generation = useRef(0)
   const operation = useRef<{key: string; id: string} | null>(null)
   const key = JSON.stringify([context?.organizationId,context?.userId,branch,from,to,openOnly,search,page])
@@ -42,6 +44,7 @@ export default function AttendanceWorkspace() {
       if (result.error || !result.data || !Array.isArray(result.data.branches)) throw new Error("Unable to verify attendance access. Unlock your device and retry.")
       const next = result.data as Context
       setContext(next)
+      setActivationRevision(previous => previous + 1)
       setBranch(previous => next.branches.some(item => item.id === previous) ? previous : next.branches[0]?.id || "")
       if (next.timezone) {
         const parts = new Intl.DateTimeFormat("en-CA",{timeZone:next.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date())
@@ -114,6 +117,7 @@ export default function AttendanceWorkspace() {
   return <div className="space-y-5"><header><h1 className="rj-heading-1">Attendance</h1><p className="mt-2">Branch-level recorded child presence. Classroom not recorded; this does not verify authorized pickup or staffing ratios.</p></header>
     {error&&<p role="alert">{error} <button className="underline" onClick={()=>void loadContext()}>Reload access</button></p>}{notice&&<p role="status">{notice}</p>}
     {!context?<button className="rj-button rj-button-secondary" onClick={()=>void loadContext()}>Load attendance access</button>:<>
+      <AttendanceActivation revision={activationRevision} />
       {!context.timezone&&<p>Configure the organization reporting timezone in <Link className="underline" href="/reports">Reports</Link> before recording attendance.</p>}
       {!context.view&&<p>View attendance and separately assigned attendance branches are required. Clinical or schedule assignments do not grant attendance access.</p>}
       {!context.canWrite&&<p>Read-only access. Only eligible visits already open before editing expiry may be checked out. New visits and corrections are unavailable.</p>}
@@ -139,7 +143,7 @@ export default function AttendanceWorkspace() {
           <div className="flex flex-wrap gap-3"><button className="rj-button rj-button-primary" disabled={busy||editing.voided||!context.canWrite||reason.trim().length<3} onClick={()=>void mutate("correct",editing)}>Apply reasoned correction</button><button className="rj-button rj-button-danger" disabled={busy||editing.voided||!context.canWrite||reason.trim().length<3} onClick={()=>void mutate("void",editing)}>Void this visit, preserve history</button><button className="underline" onClick={()=>setEditing(null)}>Close history</button></div>
         </section>}
       </>}
-      {!!context.staff.length&&<details className="rj-card space-y-3 p-5"><summary className="cursor-pointer font-semibold">Administer attendance branch access</summary><p>Grant attendance permissions in the account editor separately. These branch assignments do not change clinical or classroom access.</p><label className="block">Staff account<select className="rj-input" value={staff} onChange={event=>{setStaff(event.target.value);setScopes(context.scopes.filter(item=>item.user_id===event.target.value).map(item=>item.branch_id))}}><option value="">Select staff</option>{context.staff.map(item=><option key={item.id} value={item.id}>{item.name||item.id}</option>)}</select></label>
+      {!!context.staff.length&&<details id="attendance-branch-access" className="rj-card space-y-3 p-5"><summary className="cursor-pointer font-semibold">Administer attendance branch access</summary><p>Grant attendance permissions in the account editor separately. These branch assignments do not change clinical or classroom access.</p><label className="block">Staff account<select className="rj-input" value={staff} onChange={event=>{setStaff(event.target.value);setScopes(context.scopes.filter(item=>item.user_id===event.target.value).map(item=>item.branch_id))}}><option value="">Select staff</option>{context.staff.map(item=><option key={item.id} value={item.id}>{item.name||item.id}</option>)}</select></label>
         {context.branches.map(item=><label key={item.id} className="flex gap-2"><input type="checkbox" checked={scopes.includes(item.id)} onChange={event=>setScopes(previous=>event.target.checked?[...previous,item.id]:previous.filter(id=>id!==item.id))}/>{item.name}</label>)}
         <button className="rj-button rj-button-secondary" disabled={busy||!staff||!context.canWrite} onClick={async()=>{
           const request=++generation.current;setBusy(true);setError("")
