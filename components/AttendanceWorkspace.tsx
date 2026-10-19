@@ -1,5 +1,6 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { organizationLocalTime } from "@/lib/organization-local-time"
 import Link from "next/link"
 import AttendanceActivation from "@/components/AttendanceActivation"
 import { supabase } from "@/lib/supabase"
@@ -24,6 +25,8 @@ export default function AttendanceWorkspace() {
   const [start, setStart] = useState("")
   const [end, setEnd] = useState("")
   const [correctBranch, setCorrectBranch] = useState("")
+  const [inOptions,setInOptions]=useState<string[]>([]),[outOptions,setOutOptions]=useState<string[]>([])
+  const [inInstant,setInInstant]=useState(""),[outInstant,setOutInstant]=useState("")
   const [reason, setReason] = useState("")
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
@@ -69,7 +72,7 @@ export default function AttendanceWorkspace() {
     if(!context?.view||!branch)return
     const request=++generation.current
     const responseKey=JSON.stringify([context.organizationId,context.userId,branch,from,to,openOnly,search,nextPage])
-    setBusy(true);setError("");setData(null)
+    setBusy(true);setError("");if(!exportPage)setData(null)
     try {
       const result=await supabase.rpc("attendance_read",{p_branch:branch,p_from:from,p_to:to,p_open:openOnly,p_search:search,p_page:nextPage,p_export:exportPage})
       if(request!==generation.current)return
@@ -87,14 +90,26 @@ export default function AttendanceWorkspace() {
     finally{if(request===generation.current)setBusy(false)}
   }
   const mutate=async(action:"check_in"|"check_out"|"correct"|"void",visit?:Visit)=>{
-    const payload={p_action:action,p_child:action==="check_in"?child:null,p_branch:action==="check_in"?branch:action==="correct"?correctBranch:null,p_visit:visit?.id||null,p_version:visit?.version??null,p_in:action==="correct"?start:null,p_out:action==="correct"?end||null:null,p_reason:action==="correct"||action==="void"?reason:null}
-    if(action==="correct" && (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(start)||(end&&!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(end)))) {setError("Enter explicit UTC timestamps ending in Z. Local ambiguous times are not accepted.");return}
-    const fingerprint=JSON.stringify(payload)
-    if(operation.current?.key!==fingerprint)operation.current={key:fingerprint,id:crypto.randomUUID()}
     const request=++generation.current
     setBusy(true);setError("");setNotice("")
     try{
-      const result=await supabase.rpc("attendance_mutate",{...payload,p_operation:operation.current.id})
+      let resolvedIn:string|null=null,resolvedOut:string|null=null
+      if(action==="correct"){
+        if(!start||!visit)throw new Error("Choose a local check-in time.")
+        const [a,b]=await Promise.all([supabase.rpc("attendance_local_options",{p_visit:visit.id,p_local:start}),end?supabase.rpc("attendance_local_options",{p_visit:visit.id,p_local:end}):Promise.resolve({data:{instants:[]},error:null})])
+        if(request!==generation.current)return
+        if(a.error||b.error)throw new Error(a.error?.message||b.error?.message)
+        const starts=a.data.instants as string[],ends=b.data.instants as string[]
+        setInOptions(starts);setOutOptions(ends)
+        if(!starts.length||(end&&!ends.length))throw new Error("This local time does not exist because of a timezone clock change. Choose another time.")
+        resolvedIn=starts.length===1?starts[0]:starts.find(value=>new Date(value).getTime()===new Date(inInstant).getTime())||null
+        resolvedOut=!end?null:ends.length===1?ends[0]:ends.find(value=>new Date(value).getTime()===new Date(outInstant).getTime())||null
+        if(!resolvedIn||(end&&!resolvedOut))throw new Error("This local time occurs twice. Choose the intended occurrence below, then apply again.")
+      }
+      const payload={p_action:action,p_child:action==="check_in"?child:null,p_branch:action==="check_in"?branch:action==="correct"?correctBranch:null,p_visit:visit?.id||null,p_version:visit?.version??null,p_in:resolvedIn,p_out:resolvedOut,p_reason:action==="correct"||action==="void"?reason:null}
+      const fingerprint=JSON.stringify(payload)
+      if(operation.current?.key!==fingerprint)operation.current={key:fingerprint,id:crypto.randomUUID()}
+      const result=action==="correct"?await supabase.rpc("correct_attendance_local",{p_visit:visit!.id,p_version:visit!.version,p_branch:correctBranch,p_in_local:start,p_out_local:end||null,p_in_instant:resolvedIn,p_out_instant:resolvedOut,p_reason:reason,p_operation:operation.current.id}):await supabase.rpc("attendance_mutate",{...payload,p_operation:operation.current.id})
       if(request!==generation.current)return
       if(result.error)throw new Error(result.error.message)
       operation.current=null;setEditing(null);setHistory([]);setChild("");setNotice("Attendance saved and confirmed by the server.")
@@ -108,7 +123,7 @@ export default function AttendanceWorkspace() {
       const result=await supabase.rpc("attendance_history",{p_visit:visit.id})
       if(request!==generation.current)return
       if(result.error)throw new Error(result.error.message)
-      setEditing(visit);setHistory(result.data);setStart(new Date(visit.check_in).toISOString());setEnd(visit.check_out?new Date(visit.check_out).toISOString():"");setCorrectBranch(visit.branch_id);setReason("")
+      setEditing(visit);setHistory(result.data);setStart(organizationLocalTime(visit.check_in,visit.timezone));setEnd(visit.check_out?organizationLocalTime(visit.check_out,visit.timezone):"");setInInstant(visit.check_in);setOutInstant(visit.check_out||"");setInOptions([]);setOutOptions([]);setCorrectBranch(visit.branch_id);setReason("")
     }catch(cause){if(request===generation.current)setError(cause instanceof Error?cause.message:"History unavailable.")}
     finally{if(request===generation.current)setBusy(false)}
   }
@@ -136,9 +151,11 @@ export default function AttendanceWorkspace() {
           {current.rows.length===0&&<p>No matching recorded visits. This does not establish absence.</p>}<div className="flex gap-3"><button className="rj-button rj-button-secondary" disabled={busy||page===0} onClick={()=>{setPage(page-1);void read(false,page-1)}}>Previous</button><button className="rj-button rj-button-secondary" disabled={busy||!current.hasMore} onClick={()=>{setPage(page+1);void read(false,page+1)}}>Next page</button></div><p className="text-sm">Pages and exports are fresh independent snapshots. Historical views include voided records for correction staff; exports exclude them.</p>
         </section>}
         {editing&&<section className="rj-card space-y-3 p-5" aria-label="Attendance correction"><h2 className="rj-heading-2">History for {editing.name}</h2><ol className="list-decimal space-y-2 pl-5">{history.map(event=><li key={event.version}>Version {event.version}: {event.action} · {event.branch_name} · recorded {event.recorded_at} · actor {event.actor_id}<p>Effective: {event.check_in} → {event.check_out||"open"}</p>{event.reason&&<p>Reason: {event.reason}</p>}</li>)}</ol>
-          <p>Corrections preserve original history and require original and replacement check-in dates within seven local dates in {editing.timezone}. Enter UTC instants ending in Z to avoid ambiguous local times.</p>
+          <p>Corrections preserve original history and require original and replacement check-in dates within seven local dates in {editing.timezone}. Enter civil times in the recorded organization timezone. Nonexistent clock-change times are rejected; repeated times require an explicit occurrence.</p>
           <label className="block">Corrected branch<select className="rj-input" value={correctBranch} onChange={event=>setCorrectBranch(event.target.value)}>{context.branches.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-          <label className="block">Check-in UTC timestamp<input className="rj-input" value={start} onChange={event=>setStart(event.target.value)}/></label><label className="block">Check-out UTC timestamp (blank means open)<input className="rj-input" value={end} onChange={event=>setEnd(event.target.value)}/></label>
+          <label className="block">Check-in local time<input type="datetime-local" step="1" className="rj-input" value={start} onChange={event=>{setStart(event.target.value);setInInstant("");setInOptions([])}}/></label><label className="block">Check-out local time (blank means open)<input type="datetime-local" step="1" className="rj-input" value={end} onChange={event=>{setEnd(event.target.value);setOutInstant("");setOutOptions([])}}/></label>
+          {inOptions.length>1&&<label className="block">Check-in occurrence<select className="rj-input" value={inInstant} onChange={event=>setInInstant(event.target.value)}><option value="">Choose the intended occurrence</option>{inOptions.map(value=><option key={value} value={value}>{value} (UTC)</option>)}</select></label>}
+          {outOptions.length>1&&<label className="block">Checkout occurrence<select className="rj-input" value={outInstant} onChange={event=>setOutInstant(event.target.value)}><option value="">Choose the intended occurrence</option>{outOptions.map(value=><option key={value} value={value}>{value} (UTC)</option>)}</select></label>}
           <label className="block">Correction or void reason<input className="rj-input" maxLength={500} value={reason} onChange={event=>setReason(event.target.value)}/></label>
           <div className="flex flex-wrap gap-3"><button className="rj-button rj-button-primary" disabled={busy||editing.voided||!context.canWrite||reason.trim().length<3} onClick={()=>void mutate("correct",editing)}>Apply reasoned correction</button><button className="rj-button rj-button-danger" disabled={busy||editing.voided||!context.canWrite||reason.trim().length<3} onClick={()=>void mutate("void",editing)}>Void this visit, preserve history</button><button className="underline" onClick={()=>setEditing(null)}>Close history</button></div>
         </section>}

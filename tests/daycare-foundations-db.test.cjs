@@ -1,7 +1,8 @@
+require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- Offline PostgreSQL integration tests. */
 const {test}=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto')
 const {createFoundationsDatabase,ids,actor}=require('./helpers/daycare-foundations-db.cjs')
-const options={skip:!process.env.REJOYCE_BASELINE_SQL||!process.env.REJOYCE_PGLITE_MODULE}
+const options={skip:false}
 test('attendance source isolation, branch scopes, history, versions, retries and correction rules',options,async()=>{
  const db=await createFoundationsDatabase()
  const val=async(sql,args=[]) => (await db.query(sql,args)).rows[0].value

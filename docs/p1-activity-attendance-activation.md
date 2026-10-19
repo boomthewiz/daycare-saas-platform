@@ -1,5 +1,7 @@
 # P1: activity scheduling and attendance activation
 
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
 October 19, 2026. Implementation for review; **not deployed**. The October 18 attendance/context release remains the production baseline. This change does not authorize production migrations or deployment, and changes no customer settings, subscriptions, grants, invitations or external services.
 
 ## Scheduling decision and compatibility

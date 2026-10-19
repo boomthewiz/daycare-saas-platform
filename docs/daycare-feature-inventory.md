@@ -1,6 +1,8 @@
 # Daycare-first feature inventory
 
-**Implementation update:** this document preserves the slice 1 audit. See [slice 2](daycare-slice-2.md) for the implemented Reports/tour consumers, capability RPCs and migrations awaiting release; the registry now reflects that code maturity.
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
+**Implementation update:** this document preserves the slice 1 audit. See [slice 2](daycare-slice-2.md) for the implemented Reports/tour consumers, capability RPCs and migrations released October 18; the registry reflects the current P1/P2 implementation.
 
 Audited against fetched main `258844931a4a0929b1f23baeb111255e05418ef5`, October 17, 2026. This is slice 1 of the daycare-first handoff. No live database or production deployment was inspected during this audit.
 

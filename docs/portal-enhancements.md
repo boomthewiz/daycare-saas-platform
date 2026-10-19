@@ -1,5 +1,7 @@
 # People setup, CSV imports and portal presets
 
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
 Sessions now opens a dismissible setup dialog when the business has no active clients or no active frontline accounts. `session_people_readiness` returns only two booleans to unlocked session managers. Organization-wide readiness avoids treating a restricted staff list as an empty business. Owners and administrators alone do not count as eligible frontline staff. The dialog opens once per page visit; Refresh does not reopen a dismissed dialog. Existing inline requirements remain.
 
 ## Import people

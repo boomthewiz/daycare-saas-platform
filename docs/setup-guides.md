@@ -1,5 +1,7 @@
 # Getting-started guides and workflow bridges
 
+Current release status and migration mappings are maintained in [the October 19 release record](release-2026-10-19.md). The user has now authorized the combined P1/P2 deployment; older implementation/release restrictions below are dated history.
+
 The optional, closed-by-default Getting started disclosure appears on Setup home,
 preferences, care teams, roles, Team, client detail, scheduling, and session
 detail/edit. It explains ordering, optional configuration, permissions and how

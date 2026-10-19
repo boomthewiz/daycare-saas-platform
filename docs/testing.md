@@ -1,0 +1,13 @@
+# Required synthetic checks
+
+Run `npm ci` with Node.js 24. Test dependencies are pinned in the lockfile: PGlite 0.5.8, Postgres.js 3.4.9 and Playwright 1.62.1. `tests/fixtures/baseline.sql` is the existing schema-only, pre-care-team regression baseline previously kept outside the repository. It contains no customer rows, credentials or live service configuration. Tests add synthetic organizations/accounts and apply the relevant forward migrations. Do not replace it with a data dump or point tests at production.
+
+`npm test` is the required full regression command. It preloads `tests/setup.cjs`, requires the committed baseline and PGlite, and fails clearly if the isolated native PostgreSQL server/client is missing. It does not silently skip database tests.
+
+Provide a disposable PostgreSQL server on **127.0.0.1:55439**, user `postgres`, with permission to create/drop synthetic databases and roles. Supply `PGPASSWORD` if required. The native runner creates/drops only `attendance_test_<pid>`, tests independent transactions, and never accepts a remote database URL. The GitHub `Required checks / regression` job provisions this server with a PostgreSQL service and runs the full suite, TypeScript, affected-flow lint, webpack production build and synthetic browser flow. This named check is available for repository branch protection; the workflow itself does not change protection settings or deployment credentials.
+
+`npm run test:unit` is an explicitly **partial** local run excluding the native concurrency file. `npm run test:concurrency` requires the local server. External `REJOYCE_BASELINE_SQL` / `REJOYCE_PGLITE_MODULE` / `REJOYCE_POSTGRES_CLIENT` overrides remain available for deliberate local fixture tooling; the checked-in defaults require none. Missing prerequisites fail rather than turning required checks green through skips.
+
+For browser verification, build/start with synthetic `NEXT_PUBLIC_SUPABASE_URL=https://workflow-test.supabase.co`, synthetic public/service keys, and port 3047. Run `npx playwright install chromium`, then `npm run test:browser`. On Windows, `PLAYWRIGHT_CHANNEL=msedge` may select an installed Edge browser; CI uses the pinned Chromium runtime. The runner intercepts all external business HTTP into the isolated PGlite fixture and blocks unexpected mutations. No customer records or production credentials are used. It tests P1/P2 creation, recovery, choices, attendance and Tasks, including the combined server-to-UI path.
+
+Use `next build --webpack` for a checkout whose linked `node_modules` is rejected by Turbopack. The app's existing Google Fonts need network access during build. Build caches can be removed from `.next` when disk space is constrained; source and agent-instruction files are retained.
