@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   CircleAlert,
   LoaderCircle,
-  Mail,
   Send,
   ShieldCheck,
   Sparkles,
@@ -530,11 +529,6 @@ const handleInvite = async (
 
             <FormField label="Email address">
               <div className="relative">
-                <Mail
-                  size={19}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                />
-
                 <input
                   type="email"
                   value={email}
@@ -550,7 +544,7 @@ const handleInvite = async (
   }
 }}
                   placeholder="jordan@example.com"
-                  className="rj-input pl-12"
+                  className="rj-input"
                   autoComplete="email"
                   required
                 />

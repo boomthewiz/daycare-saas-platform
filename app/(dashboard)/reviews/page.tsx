@@ -391,11 +391,6 @@ export default function ReviewsPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-              />
-
               <input
                 type="search"
                 value={search}
@@ -403,7 +398,7 @@ export default function ReviewsPage() {
                   setSearch(event.target.value)
                 }
                 placeholder={t("Search client or provider...")}
-                className="rj-input pl-10 sm:w-72"
+                className="rj-input sm:w-72"
               />
             </div>
 

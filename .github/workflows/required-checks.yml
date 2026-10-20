@@ -40,3 +40,4 @@ jobs:
           npm start -- --port 3047 > /tmp/rejoyce-test-server.log 2>&1 &
           for attempt in $(seq 1 30); do curl --fail --silent http://localhost:3047/login > /dev/null && break; sleep 1; done
           npm run test:browser
+          node tests/form-fields.browser.cjs

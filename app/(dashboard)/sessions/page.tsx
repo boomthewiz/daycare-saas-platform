@@ -26,13 +26,11 @@ import {
   CircleAlert,
   Clock3,
   ExternalLink,
-  Filter,
   ListChecks,
   LoaderCircle,
   MapPin,
   Plus,
   RefreshCw,
-  Search,
   Sparkles,
   Users,
 } from "lucide-react"
@@ -944,11 +942,6 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
-                  <CalendarDays
-                    size={19}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
-
                   <input
                     type="datetime-local"
                     value={scheduledStart}
@@ -965,7 +958,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                         sessionType
                       )
                     }}
-                    className="rj-input pl-12"
+                    className="rj-input"
                     required
                   />
                 </div>
@@ -973,11 +966,6 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
               <FormField label="End">
                 <div className="relative">
-                  <Clock3
-                    size={19}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
-
                   <input
                     type="datetime-local"
                     value={scheduledEnd}
@@ -986,7 +974,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                         event.target.value
                       )
                     }
-                    className="rj-input pl-12"
+                    className="rj-input"
                     required
                   />
                 </div>
@@ -1066,11 +1054,6 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
               <div className="flex flex-col flex-wrap gap-3 sm:flex-row">
                 <div className="relative">
-                  <Search
-                    size={18}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
-
                   <input
                     type="search"
                     value={searchTerm}
@@ -1080,16 +1063,11 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                       )
                     }
                     placeholder={t("Search sessions…")}
-                    className="rj-input min-w-0 pl-11"
+                    className="rj-input min-w-0"
                   />
                 </div>
 
                 <div className="relative">
-                  <Filter
-                    size={18}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
-
                   <select
                     value={statusFilter}
                     onChange={(event) =>
@@ -1097,7 +1075,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                         event.target.value
                       )
                     }
-                    className="rj-input min-w-0 pl-11"
+                    className="rj-input min-w-0"
                   >
                     <option value="all">
                       All statuses

@@ -25,7 +25,6 @@ import {
   MailPlus,
   Plus,
   RefreshCw,
-  Search,
   UserRound,
   Users,
 } from "lucide-react"
@@ -531,10 +530,6 @@ function PeopleContent({ initialTab }: { initialTab: Tab }) {
       <section className="rj-card overflow-hidden">
         <div className="border-b border-[var(--rj-border)] p-6">
           <div className="relative max-w-md">
-            <Search
-              size={18}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-            />
 
             <input
               data-tour="people-search"
@@ -548,7 +543,7 @@ function PeopleContent({ initialTab }: { initialTab: Tab }) {
                   ? t("Search clients…")
                   : t("Search team members…")
               }
-              className="rj-input pl-11"
+              className="rj-input"
             />
           </div>
         </div>
