@@ -22,7 +22,6 @@ import {
   FileCheck2,
   KeyRound,
   LoaderCircle,
-  Mail,
   RefreshCw,
   Save,
   Send,
@@ -974,7 +973,7 @@ export default function ManageTeamMemberPage() {
         </div>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-3">
         <SummaryCard
           label={t("Assigned Clients")}
           value={assignedClients.length}
@@ -1042,17 +1041,12 @@ export default function ManageTeamMemberPage() {
 
               <FormField label="Email">
                 <div className="relative">
-                  <Mail
-                    size={18}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
-
                   <input
                     value={
                       member.email || ""
                     }
                     disabled
-                    className="rj-input pl-11 opacity-70"
+                    className="rj-input opacity-70"
                   />
                 </div>
 

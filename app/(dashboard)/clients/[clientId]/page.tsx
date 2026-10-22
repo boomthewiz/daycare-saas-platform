@@ -36,7 +36,6 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
-  Search,
   Sparkles,
   Target,
   UserRound,
@@ -1332,10 +1331,6 @@ export default function ClientDetailPage() {
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search
-                    size={18}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--rj-text-muted)]"
-                  />
 
                   <input
                     type="search"
@@ -1346,7 +1341,7 @@ export default function ClientDetailPage() {
                       )
                     }
                     placeholder={t("Search targets…")}
-                    className="rj-input pl-11"
+                    className="rj-input"
                   />
                 </div>
 

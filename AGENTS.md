@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Text-entry design convention
+
+For new or edited forms, follow `docs/design-system/components.md`: keep text entries free of decorative inset icons, use the normal shared `.rj-input` spacing, retain visible labels/help/errors, and preserve functional native/select/search-clear/password-reveal controls. This cleaner field style is the user's approved project default as of October 21, 2026.
