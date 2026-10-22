@@ -148,6 +148,8 @@ const searchParams = useSearchParams()
 const requestedClientId =
   searchParams.get("client")
 const requestedStart = parseCalendarDraft(searchParams.get("start"))
+const draftEnd = parseCalendarDraft(searchParams.get("end"))
+const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date(requestedStart) && new Date(draftEnd).getTime() - new Date(requestedStart).getTime() <= 86400000 ? draftEnd : ""
   
     const [clients, setClients] =
     useState<ClientOption[]>([])
@@ -168,10 +170,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
   const [providerId, setProviderId] = useState("")
   const [groupMode,setGroupMode]=useState(searchParams.get("group")==="1")
   const [group,setGroup]=useState<GroupDraft>(emptyGroup)
-  const [intent, setIntent] = useState<"activity" | "clinical">("activity")
+  const [intent, setIntent] = useState<"activity" | "clinical">(searchParams.get("intent") === "clinical" ? "clinical" : "activity")
   const [sessionType, setSessionType] = useState("")
   const [scheduledStart, setScheduledStart] = useState(requestedStart)
-  const [scheduledEnd, setScheduledEnd] = useState("")
+  const [scheduledEnd, setScheduledEnd] = useState(requestedEnd)
   const [canSchedule, setCanSchedule] = useState(false)
   const [permissionError, setPermissionError] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -214,8 +216,10 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
   useEffect(() => {
     appliedDraft.current = null
     setScheduledStart(requestedStart)
-    setScheduledEnd("")
-  }, [requestedStart])
+    setScheduledEnd(requestedEnd)
+    setGroupMode(searchParams.get("group") === "1")
+    setIntent(searchParams.get("intent") === "clinical" ? "clinical" : "activity")
+  }, [requestedStart, requestedEnd, searchParams])
 
   useEffect(() => {
     if (!requestedStart || appliedDraft.current === requestedStart || scheduledStart !== requestedStart || scheduledEnd) return
