@@ -32,7 +32,7 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - name: Lint affected flows
-        run: npx eslint components/SearchableChoice.tsx components/SessionContextChoices.tsx components/SessionChoiceManager.tsx components/AttendanceWorkspace.tsx components/TasksWorkspace.tsx 'app/(dashboard)/sessions/page.tsx' 'app/(dashboard)/tasks/page.tsx' lib/session-save-recovery.ts lib/organization-local-time.ts
+        run: npx eslint components/SearchableChoice.tsx components/SessionContextChoices.tsx components/SessionChoiceManager.tsx components/AttendanceWorkspace.tsx components/TasksWorkspace.tsx 'app/(dashboard)/sessions/page.tsx' 'app/(dashboard)/tasks/page.tsx' 'app/(dashboard)/team-management/page.tsx' 'app/(dashboard)/team-management/invite/page.tsx' 'app/(dashboard)/team-management/[userId]/page.tsx' 'app/(dashboard)/clients/[clientId]/page.tsx' 'app/(dashboard)/reviews/page.tsx' tests/form-fields.browser.cjs lib/session-save-recovery.ts lib/organization-local-time.ts
       - run: npx next build --webpack
       - run: npx playwright install --with-deps chromium
       - name: Synthetic production-mode browser flow
