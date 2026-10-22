@@ -9,6 +9,7 @@ async function createFoundationsDatabase(){
  await db.exec(readiness+'COMMIT;')
  await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261019194610_p1_activity_and_attendance_activation.sql'),'utf8'))
  await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261019202944_p2_scheduling_reliability.sql'),'utf8'))
+ await db.exec(fs.readFileSync(path.join(__dirname,'../../supabase/migrations/20261022044100_classes_group_activities.sql'),'utf8'))
  ids.north='70000000-0000-4000-8000-000000000001';ids.south='70000000-0000-4000-8000-000000000002';ids.foreignBranch='70000000-0000-4000-8000-000000000003'
  await db.exec(`INSERT INTO public.organization_locations(id,organization_id,name) VALUES('${ids.north}','${ids.org}','North'),('${ids.south}','${ids.org}','South'),('${ids.foreignBranch}','${ids.foreignOrg}','Foreign');
  INSERT INTO public.client_locations(organization_id,client_id,location_id) VALUES('${ids.org}','${ids.client}','${ids.north}'),('${ids.org}','${ids.client}','${ids.south}');`)

@@ -299,6 +299,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
       try {
         const permission = await supabase.rpc("can_manage_sessions")
         if (permission.error) throw new Error(permission.error.message)
+        const group = await supabase.rpc("activity_schedule", {p_session:sessionId})
+        if (group.data?.group_activity) { setSession({id:sessionId,workflow_intent:"activity"} as SessionRecord); return }
         setCanManage(permission.data === true)
         const {
           data: sessionData,

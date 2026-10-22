@@ -2,6 +2,8 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import ActivityGroupFields from "@/components/ActivityGroupFields"
+import { emptyGroup, readGroupActivities, type GroupDraft } from "@/lib/activity-groups"
 import SessionChoiceManager from "@/components/SessionChoiceManager"
 import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 import { recoveryKey, validOperation } from "@/lib/session-save-recovery"
@@ -93,6 +95,9 @@ type SessionTargetJoin = {
 }
 
 type SessionRow = {
+  activity_title?: string
+  group_activity?: boolean
+  child_count?: number
   id: string
   client_id: string
   provider_id: string | null
@@ -111,6 +116,7 @@ type SessionRow = {
 }
 
 type CreateSessionResult = {
+  group_activity?: boolean
   session_id: string
   client_id: string
   provider_id: string
@@ -160,6 +166,8 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
   const [clientId, setClientId] = useState("")
   const [providerId, setProviderId] = useState("")
+  const [groupMode,setGroupMode]=useState(searchParams.get("group")==="1")
+  const [group,setGroup]=useState<GroupDraft>(emptyGroup)
   const [intent, setIntent] = useState<"activity" | "clinical">("activity")
   const [sessionType, setSessionType] = useState("")
   const [scheduledStart, setScheduledStart] = useState(requestedStart)
@@ -178,7 +186,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
   const saveScope=caps?.sessions?`${caps.organizationId}:${caps.userId}`:""
   const scopeRef=useRef(saveScope)
   useEffect(()=>{
-    scopeRef.current=saveScope;sessionOperation.current=null;setRecoveryAttempt(null);setRecoveryReady(false);setRecoveryError("");setRecoveredSession("")
+    scopeRef.current=saveScope;sessionOperation.current=null;setGroup(emptyGroup);setRecoveryAttempt(null);setRecoveryReady(false);setRecoveryError("");setRecoveredSession("")
     if(!caps?.sessions)return
     const key=recoveryKey(caps.organizationId,caps.userId)
     const read=()=>{try{const value=localStorage.getItem(key);if(value&&!validOperation(value))throw new Error("Invalid save-recovery marker. Contact an administrator before creating another session.");setRecoveryAttempt(value);setRecoveryReady(true)}catch{setRecoveryError("Browser save recovery is unavailable. Enable local storage before saving a session.")}}
@@ -416,9 +424,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
           (locationResult.data ||
             []) as LocationOption[]
 
-        const loadedSessions =
-          (sessionResult.data ||
-            []) as unknown as SessionRow[]
+        const loadedSessions = [...(sessionResult.data || []), ...await readGroupActivities()] as unknown as SessionRow[]
 
         setClients(loadedClients)
         setProviders(loadedProviders)
@@ -506,6 +512,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
     return sessions.filter((session) => {
       const clientName =
+        session.activity_title ||
         session.clients?.preferred_name ||
         session.clients?.first_name ||
         ""
@@ -628,14 +635,14 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
     if(!recoveryReady||!caps?.sessions){setPageError("Verify save-recovery access before creating a session.");return}
     if(recoveryAttempt&&!sessionOperation.current){setRecoveryError("Resolve the previous save attempt first.");return}
     if (
-      !clientId ||
-      !providerId ||
+      (!(intent==="activity" && groupMode) && (!clientId || !providerId)) ||
+      (intent==="activity" && groupMode && (!group.classId || !group.title.trim() || !group.children.length || !group.staff.length)) ||
       !sessionType ||
       !scheduledStart ||
       !scheduledEnd
     ) {
       setPageError(
-        "Choose a client, assigned team member, session type, start time, and end time."
+        intent==="activity" && groupMode ? "Choose a class, activity name, children, assigned staff, activity type, start and end time." : "Choose a client, assigned team member, session type, start time, and end time."
       )
       return
     }
@@ -680,7 +687,8 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
     setSuccess(null)
 
     try {
-      const payload = { p_intent:intent,p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
+      const isGroup = intent==="activity" && groupMode
+      const payload = isGroup ? {p_class:group.classId,p_version:group.version,p_title:group.title,p_children:group.children,p_staff:group.staff,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null} : { p_intent:intent,p_child:clientId,p_provider:providerId,p_start:startDate.toISOString(),p_end:endDate.toISOString(),p_type:sessionType,p_location:finalLocation||null,p_tags:selectedTags }
       const fingerprint=JSON.stringify(payload)
       if(recoveryAttempt&&sessionOperation.current?.key!==fingerprint)throw new Error("Retry unchanged details or cancel the unconfirmed attempt first.")
       if(sessionOperation.current?.key!==fingerprint)sessionOperation.current={key:fingerprint,id:crypto.randomUUID()}
@@ -688,7 +696,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
       if(existing&&existing!==sessionOperation.current.id){sessionOperation.current=null;setRecoveryAttempt(existing);throw new Error("Another save needs recovery before creating a session.")}
       localStorage.setItem(key,sessionOperation.current.id)
       const requestScope=saveScope
-      const {data,error}=await supabase.rpc("create_scheduled_context_session",{...payload,p_operation:sessionOperation.current.id})
+      const {data,error}=await supabase.rpc(isGroup?"create_group_activity":"create_scheduled_context_session",{...payload,p_operation:sessionOperation.current.id})
       if(scopeRef.current!==requestScope)return
       if (error) {
         throw new Error(error.message)
@@ -700,6 +708,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
         data as CreateSessionResult
 
       sessionOperation.current=null
+      setGroup(emptyGroup)
       setSelectedTags([])
       void contextChoices.refresh()
       setSuccess(result)
@@ -781,7 +790,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               Admin Workspace
             </div>
 
-            <h1 className="rj-heading-1 mt-4">{t("Sessions")}</h1>
+            <h1 className="rj-heading-1 mt-4">Schedule</h1>
 
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">{t("Schedule services using the session types, durations, and locations configured in Setup.")}</p>
           </div>
@@ -845,7 +854,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             </div>
 
             <Link
-              href={`/sessions/${success.session_id}`}
+              href={success.group_activity ? `/activity/${success.session_id}` : `/sessions/${success.session_id}`}
               className="rj-button rj-button-primary"
             >{t("Manage Session")}<ExternalLink size={17} />
             </Link>
@@ -904,7 +913,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             </div>
           </div>
 
-          <p className="rj-caption mt-3">{intent === "clinical" ? "Clinical preparation copies active client targets. Existing clinical permissions and safeguards apply." : "Schedule one child’s activity without treatment targets. Attendance is recorded separately."}</p>
+          <p className="rj-caption mt-3">{intent === "clinical" ? "Clinical preparation copies active client targets. Existing clinical permissions and safeguards apply." : "Schedule individual or group activities without treatment targets. Attendance is recorded separately."}</p>
 {requestedClientId && selectedClient && (
   <div className="mt-4 rounded-[var(--rj-radius-md)] bg-[var(--rj-blue-50)] p-4">
     <div className="flex gap-3">
@@ -932,8 +941,11 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
             <label className="block">Scheduling workflow<select className="rj-input" value={intent} onChange={event=>setIntent(event.target.value as "activity" | "clinical")}><option value="activity">Ordinary daycare activity</option><option value="clinical">Clinical session with preparation</option></select></label>
             {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
             <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
+            {intent==="activity" && <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={groupMode} onChange={event=>setGroupMode(event.target.checked)} />Schedule for a class / group of children</label>}
+            {intent==="activity" && groupMode ? <ActivityGroupFields value={group} onChange={setGroup} disabled={creating || !canWrite} initialClass={searchParams.get("class") || ""} /> : <>
             <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
             <SearchableChoice label={t("Assigned frontline worker")} value={providerId} required options={providers.map(provider=>({value:provider.id,label:provider.full_name||provider.email||"Unnamed user",recent:!!contextChoices.data?.recent.some(recent=>recent.provider_id===provider.id)}))} onChange={setProviderId} />
+            </>}
             <SearchableChoice label={t("Session type")} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+duration*60000)))}} />
             <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
             <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
@@ -983,7 +995,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
 
             <SearchableChoice savedKind="location" label="Location" value={selectedLocation==="custom"?customLocation:selectedLocation} options={[...new Set([...(selectedLocation==="custom"&&customLocation?[customLocation]:[]),...locationOptions.map(location=>location.name),...sessions.map(session=>session.location).filter((value):value is string=>!!value),...(contextChoices.data?.choices.filter(choice=>choice.kind==="location"&&choice.active!==false).map(choice=>choice.label)||[]),...(contextChoices.data?.recent.map(recent=>recent.location).filter((value):value is string=>!!value)||[])])].map(value=>({value,label:value,recent:!!contextChoices.data?.recent.some(recent=>recent.location===value)}))} onChange={value=>{if(locationOptions.some(location=>location.name===value)){setSelectedLocation(value);setCustomLocation("")}else{setSelectedLocation(value?"custom":"");setCustomLocation(value)}}} createLabel="Create and save location choice" onCreate={async label=>{const result=await supabase.rpc("save_session_choice",{p_kind:"location",p_label:label,p_domain:"shared"});if(result.error)throw new Error(result.error.message);const latest=await contextChoices.refresh([result.data as string]);const saved=latest?.choices.find(choice=>choice.id===result.data);if(!saved)throw new Error("Location saved; reload choices before selecting it.");setSelectedLocation("custom");setCustomLocation(saved.label)}} />
             <p className="text-sm">A saved location choice is a scheduling label, not an attendance branch or classroom. Session times use the timezone configured on this device.</p>
-            <SessionContextChoices context={contextChoices.data} selected={selectedTags} onChange={setSelectedTags} onSaved={contextChoices.refresh} disabled={creating||!canWrite||!canSchedule} />
+            {!(intent==="activity" && groupMode) && <SessionContextChoices context={contextChoices.data} selected={selectedTags} onChange={setSelectedTags} onSaved={contextChoices.refresh} disabled={creating||!canWrite||!canSchedule} />}
 
             <button
               type="submit"
@@ -1005,8 +1017,8 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
               )}
 
               {creating
-                ? t("Preparing session…")
-                : t("Create Session")}
+                ? intent==="activity"?"Scheduling activity…":t("Preparing session…")
+                : intent==="activity"?"Schedule Activity":t("Create Session")}
             </button>
           </form></SubscriptionWriteControls></fieldset>
 
@@ -1044,7 +1056,7 @@ const requestedStart = parseCalendarDraft(searchParams.get("start"))
                   Organization Schedule
                 </p>
 
-                <h2 className="rj-heading-2 mt-1">{t("Scheduled Sessions")}</h2>
+                <h2 className="rj-heading-2 mt-1">Scheduled activities and clinical sessions</h2>
 
                 <p className="rj-caption mt-2">
                   {filteredSessions.length}{t(filteredSessions.length === 1 ? " session" : " sessions")}{" "}
@@ -1202,6 +1214,7 @@ function SessionRowCard({
   const { t } = usePortal()
 
   const clientName =
+    session.activity_title ||
     session.clients?.preferred_name ||
     session.clients?.first_name ||
     "Client"
@@ -1239,7 +1252,7 @@ function SessionRowCard({
                   : "rj-badge-warning"
               }`}
             >
-              {isActivity ? "Activity scheduled" : isPrepared
+              {isActivity ? (session.group_activity ? `Group activity · ${session.child_count} children` : "Activity scheduled") : isPrepared
                 ? "Prepared"
                 : t("Needs targets")}
             </span>
@@ -1296,7 +1309,7 @@ function SessionRowCard({
             <ExternalLink size={17} />
           </Link>
 
-          <Link href={`/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">{t("Edit session")}</Link>
+          <Link href={session.group_activity ? `/activity/${session.id}?edit=1` : `/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">{isActivity ? "Edit activity" : t("Edit session")}</Link>
           <Link
             href={`/sessions/${session.id}`}
             className="rj-button rj-button-primary"

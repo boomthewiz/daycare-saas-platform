@@ -46,11 +46,12 @@ test('calendar data paginates all records and constrains sessions through client
   const source = fs.readFileSync(require('node:path').join(__dirname,'../lib/calendar-data.ts'),'utf8')
   const output = ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
   const mod = {exports:{}}
-  new Function('require','module','exports',output)(name=>name==='@/lib/supabase'?{supabase:mock}:require(name),mod,mod.exports)
+  new Function('require','module','exports',output)(name=>name==='@/lib/supabase'?{supabase:mock}:name==='@/lib/activity-groups'?{readGroupActivities:async filters=>{assert.equal(filters.branch,'north');assert.equal(filters.from,'2026-10-12T05:00:00.000Z');return [{id:'group',group_activity:true}]}}:require(name),mod,mod.exports)
   const {readCalendarSessions}=mod.exports
   const start=new Date('2026-10-12T05:00:00Z'),end=new Date('2026-10-13T05:00:00Z')
   const result=await readCalendarSessions(start,end,'north')
-  assert.equal(result.length,1003)
+  assert.equal(result.length,1004)
+  assert.equal(result.filter(row=>row.id==='group').length,1)
   assert.deepEqual(queries.map(query=>query.range),[[0,499],[500,999],[1000,1499]])
   assert.ok(queries.every(query=>query.select[0].includes('clients!inner')&&query.select[0].includes('client_locations!inner')))
   assert.deepEqual(queries[0].eq,['clients.client_locations.location_id','north'])

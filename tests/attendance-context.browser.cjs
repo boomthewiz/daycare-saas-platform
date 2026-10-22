@@ -26,7 +26,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
      let data=[];const body=request.postData()?request.postDataJSON():{}
      if(url.pathname==='/auth/v1/user')data=user
      else if(url.pathname.includes('/rpc/')){
-      const args={effective_capabilities:[],current_organization_id:[],is_frontline_staff:[],can_review_sessions:[],can_manage_clients:[],can_manage_users:[],can_manage_sessions:[],subscription_access:['p_session_id'],session_people_readiness:[],attendance_context:[],attendance_activation:["p_user"],activity_schedule:["p_session"],create_scheduled_context_session:["p_child","p_provider","p_start","p_end","p_type","p_location","p_tags","p_operation","p_intent"],attendance_read:['p_branch','p_from','p_to','p_open','p_search','p_page','p_export'],attendance_mutate:['p_action','p_child','p_branch','p_visit','p_version','p_in','p_out','p_reason','p_operation'],attendance_history:['p_visit'],set_attendance_scope:['p_user','p_branches','p_expected'],session_context:['p_session'],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],update_session_choice:['p_choice','p_version','p_action','p_label'],recover_session_creation:['p_operation','p_cancel'],attendance_local_options:['p_visit','p_local'],correct_attendance_local:['p_visit','p_version','p_branch','p_in_local','p_out_local','p_in_instant','p_out_instant','p_reason','p_operation'],task_workspace:['p_date','p_page'],set_task_completed:['p_task','p_expected','p_completed'],set_task_owner:['p_task','p_user','p_expected'],save_session_choice:['p_kind','p_label','p_domain'],save_session_type_choice:['p_label','p_duration'],create_context_session:['p_child','p_provider','p_start','p_end','p_type','p_location','p_tags','p_operation']}
+      const args={list_group_activities:["p_from","p_to","p_branch","p_child","p_assigned","p_page"],effective_capabilities:[],current_organization_id:[],is_frontline_staff:[],can_review_sessions:[],can_manage_clients:[],can_manage_users:[],can_manage_sessions:[],subscription_access:['p_session_id'],session_people_readiness:[],attendance_context:[],attendance_activation:["p_user"],activity_schedule:["p_session"],create_scheduled_context_session:["p_child","p_provider","p_start","p_end","p_type","p_location","p_tags","p_operation","p_intent"],attendance_read:['p_branch','p_from','p_to','p_open','p_search','p_page','p_export'],attendance_mutate:['p_action','p_child','p_branch','p_visit','p_version','p_in','p_out','p_reason','p_operation'],attendance_history:['p_visit'],set_attendance_scope:['p_user','p_branches','p_expected'],session_context:['p_session'],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],update_session_choice:['p_choice','p_version','p_action','p_label'],recover_session_creation:['p_operation','p_cancel'],attendance_local_options:['p_visit','p_local'],correct_attendance_local:['p_visit','p_version','p_branch','p_in_local','p_out_local','p_in_instant','p_out_instant','p_reason','p_operation'],task_workspace:['p_date','p_page'],set_task_completed:['p_task','p_expected','p_completed'],set_task_owner:['p_task','p_user','p_expected'],save_session_choice:['p_kind','p_label','p_domain'],save_session_type_choice:['p_label','p_duration'],create_context_session:['p_child','p_provider','p_start','p_end','p_type','p_location','p_tags','p_operation']}
       if(!Object.hasOwn(args,name))throw new Error('Unexpected RPC '+name)
       calls.push({name,body})
       if(name==='create_scheduled_context_session'&&failSessionBefore){failSessionBefore=false;return route.fulfill({status:503,json:{message:'Synthetic pre-commit interruption'}})}
@@ -111,7 +111,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   assert.equal((await inspect('SELECT count(*)::integer n FROM rejoyce_security.session_choices WHERE kind=\'tag\' AND label=\'Parent observed\'')).rows[0].n,0,'typing does not save a tag')
   await page.getByRole('button',{name:'Create and save tag: Parent observed',exact:true}).click()
   failSessionResponse=true
-  await page.getByRole('button',{name:'Create Session',exact:true}).click()
+  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
   await page.reload()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
@@ -149,13 +149,13 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   await page.getByLabel('Scheduling workflow').selectOption('clinical')
   await page.getByLabel('Start',{exact:true}).fill('2026-10-21T10:00');await page.getByLabel('End',{exact:true}).fill('2026-10-21T11:00')
   failSessionBefore=true
-  await page.getByRole('button',{name:'Create Session',exact:true}).click()
+  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
   await page.getByRole('button',{name:'Cancel unconfirmed attempt',exact:true}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor({state:'hidden'})
   assert.equal((await inspect('SELECT count(*)::integer n FROM rejoyce_security.canceled_session_operations')).rows[0].n,1)
 
-  await page.getByRole('button',{name:'Create Session',exact:true}).click()
+  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
   await page.getByRole('heading',{name:'Session created successfully',exact:true}).waitFor()
   assert.equal((await inspect("SELECT count(*)::integer n FROM public.sessions WHERE workflow_intent='clinical'")).rows[0].n,2)
   assert.ok(calls.some(call=>call.name==='create_scheduled_context_session'&&call.body.p_intent==='clinical'))

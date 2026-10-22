@@ -1,5 +1,5 @@
-require('./setup.cjs')
 /* eslint-disable @typescript-eslint/no-require-imports -- Independent local PostgreSQL connections. */
+require('./setup.cjs')
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{randomUUID}=require('node:crypto')
 test('independent PostgreSQL transactions serialize duplicate check-ins, retries and stale corrections',{skip:false},async()=>{
  const dbName=`attendance_test_${process.pid}`
@@ -20,7 +20,7 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
    CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$SELECT auth.jwt()->>'role'$$;
    GRANT USAGE ON SCHEMA auth TO authenticated;GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;`)
   await run(fs.readFileSync(process.env.REJOYCE_BASELINE_SQL,'utf8'))
-  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql','20261022044100_classes_group_activities.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
   await run(`INSERT INTO rejoyce_security.session_policy(singleton,enforced) VALUES(true,true) ON CONFLICT(singleton) DO UPDATE SET enforced=true;
    INSERT INTO public.organizations(id,name) VALUES('${org}','Concurrent synthetic');INSERT INTO auth.users(id,email) VALUES('${user}','synthetic@example.invalid');
    INSERT INTO public.users(id,organization_id,role,status,pin_hash,pin_reset_required) VALUES('${user}','${org}','owner','active','synthetic',false);
@@ -50,5 +50,13 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.equal(await run(`SELECT count(*) FROM rejoyce_security.session_creation_operations WHERE operation_id='${racing}'`),recovered.state==='committed'?'1':'0')
   if(recovered.state==='canceled')assert.equal(outcome[0].status,'rejected','cancel-first fences delayed creation')
 
+  const groupStaff=randomUUID();await run(`INSERT INTO auth.users(id,email) VALUES('${groupStaff}','group@example.invalid');INSERT INTO public.users(id,organization_id,full_name,role,status) VALUES('${groupStaff}','${org}','Group staff','teacher','active');`)
+  const classResult=JSON.parse(await run(`${auth}SELECT public.save_activity_class(NULL,NULL,'Concurrent class','${branch}',ARRAY['${client}']::uuid[],ARRAY['${groupStaff}']::uuid[],true)`))
+  const groupCreation=op=>`${auth}SELECT public.create_group_activity('${classResult.id}',1,'Concurrent activity',ARRAY['${client}']::uuid[],ARRAY['${groupStaff}']::uuid[],'2026-10-22T12:00Z','2026-10-22T13:00Z','play',NULL,'${op}')`
+  const groupOp=randomUUID(),groupRetries=await Promise.all([run(groupCreation(groupOp)),run(groupCreation(groupOp))]);assert.equal(groupRetries[0],groupRetries[1]);assert.equal(await run('SELECT count(*) FROM rejoyce_security.group_activities'),'1')
+  const cancelGroup=randomUUID(),groupRace=await Promise.allSettled([run(groupCreation(cancelGroup)),run(`${auth}SELECT public.recover_session_creation('${cancelGroup}',true)`)]),groupOutcome=JSON.parse(groupRace[1].value)
+  assert.ok(['committed','canceled'].includes(groupOutcome.state));if(groupOutcome.state==='canceled')assert.equal(groupRace[0].status,'rejected')
+  const classEdit=()=>`${auth}SELECT public.save_activity_class('${classResult.id}',1,'Concurrent edited','${branch}',ARRAY['${client}']::uuid[],ARRAY['${groupStaff}']::uuid[],true)`
+  assert.equal((await Promise.allSettled([run(classEdit()),run(classEdit())])).filter(result=>result.status==='fulfilled').length,1)
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

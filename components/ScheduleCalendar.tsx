@@ -18,7 +18,7 @@ function subscribeMobile(callback: () => void) {
 }
 const dateLabel = (date: Date) => date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 const timeLabel = (date: Date) => date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-const clientName = (session: CalendarSession) => session.clients?.preferred_name || session.clients?.first_name || "Assigned client"
+const clientName = (session: CalendarSession) => session.activity_title || session.clients?.preferred_name || session.clients?.first_name || "Assigned client"
 const terminalStatuses = ["canceled", "client_absent", "provider_absent", "no_show"]
 
 export default function ScheduleCalendar() {
@@ -94,7 +94,7 @@ export default function ScheduleCalendar() {
     date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
     router.push(`/sessions?start=${encodeURIComponent(localDateTime(date))}#create-session`)
   }
-  const eventHref = (event: CalendarSession) => canSchedule ? `/sessions/${event.id}` : event.workflow_intent === "activity" ? `/activity/${event.id}` : `/session/${event.id}`
+  const eventHref = (event: CalendarSession) => event.group_activity ? `/activity/${event.id}` : canSchedule ? `/sessions/${event.id}` : event.workflow_intent === "activity" ? `/activity/${event.id}` : `/session/${event.id}`
   const serviceName = (session: CalendarSession) => typeNames[session.session_type] || session.session_type
   function move(direction: number) {
     if (!start || !last || rangeError) return

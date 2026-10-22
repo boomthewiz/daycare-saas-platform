@@ -87,6 +87,7 @@ export default function CareSetupPage() {
     <h1 className="rj-heading-1">Care-team setup</h1>
     <p>{t("Set staff branches first, then organize teams, classes, or groups. Groups are selection shortcuts; adding a member does not grant access to any client.")}</p>
     <PageGuide guide="care" />
+    <p className="text-sm">These are staff selection shortcuts. Manage reusable child rosters on the <Link className="underline" href="/classes">Classes page</Link>.</p>
     {error && <p role="alert" className="text-red-700">{error} <button type="button" disabled={saving} className="underline" onClick={() => {
       if (window.confirm("Reload setup? Unsaved setup changes will be discarded.")) { setStaffId(""); setStaffBranches([]); edit(null); setAttempt(value => value + 1) }
     }}>Reload setup</button></p>}
@@ -103,7 +104,7 @@ export default function CareSetupPage() {
         <button type="button" disabled={!staffId || saving} className="rj-button rj-button-primary" onClick={() => void saveStaff()}>{saving ? "Saving…" : "Save staff branches"}</button>
       </fieldset>
       <section className="rj-card mt-6 space-y-4 p-5">
-        <h2 className="rj-heading-2">2. Teams, classes, and groups</h2>
+        <h2 className="rj-heading-2">2. Staff care groups</h2>
         <div className="flex flex-wrap gap-2"><button type="button" className="rj-button rj-button-secondary" disabled={saving} onClick={() => edit(null)}>New group</button>
           {context.groups.map(group => <button key={group.id} type="button" disabled={saving} className="rj-button rj-button-secondary" onClick={() => edit(group)}>Edit {group.name}</button>)}
         </div>
