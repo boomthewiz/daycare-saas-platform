@@ -8,19 +8,24 @@ export function useSetupProgress(includeStaff = false) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const version = useRef(0)
+  const verified = useRef(false)
   const refresh = useCallback(async () => {
     const request = ++version.current
-    setLoading(true); setError(""); setData(null)
+    setLoading(!verified.current); setError("")
     try {
       const result = await supabase.rpc("onboarding_progress", { p_include_staff: includeStaff })
       if (request !== version.current) return
       if (result.error || !result.data || ["branch", "session_type", "client", "staff_ready", "care", "scheduled", "can_write", "can_clients", "can_users", "can_sessions"].some(key => typeof result.data[key] !== "boolean") || !Array.isArray(result.data.staff)) throw new Error("Unable to load setup progress. Your access may have changed. Try again or ask an administrator.")
-      setData(result.data as SetupProgress)
+      verified.current = true
+      const next = result.data as SetupProgress
+      setData(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next)
     } catch (cause) {
-      if (request === version.current) setError(cause instanceof Error ? cause.message : "Unable to load setup progress.")
+      if (request === version.current) { verified.current = false; setData(null); setError(cause instanceof Error ? cause.message : "Unable to load setup progress.") }
     } finally { if (request === version.current) setLoading(false) }
   }, [includeStaff])
   useEffect(() => {
+    verified.current = false
+    setData(null)
     const reload = () => { if (document.visibilityState === "visible") void refresh() }
     void refresh()
     window.addEventListener("focus", reload)

@@ -9,17 +9,20 @@ export default function EffectiveCapabilitiesProvider({ children }: { children: 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const version = useRef(0)
+  const verified = useRef<EffectiveCapabilities | null>(null)
   const refresh = useCallback(async () => {
     const request = ++version.current
-    setData(null); setLoading(true); setError("")
+    // Routine checks keep the verified screen mounted while the RPC is pending.
+    setLoading(!verified.current); setError("")
     try {
       const result = await supabase.rpc("effective_capabilities")
       if (request !== version.current) return
       const current = !result.error && normalizeCapabilities(result.data)
       if (!current) throw new Error("Unable to verify access. Unlock your device or retry.")
-      setData(current)
+      verified.current = current
+      setData(previous => JSON.stringify(previous) === JSON.stringify(current) ? previous : current)
     } catch {
-      if (request === version.current) setError("Unable to verify access. Unlock your device or retry.")
+      if (request === version.current) { verified.current = null; setData(null); setError("Unable to verify access. Unlock your device or retry.") }
     } finally { if (request === version.current) setLoading(false) }
   }, [])
   useEffect(() => {
@@ -27,11 +30,15 @@ export default function EffectiveCapabilitiesProvider({ children }: { children: 
     const reload = () => { if (!document.hidden) void refresh() }
     const stateChanged = (event: Event) => {
       if ((event as CustomEvent<string>).detail === "unlocked") reload()
-      else { counter.current++; setData(null); setLoading(false) }
+      else { counter.current++; verified.current = null; setData(null); setLoading(false) }
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      counter.current++; setData(null)
-      window.setTimeout(reload, 0)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Token renewal and repeated same-user sign-ins are background rechecks.
+      // Sign-out or an identity change must invalidate access immediately.
+      if (event === "SIGNED_OUT" || !session || session.user.id !== verified.current?.userId) {
+        counter.current++; verified.current = null; setData(null); setLoading(event !== "SIGNED_OUT")
+      }
+      if (event !== "SIGNED_OUT") window.setTimeout(reload, 0)
     })
     reload()
     const timer = window.setInterval(reload, 60000)
