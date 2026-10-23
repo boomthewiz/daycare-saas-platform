@@ -1,5 +1,6 @@
 "use client"
 
+import { readGroupActivities } from "@/lib/activity-groups"
 import { usePortal } from "@/components/PortalProvider"
 
 import {
@@ -48,6 +49,9 @@ type SessionTarget = {
 }
 
 type AssignedSession = {
+  activity_title?: string
+  group_activity?: boolean
+  child_count?: number
   id: string
   client_id: string
   provider_id: string | null
@@ -145,7 +149,7 @@ export default function MySessionsPage() {
         }
 
         setSessions(
-          (data || []) as unknown as AssignedSession[]
+          [...(data || []), ...await readGroupActivities({assigned:true})].sort((a,b)=>new Date(a.scheduled_start || 0).getTime()-new Date(b.scheduled_start || 0).getTime()) as unknown as AssignedSession[]
         )
       } catch (error) {
         console.error(
@@ -459,7 +463,7 @@ function FeaturedSessionCard({
   )
 
   return (
-    session.workflow_intent === "activity" ? <article className="rj-card p-5"><h3 className="rj-heading-3">{getClientName(session.clients)}</h3><p>Activity scheduled · {formatLabel(session.session_type)}</p><p>No clinical targets or note required. Attendance is separate.</p><Link className="rj-button rj-button-primary mt-3" href={`/activity/${session.id}`}>View activity</Link></article> : <article className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-teal-100)] bg-white p-6 shadow-[var(--rj-shadow-medium)]">
+    session.workflow_intent === "activity" ? <article className="rj-card p-5"><h3 className="rj-heading-3">{session.activity_title || getClientName(session.clients)}</h3><p>Activity scheduled · {formatLabel(session.session_type)}</p><p>No clinical targets or note required. Attendance is separate.</p><Link className="rj-button rj-button-primary mt-3" href={`/activity/${session.id}`}>View activity</Link></article> : <article className="relative overflow-hidden rounded-[var(--rj-radius-xl)] border border-[var(--rj-teal-100)] bg-white p-6 shadow-[var(--rj-shadow-medium)]">
       <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[var(--rj-teal-100)] opacity-65" />
 
       <div className="relative">

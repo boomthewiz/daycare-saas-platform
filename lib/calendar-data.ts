@@ -1,6 +1,10 @@
+import { readGroupActivities } from "@/lib/activity-groups"
 import { supabase } from "@/lib/supabase"
 
 export type CalendarSession = {
+  activity_title?: string
+  group_activity?: boolean
+  child_count?: number
   id: string
   status: string
   workflow_intent?: "activity" | "clinical"
@@ -29,6 +33,6 @@ export async function readCalendarSessions(start: Date, end: Date, branchId: str
     if (error) throw new Error(error.message)
     const page = (data || []) as unknown as CalendarSession[]
     rows.push(...page)
-    if (page.length < size) return rows
+    if (page.length < size) return [...rows, ...await readGroupActivities({from:start.toISOString(),to:end.toISOString(),branch:branchId})]
   }
 }

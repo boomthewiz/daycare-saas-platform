@@ -1,5 +1,6 @@
 "use client"
 
+import ChildActivityGroups from "@/components/ChildActivityGroups"
 import { usePortal } from "@/components/PortalProvider"
 
 import PageGuide from "@/components/PageGuide"
@@ -1279,6 +1280,7 @@ export default function ClientDetailPage() {
       </section>
 
       {activeTab === "overview" && <ClientBranches clientId={clientId} />}
+      {activeTab === "overview" && <ChildActivityGroups key={clientId} childId={clientId} />}
       {activeTab === "overview" && <ClientCareTeam clientId={clientId} onSaved={setAssignedProviderId} />}
 
       {activeTab === "overview" && (

@@ -1,5 +1,6 @@
 "use client"
 
+import { readGroupActivities } from "@/lib/activity-groups"
 import { usePortal } from "@/components/PortalProvider"
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -9,6 +10,7 @@ type Row = { id:string; workflow_intent?:string; status:string; scheduled_start:
 export default function SessionHistoryPage() {
   const { t } = usePortal()
 
+  const [groups,setGroups]=useState<{id:string;activity_title:string;scheduled_start:string}[]>([])
   const [rows,setRows]=useState<Row[]>([])
   const [filter,setFilter]=useState('all')
   const [page,setPage]=useState(0)
@@ -25,8 +27,9 @@ export default function SessionHistoryPage() {
       query=filter==='all' ? query.in('status',['completed','canceled','client_absent','provider_absent','no_show']) : query.eq('status',filter)
       const result=await query.order('scheduled_start',{ascending:false,nullsFirst:false}).order('id').range(page*25,page*25+24)
       if(result.error) throw result.error
+      setGroups((await readGroupActivities({assigned:true})).filter(row=>row.status==="canceled" && ["all","canceled"].includes(filter)))
       setRows(result.data as unknown as Row[]);setMore(result.data.length===25)
-    } catch(cause) { setRows([]);setMore(false);setError(cause instanceof Error?cause.message:'Unable to load history. Try again.') }
+    } catch(cause) { setRows([]);setGroups([]);setMore(false);setError(cause instanceof Error?cause.message:'Unable to load history. Try again.') }
     finally {setBusy(false)}
   },[page,filter])
   useEffect(()=>{void load()},[load])
@@ -34,6 +37,7 @@ export default function SessionHistoryPage() {
     <Link href="/my-sessions" className="rj-button rj-button-secondary">{t("Back to my sessions")}</Link>
     <h1 className="rj-heading-1">{t("Session history")}</h1>
     <label className="block">{t("Session outcome")}<select className="rj-input mt-2" value={filter} disabled={busy} onChange={e=>{setFilter(e.target.value);setPage(0)}}>{['all','completed','canceled','client_absent','provider_absent','no_show'].map(value=><option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}</select></label>
+    {!!groups.length && <section className="space-y-3"><h2 className="rj-heading-2">Canceled group activities</h2>{groups.map(group=><Link className="rj-card block p-4" key={group.id} href={`/activity/${group.id}`}>{group.activity_title} · {new Date(group.scheduled_start).toLocaleString()}</Link>)}</section>}
     {error && <div role="alert">{error}<button className="rj-button rj-button-secondary" onClick={()=>void load()}>Try again</button></div>}
     {busy ? <p role="status">Loading history…</p> : <>
       {!rows.length&&!error&&<p>{t("No sessions match this page.")}</p>}

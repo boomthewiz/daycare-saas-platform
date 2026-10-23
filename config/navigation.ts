@@ -21,6 +21,7 @@ export type NavigationItem = {
 }
 
 export const navigationItems: NavigationItem[] = [
+  { name: "Classes", href: "/classes", icon: Users, permission: "clients" },
   { name: "Attendance", href: "/attendance", icon: ClipboardCheck, permission: "attendance" },
   {
     name: "Home",
@@ -49,7 +50,7 @@ export const navigationItems: NavigationItem[] = [
   },
 
   {
-    name: "Sessions",
+    name: "Schedule",
     href: "/sessions",
     icon: CalendarDays,
     permission: "sessions",

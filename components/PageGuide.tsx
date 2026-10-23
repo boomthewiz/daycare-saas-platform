@@ -8,7 +8,7 @@ const guides = {
     title: "Start setting up your workspace",
     steps: [
       { title: "Review business preferences", text: "Check your branches and reusable session types first. Keep the supplied terminology unless different labels would help your team.", href: "/setup/preferences" },
-      { title: "Prepare team access", text: "Invite staff and review each person's grants. Assign staff to active branches before selecting them for client care teams. Groups and classes are optional selection shortcuts.", href: "/setup/roles" },
+      { title: "Prepare team access", text: "Invite staff and review each person's grants. Assign staff to active branches before selecting them for client care teams. Staff care groups are optional selection shortcuts; Classes holds reusable child rosters for group activities.", href: "/setup/roles" },
       { title: "Connect clients to everyday work", text: "In Team, add clients, choose their branches and explicitly save their care teams. Add targets on the client record, then schedule a session and prepare its targets.", href: "/team-management" },
     ],
     access: "Manage sessions allows branch and session-type changes. Manage clients allows target categories and care-team setup. Either grant allows terminology changes. Manage users allows invitations and account management; changing grants also requires delegation authority. Read-only subscription access prevents organization changes.",
@@ -26,7 +26,7 @@ const guides = {
     title: "Connect branches before choosing care teams",
     steps: [
       { title: "Assign staff branches", text: "Select active staff, choose where they work and save. If a branch is missing, create it in business preferences first.", href: "/setup/preferences" },
-      { title: "Optionally create groups or classes", text: "Choose a branch and eligible members. People may belong to several groups. Groups make selecting people easier and do not grant client access." },
+      { title: "Optionally create staff care groups", text: "Choose a branch and eligible staff. Staff may belong to several care groups. Child activity rosters are managed separately in Classes; neither grouping grants clinical access." },
       { title: "Save each client's care team", text: "Open Team, choose the client's active branches, select eligible staff and save the care team. Staff need an explicit assignment and a shared active branch for care-team client access. Session assignments follow their own rules.", href: "/team-management" },
     ],
     access: "Manage clients is required to edit staff branches and groups. Account invitations and grants are managed separately under Roles and permissions. Read-only subscription access disables saves.",

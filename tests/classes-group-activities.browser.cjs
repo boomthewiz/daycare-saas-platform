@@ -1,0 +1,66 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Browser to isolated PostgreSQL; all business HTTP intercepted. */
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs')
+const {createFoundationsDatabase,ids,actor}=require('./helpers/daycare-foundations-db.cjs')
+const base=process.env.TEST_BASE_URL||'http://localhost:3047',extra='20000000-0000-4000-8000-000000000009'
+assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname))
+const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
+;(async()=>{const db=await createFoundationsDatabase(),browser=await chromium.launch({...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{}),headless:true});let queue=Promise.resolve();const errors=[],writes=[],evidence=[]
+ const inspect=async sql=>{await queue;await db.exec('RESET ROLE');return db.query(sql)}
+ try{
+  await db.exec(`RESET ROLE; INSERT INTO public.organization_terminology(organization_id,client_singular,client_plural,frontline_singular,frontline_plural,session_singular,session_plural) VALUES('${ids.org}','Child','Children','Educator','Educators','Activity','Activities'); INSERT INTO public.session_types(organization_id,name,code,default_duration_minutes) VALUES('${ids.org}','Outdoor play','outdoor_play',60);INSERT INTO auth.users(id,email) VALUES('${extra}','group@example.invalid');INSERT INTO public.users(id,organization_id,full_name,email,role,status,pin_hash,pin_reset_required) VALUES('${extra}','${ids.org}','Group worker','group@example.invalid','teacher','active','synthetic',false);INSERT INTO auth.sessions(id,user_id) VALUES('${extra}','${extra}');INSERT INTO public.device_sessions(session_id,user_id,full_auth_at,last_pin_at,unlocked_until) VALUES('${extra}','${extra}',now(),now(),now()+interval '1 day');INSERT INTO public.client_locations(organization_id,client_id,location_id) VALUES('${ids.org}','${ids.sourceClient}','${ids.north}')`)
+  async function openAs(userId,device){
+   const user={id:userId,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
+   const token=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:userId,session_id:device,exp:Math.floor(Date.now()/1000)+36000})).toString('base64url')+'.synthetic'
+   const ctx=await browser.newContext({viewport:{width:1280,height:900}})
+   await ctx.addInitScript(({user,token})=>localStorage.setItem('sb-workflow-test-auth-token',JSON.stringify({access_token:token,refresh_token:'synthetic',expires_at:Math.floor(Date.now()/1000)+36000,token_type:'bearer',user})),{user,token})
+   await ctx.route('**/*',route=>{const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop();
+    if(url.origin===new URL(base).origin){if(url.pathname==='/api/session-policy')return route.fulfill({json:{enabled:false}});if(url.pathname==='/api/pin-status')return route.fulfill({json:{hasPin:true,resetRequired:false}});if(url.pathname.startsWith('/api/'))return route.fulfill({status:403,json:{error:'No real business actions in fixture'}});return route.continue()}
+    if(url.origin!=='https://workflow-test.supabase.co')return route.abort()
+    const args={current_organization_id:[],effective_capabilities:[],subscription_access:['p_session_id'],can_manage_sessions:[],can_manage_clients:[],can_manage_users:[],can_review_sessions:[],is_frontline_staff:[],onboarding_progress:['p_staff'],session_people_readiness:[],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],activity_class_context:[],save_activity_class:['p_id','p_version','p_name','p_branch','p_children','p_staff','p_active'],create_group_activity:['p_class','p_version','p_title','p_children','p_staff','p_start','p_end','p_type','p_location','p_operation'],list_group_activities:['p_from','p_to','p_branch','p_child','p_assigned','p_page'],activity_schedule:['p_session'],update_group_activity:['p_activity','p_version','p_start','p_end','p_location','p_status'],recover_session_creation:['p_operation','p_cancel']}
+    queue=queue.then(async()=>{try{await actor(db,userId,device);let data=[];const body=req.postData()?req.postDataJSON():{};
+     if(url.pathname==='/auth/v1/user')data=user
+     else if(url.pathname.includes('/rpc/')){assert.ok(Object.hasOwn(args,name),'Unexpected RPC '+name);if(['save_activity_class','create_group_activity','update_group_activity'].includes(name))writes.push(name);data=(await db.query(`SELECT public.${name}(${args[name].map((_,i)=>'$'+(i+1)).join(',')}) v`,args[name].map(key=>body[key]??null))).rows[0].v}
+     else{assert.equal(req.method(),'GET','No direct table writes');assert.ok(['users','clients','sessions','session_types','organization_locations','organization_terminology','user_permissions','client_locations','client_targets','client_behaviors','target_categories','organizations','session_notes'].includes(name),'Unexpected table '+name);data=(await db.query(`SELECT ${name==='users'?'id,organization_id,full_name,email,role,status':'*'} FROM public.${name}`)).rows;for(const [key,value]of url.searchParams){if(value.startsWith('eq.'))data=data.filter(row=>String(row[key])===value.slice(3));if(value.startsWith('in.('))data=data.filter(row=>value.slice(4,-1).split(',').includes(row[key]))}if(name==='sessions')for(const row of data){row.clients={first_name:'Synthetic destination',preferred_name:null};row.provider={full_name:'Synthetic staff'};row.session_targets=[]}if((req.headers().accept||'').includes('vnd.pgrst.object'))data=data[0]||null}
+     await route.fulfill({json:data})
+    }catch(e){errors.push(e.message);await route.fulfill({status:400,json:{message:e.message}})}});return queue
+   })
+   const page=await ctx.newPage();page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));return {ctx,page}
+  }
+  const {ctx,page}=await openAs(ids.owner,ids.device)
+  await page.goto(base+'/classes');await page.getByRole('heading',{name:'Classes',exact:true}).waitFor()
+  await page.getByLabel('Class name',{exact:true}).fill('Preschool Blue');await page.getByLabel(/^Branch/).selectOption(ids.north)
+  await page.getByLabel('Synthetic destination',{exact:true}).check();await page.getByLabel('Synthetic source',{exact:true}).check();await page.getByLabel('Synthetic staff',{exact:true}).check();await page.getByLabel('Group worker',{exact:true}).check()
+  await page.getByRole('button',{name:'Save class',exact:true}).click();await page.getByRole('status').filter({hasText:'Class saved.'}).waitFor()
+  const classId=(await inspect('SELECT id FROM rejoyce_security.activity_classes')).rows[0].id
+  for(const width of [320,375,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Classes fit '+width);evidence.push({route:'/classes',width,overflow:false})}
+  await page.getByRole('link',{name:'Schedule activity for Preschool Blue',exact:true}).click()
+  await page.getByRole('region',{name:'Group activity roster'}).waitFor();await page.getByRole('combobox',{name:/^Class/}).selectOption(classId)
+  await page.getByLabel('Activity name',{exact:true}).fill('Outdoor play');await page.getByLabel(/^(Session type|Activity type)$/).fill('Outdoor');await page.getByRole('button',{name:/^Outdoor play/}).click();await page.locator('input[type=datetime-local]').first().fill(activityDate+'T10:00');await page.locator('input[type=datetime-local]').last().fill(activityDate+'T11:00')
+  fs.mkdirSync('work/class-activity-evidence',{recursive:true});await page.screenshot({path:'work/class-activity-evidence/schedule-group-desktop.png',fullPage:true});await page.getByRole('button',{name:'Schedule Activity',exact:true}).click();await page.getByText('Activity scheduled. No clinical targets prepared; this is not recorded attendance.',{exact:true}).waitFor()
+  const activityId=(await inspect('SELECT id FROM rejoyce_security.group_activities')).rows[0].id
+  await page.goto(base+'/activity/'+activityId);await page.getByRole('heading',{name:'Group activity',exact:true}).waitFor();await page.getByText('Synthetic source',{exact:true}).waitFor()
+  for(const width of [320,375,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Group fits '+width);evidence.push({route:'/activity/group',width,overflow:false})}
+  await page.goto(base+'/classes');await page.getByRole('button',{name:'Edit Preschool Blue',exact:true}).click();await page.getByLabel('Synthetic source',{exact:true}).uncheck();await page.getByRole('button',{name:'Save class',exact:true}).click();await page.getByRole('status').filter({hasText:'Class saved.'}).waitFor()
+  await page.goto(base+'/activity/'+activityId);await page.getByText('Synthetic source',{exact:true}).waitFor()
+  const assigned=await openAs(extra,extra);await assigned.page.goto(base+'/my-sessions');await assigned.page.getByRole('heading',{name:'Outdoor play',exact:true}).first().waitFor();await assigned.page.getByRole('link',{name:'View activity',exact:true}).first().click();await assigned.page.getByRole('heading',{name:'Group activity',exact:true}).waitFor()
+  await page.goto(base+'/dashboard');await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor();await page.getByLabel('Go to date',{exact:true}).fill(activityDate);await page.locator('a[href="/activity/'+activityId+'"]').first().waitFor();assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),1,'one group calendar event')
+  await page.getByLabel('Schedule focus',{exact:true}).selectOption('classes')
+  await page.locator('a[href="/activity/'+activityId+'"]').waitFor()
+  await page.getByLabel('Schedule focus',{exact:true}).selectOption('sessions')
+  assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),0,'individual view excludes group events')
+  await page.getByLabel('Schedule focus',{exact:true}).selectOption('classes')
+  await page.screenshot({path:'work/class-activity-evidence/calendar-classes.png',fullPage:true})
+  const slot=page.locator('button[data-day="0"][data-slot="18"]');await slot.scrollIntoViewIfNeeded()
+  const box=await slot.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y+box.height*2.5,{steps:6});await page.mouse.up()
+  await page.waitForURL(/\/sessions\?/)
+  const draft=new URL(page.url());assert.equal(draft.searchParams.get('group'),'1');assert.equal(draft.searchParams.get('intent'),'activity');assert.equal(draft.searchParams.get('start'),activityDate+'T09:00');assert.equal(draft.searchParams.get('end'),activityDate+'T10:30')
+  await page.getByRole('region',{name:'Group activity roster'}).waitFor()
+  assert.equal(await page.locator('input[type=datetime-local]').last().inputValue(),activityDate+'T10:30','drag duration survives form load')
+  fs.mkdirSync('work/class-activity-evidence',{recursive:true});await assigned.page.setViewportSize({width:375,height:900});await assigned.page.screenshot({path:'work/class-activity-evidence/assigned-group-mobile.png',fullPage:true})
+  await page.goto(base+'/classes');await page.getByRole('button',{name:'Edit Preschool Blue',exact:true}).click();await page.getByLabel('Class name',{exact:true}).waitFor();await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'work/class-activity-evidence/classes-desktop.png',fullPage:true})
+  await page.goto(base+'/activity/'+activityId+'?edit=1');await page.getByRole('combobox',{name:/^Schedule status/}).selectOption('canceled');await page.getByRole('button',{name:'Save activity schedule',exact:true}).click();await page.getByRole('status').filter({hasText:'Activity schedule saved.'}).waitFor()
+  await assigned.page.goto(base+'/my-sessions/history');await assigned.page.getByRole('heading',{name:'Canceled group activities',exact:true}).waitFor();await assigned.page.locator('a[href="/activity/'+activityId+'"]').waitFor()
+  await queue;assert.deepEqual(errors,[]);assert.ok(writes.includes('create_group_activity'));fs.writeFileSync('work/class-activity-evidence/results.json',JSON.stringify({passed:true,evidence,rosterSnapshot:true,secondaryStaffAccess:true,writes},null,2));console.log(JSON.stringify({passed:true,evidence,rosterSnapshot:true,secondaryStaffAccess:true}))
+  await assigned.ctx.close();await ctx.close()
+ }finally{await browser.close();await db.close()}
+})().catch(e=>{console.error(e);process.exitCode=1})
