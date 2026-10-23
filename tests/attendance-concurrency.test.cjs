@@ -20,7 +20,7 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
    CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$SELECT auth.jwt()->>'role'$$;
    GRANT USAGE ON SCHEMA auth TO authenticated;GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;`)
   await run(fs.readFileSync(process.env.REJOYCE_BASELINE_SQL,'utf8'))
-  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql','20261022044100_classes_group_activities.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql','20261022044100_classes_group_activities.sql','20261023215652_account_service_model.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
   await run(`INSERT INTO rejoyce_security.session_policy(singleton,enforced) VALUES(true,true) ON CONFLICT(singleton) DO UPDATE SET enforced=true;
    INSERT INTO public.organizations(id,name) VALUES('${org}','Concurrent synthetic');INSERT INTO auth.users(id,email) VALUES('${user}','synthetic@example.invalid');
    INSERT INTO public.users(id,organization_id,role,status,pin_hash,pin_reset_required) VALUES('${user}','${org}','owner','active','synthetic',false);
@@ -58,5 +58,10 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.ok(['committed','canceled'].includes(groupOutcome.state));if(groupOutcome.state==='canceled')assert.equal(groupRace[0].status,'rejected')
   const classEdit=()=>`${auth}SELECT public.save_activity_class('${classResult.id}',1,'Concurrent edited','${branch}',ARRAY['${client}']::uuid[],ARRAY['${groupStaff}']::uuid[],true)`
   assert.equal((await Promise.allSettled([run(classEdit()),run(classEdit())])).filter(result=>result.status==='fulfilled').length,1)
+  const modelEdit=model=>`${auth}SELECT public.set_account_service_model('${org}','${model}',0)`
+  const models=await Promise.allSettled([run(modelEdit('daycare')),run(modelEdit('aba'))])
+  assert.equal(models.filter(result=>result.status==='fulfilled').length,1,'only one first confirmation wins')
+  assert.match(models.find(result=>result.status==='rejected').reason.message,/changed/)
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.service_model_history'),'1')
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

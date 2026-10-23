@@ -1,5 +1,7 @@
 # Calendar views and account setup
 
+October 23 implementation update: see [account-service-model-implementation.md](account-service-model-implementation.md) for the proposed implementation, authority, migration and verification. Earlier implementation/proposal wording below is retained as historical context; C1–C3 are addressed in the new feature branch, pending review and release. C4 and the timezone/location limitations remain open.
+
 Implemented locally: All scheduled work, Classes (group Activities; daily default), and Session detail (individual work). Existing day/week/date-range controls remain available. Mouse/pen drag selects a same-day range in 30-minute increments, in either direction; touch and keyboard retain slot selection. Navigation opens a draft, never saves. Explicit URL end times are validated and preserved rather than overwritten by a type default. Existing server permissions, branch filters and subscription checks still apply.
 
 The Classes view starts a group Activity draft. Session detail starts a clinical draft; All scheduled work keeps the existing ordinary Activity default. Staff review workflow, roster, staff and times before saving. Class selection reuses an existing Class; this gesture schedules its Activity rather than creating a new roster.

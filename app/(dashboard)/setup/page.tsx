@@ -1,4 +1,5 @@
 "use client"
+import ServiceModelSettings from "@/components/ServiceModelSettings"
 
 import { usePortal } from "@/components/PortalProvider"
 import SetupProgressChecklist from "@/components/SetupProgressChecklist"
@@ -15,7 +16,7 @@ export default function SetupPage() {
     <p>Configure your business and team. Available changes depend on your current permissions.</p>
     <PageTour family="setup" />
     {access.error && <p role="alert">{access.error}</p>}
-    <div data-tour="setup-readiness"><SetupProgressChecklist /></div>
+    <ServiceModelSettings /><div data-tour="setup-readiness"><SetupProgressChecklist /></div>
     <div className="grid gap-4 md:grid-cols-2">
       {(access.clients || access.sessions) && <Link data-tour="setup-people" href="/team-management?tab=clients" className="rj-card block p-5"><h2 className="rj-heading-3">People roster</h2><p className="mt-2">Current child profiles and branch membership.</p></Link>}
       {capabilities?.reports && <Link data-tour="setup-reports" href="/reports" className="rj-card block p-5"><h2 className="rj-heading-3">Operational reports</h2><p className="mt-2">Current roster, authorized staff readiness and recorded schedule activity.</p></Link>}
