@@ -7,6 +7,7 @@ import WorkspaceNavigation from "@/components/WorkspaceNavigation"
 
 import { BranchProvider } from "@/components/BranchProvider"
 import { SubscriptionWriteProvider } from "@/components/SubscriptionWriteControls"
+import ServiceModelProvider from "@/components/ServiceModelProvider"
 import PortalProvider from "@/components/PortalProvider"
 import DailyScheduleProvider from "@/components/DailyScheduleProvider"
 import AccessHelp from "@/components/AccessHelp"
@@ -67,7 +68,7 @@ export default function WorkspaceLayout({
   }
 
   return (
-    <EffectiveCapabilitiesProvider><PortalProvider><BranchProvider><DailyScheduleProvider>
+    <EffectiveCapabilitiesProvider><ServiceModelProvider><PortalProvider><BranchProvider><DailyScheduleProvider>
     <div className="min-h-screen flex flex-col bg-gray-50">
       <WorkspaceNavigation sticky={stickySidebar}>
         <main className="min-w-0 flex-1 p-3 sm:p-6">
@@ -75,6 +76,6 @@ export default function WorkspaceLayout({
         </main>
       </WorkspaceNavigation>
     </div>
-    </DailyScheduleProvider></BranchProvider></PortalProvider></EffectiveCapabilitiesProvider>
+    </DailyScheduleProvider></BranchProvider></PortalProvider></ServiceModelProvider></EffectiveCapabilitiesProvider>
   )
 }

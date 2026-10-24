@@ -222,7 +222,7 @@ const ATTENDANCE_STATUSES: {
 ]
 
 export default function SessionAdministration({ editing = false }: { editing?: boolean }) {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
 
   const router = useRouter()
   const [canManage, setCanManage] = useState(false)
@@ -1794,7 +1794,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 }
 
 function SessionDetailLoading() {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
 
   return (
     <div className="flex min-h-[65vh] items-center justify-center">
@@ -1907,7 +1907,7 @@ function PreparationBadge({
 }: {
   prepared: boolean
 }) {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
 
   return (
     <span

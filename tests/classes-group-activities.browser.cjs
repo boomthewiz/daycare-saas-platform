@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Browser to isolated PostgreSQL; all business HTTP intercepted. */
-const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs')
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs')
 const {createFoundationsDatabase,ids,actor}=require('./helpers/daycare-foundations-db.cjs')
 const base=process.env.TEST_BASE_URL||'http://localhost:3047',extra='20000000-0000-4000-8000-000000000009'
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname))
@@ -16,7 +16,7 @@ const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
    await ctx.route('**/*',route=>{const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop();
     if(url.origin===new URL(base).origin){if(url.pathname==='/api/session-policy')return route.fulfill({json:{enabled:false}});if(url.pathname==='/api/pin-status')return route.fulfill({json:{hasPin:true,resetRequired:false}});if(url.pathname.startsWith('/api/'))return route.fulfill({status:403,json:{error:'No real business actions in fixture'}});return route.continue()}
     if(url.origin!=='https://workflow-test.supabase.co')return route.abort()
-    const args={current_organization_id:[],effective_capabilities:[],subscription_access:['p_session_id'],can_manage_sessions:[],can_manage_clients:[],can_manage_users:[],can_review_sessions:[],is_frontline_staff:[],onboarding_progress:['p_staff'],session_people_readiness:[],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],activity_class_context:[],save_activity_class:['p_id','p_version','p_name','p_branch','p_children','p_staff','p_active'],create_group_activity:['p_class','p_version','p_title','p_children','p_staff','p_start','p_end','p_type','p_location','p_operation'],list_group_activities:['p_from','p_to','p_branch','p_child','p_assigned','p_page'],activity_schedule:['p_session'],update_group_activity:['p_activity','p_version','p_start','p_end','p_location','p_status'],recover_session_creation:['p_operation','p_cancel']}
+    const args={account_service_model:[],set_account_service_model:["p_organization","p_model","p_version"],current_organization_id:[],effective_capabilities:[],subscription_access:['p_session_id'],can_manage_sessions:[],can_manage_clients:[],can_manage_users:[],can_review_sessions:[],is_frontline_staff:[],onboarding_progress:['p_staff'],session_people_readiness:[],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],activity_class_context:[],save_activity_class:['p_id','p_version','p_name','p_branch','p_children','p_staff','p_active'],create_group_activity:['p_class','p_version','p_title','p_children','p_staff','p_start','p_end','p_type','p_location','p_operation'],list_group_activities:['p_from','p_to','p_branch','p_child','p_assigned','p_page'],activity_schedule:['p_session'],update_group_activity:['p_activity','p_version','p_start','p_end','p_location','p_status'],recover_session_creation:['p_operation','p_cancel']}
     queue=queue.then(async()=>{try{await actor(db,userId,device);let data=[];const body=req.postData()?req.postDataJSON():{};
      if(url.pathname==='/auth/v1/user')data=user
      else if(url.pathname.includes('/rpc/')){assert.ok(Object.hasOwn(args,name),'Unexpected RPC '+name);if(['save_activity_class','create_group_activity','update_group_activity'].includes(name))writes.push(name);data=(await db.query(`SELECT public.${name}(${args[name].map((_,i)=>'$'+(i+1)).join(',')}) v`,args[name].map(key=>body[key]??null))).rows[0].v}
@@ -43,19 +43,58 @@ const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
   await page.goto(base+'/classes');await page.getByRole('button',{name:'Edit Preschool Blue',exact:true}).click();await page.getByLabel('Synthetic source',{exact:true}).uncheck();await page.getByRole('button',{name:'Save class',exact:true}).click();await page.getByRole('status').filter({hasText:'Class saved.'}).waitFor()
   await page.goto(base+'/activity/'+activityId);await page.getByText('Synthetic source',{exact:true}).waitFor()
   const assigned=await openAs(extra,extra);await assigned.page.goto(base+'/my-sessions');await assigned.page.getByRole('heading',{name:'Outdoor play',exact:true}).first().waitFor();await assigned.page.getByRole('link',{name:'View activity',exact:true}).first().click();await assigned.page.getByRole('heading',{name:'Group activity',exact:true}).waitFor()
-  await page.goto(base+'/dashboard');await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor();await page.getByLabel('Go to date',{exact:true}).fill(activityDate);await page.locator('a[href="/activity/'+activityId+'"]').first().waitFor();assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),1,'one group calendar event')
+  await page.goto(base+'/dashboard');await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor();await page.waitForFunction(()=>{const slot=document.querySelector('button[data-slot="18"]');return slot&&!slot.disabled});await page.getByLabel('Go to date',{exact:true}).fill(activityDate);await page.locator('a[href="/activity/'+activityId+'"]').first().waitFor();assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),1,'one group calendar event')
   await page.getByLabel('Schedule focus',{exact:true}).selectOption('classes')
   await page.locator('a[href="/activity/'+activityId+'"]').waitFor()
   await page.getByLabel('Schedule focus',{exact:true}).selectOption('sessions')
   assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),0,'individual view excludes group events')
   await page.getByLabel('Schedule focus',{exact:true}).selectOption('classes')
   await page.screenshot({path:'work/class-activity-evidence/calendar-classes.png',fullPage:true})
+  await page.getByLabel('Calendar view',{exact:true}).selectOption('day')
+  await page.waitForFunction(()=>!document.querySelector('button[data-slot="18"]')?.disabled)
   const slot=page.locator('button[data-day="0"][data-slot="18"]');await slot.scrollIntoViewIfNeeded()
   const box=await slot.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2,box.y+box.height*2.5,{steps:6});await page.mouse.up()
   await page.waitForURL(/\/sessions\?/)
   const draft=new URL(page.url());assert.equal(draft.searchParams.get('group'),'1');assert.equal(draft.searchParams.get('intent'),'activity');assert.equal(draft.searchParams.get('start'),activityDate+'T09:00');assert.equal(draft.searchParams.get('end'),activityDate+'T10:30')
   await page.getByRole('region',{name:'Group activity roster'}).waitFor()
   assert.equal(await page.locator('input[type=datetime-local]').last().inputValue(),activityDate+'T10:30','drag duration survives form load')
+  // Service models change defaults only; saved clinical intent survives daycare vocabulary.
+  const configure=async model=>{
+   await page.goto(base+'/setup');const section=page.getByRole('region',{name:'Business service model',exact:true})
+   await section.getByRole('combobox',{name:/^Service model/}).selectOption(model)
+   await section.getByRole('button',{name:'Confirm service model',exact:true}).click()
+   await section.getByRole('status').filter({hasText:'Service model saved.'}).waitFor()
+  }
+  await configure('daycare')
+  await page.goto(base+'/dashboard');await page.getByLabel('Schedule focus',{exact:true}).waitFor();await page.waitForFunction(()=>document.querySelector('#calendar-focus')?.value==='classes')
+  assert.equal(await page.locator('#calendar-view').inputValue(),'auto')
+  await page.goto(base+'/sessions');await page.waitForFunction(()=>document.querySelector('option[value="clinical"]')?.parentElement.value==='group')
+  await configure('aba');await page.goto(base+'/sessions');await page.waitForFunction(()=>document.querySelector('option[value="clinical"]')?.parentElement.value==='clinical')
+  await inspect(`UPDATE public.sessions SET scheduled_start='${activityDate}T20:00:00Z',scheduled_end='${activityDate}T21:00:00Z' WHERE id='${ids.session}'`); await inspect(`INSERT INTO public.sessions(id,organization_id,client_id,provider_id,session_type,workflow_intent,status,scheduled_start,scheduled_end) VALUES('80000000-0000-4000-8000-000000000001','${ids.org}','${ids.client}','${ids.staff}','direct_therapy','activity','scheduled','${activityDate}T21:00:00Z','${activityDate}T22:00:00Z')`)
+  await configure('mixed');
+  for(const width of [320,375,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Service model settings fit '+width)}
+  await page.screenshot({path:'work/class-activity-evidence/service-model-settings.png',fullPage:true})
+  await page.goto(base+'/sessions');await page.getByLabel('Scheduling workflow').waitFor();assert.equal(await page.getByLabel('Scheduling workflow').inputValue(),'')
+  await page.goto(base+'/dashboard');await page.waitForFunction(()=>{const slot=document.querySelector('button[data-slot="18"]');return slot&&!slot.disabled});await page.getByLabel('Go to date',{exact:true}).fill(activityDate);await page.getByLabel('Calendar view',{exact:true}).selectOption('day')
+  await page.locator('a[href="/sessions/'+ids.session+'"]').waitFor()
+  await page.getByLabel('Schedule focus',{exact:true}).selectOption('sessions')
+  assert.ok(await page.locator('a[href="/sessions/'+ids.session+'"]').getByText('ABA session',{exact:true}).isVisible(),'clinical intent is not translated by daycare vocabulary')
+  assert.equal(await page.locator('a[href="/sessions/80000000-0000-4000-8000-000000000001"]').count(),0,'ABA excludes individual Activity')
+  assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),0,'ABA excludes group Activity')
+  await page.getByLabel('Schedule focus',{exact:true}).selectOption('activities')
+  assert.equal(await page.locator('a[href="/sessions/'+ids.session+'"]').count(),0,'Activities excludes clinical intent')
+  assert.equal(await page.locator('a[href="/sessions/80000000-0000-4000-8000-000000000001"]').count(),1)
+  assert.equal(await page.locator('a[href="/activity/'+activityId+'"]').count(),1)
+  for(const [choice,intent,group]of [['ABA session','clinical',null],['Individual Activity','activity',null],['Group Activity','activity','1']]){
+   await page.goto(base+'/dashboard');await page.waitForFunction(()=>{const slot=document.querySelector('button[data-slot="18"]');return slot&&!slot.disabled});await page.getByLabel('Go to date',{exact:true}).fill(activityDate);await page.getByLabel('Calendar view',{exact:true}).selectOption('day')
+   await page.getByRole('button',{name:'Schedule work',exact:true}).waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('button[data-slot="18"]')?.disabled)
+   const time=page.locator('button[data-day="0"][data-slot="18"]');await time.scrollIntoViewIfNeeded();const rect=await time.boundingBox()
+   await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height*2.5,{steps:6});await page.mouse.up()
+   await page.getByRole('region',{name:'Choose scheduling type'}).getByRole('button',{name:choice,exact:true}).click();await page.waitForURL(/\/sessions\?/)
+   const query=new URL(page.url()).searchParams;assert.equal(query.get('intent'),intent);assert.equal(query.get('group'),group);assert.equal(query.get('start'),activityDate+'T09:00');assert.equal(query.get('end'),activityDate+'T10:30')
+   await page.getByLabel('Scheduling workflow').waitFor();assert.equal(await page.locator('input[type=datetime-local]').last().inputValue(),activityDate+'T10:30')
+   await page.getByLabel('Scheduling workflow').selectOption('individual');assert.equal(await page.locator('input[type=datetime-local]').last().inputValue(),activityDate+'T10:30')
+  }
   fs.mkdirSync('work/class-activity-evidence',{recursive:true});await assigned.page.setViewportSize({width:375,height:900});await assigned.page.screenshot({path:'work/class-activity-evidence/assigned-group-mobile.png',fullPage:true})
   await page.goto(base+'/classes');await page.getByRole('button',{name:'Edit Preschool Blue',exact:true}).click();await page.getByLabel('Class name',{exact:true}).waitFor();await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'work/class-activity-evidence/classes-desktop.png',fullPage:true})
   await page.goto(base+'/activity/'+activityId+'?edit=1');await page.getByRole('combobox',{name:/^Schedule status/}).selectOption('canceled');await page.getByRole('button',{name:'Save activity schedule',exact:true}).click();await page.getByRole('status').filter({hasText:'Activity schedule saved.'}).waitFor()

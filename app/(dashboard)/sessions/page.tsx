@@ -2,6 +2,8 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import { useServiceModel } from "@/components/ServiceModelProvider"
+import { modelDefaults, scheduleLabel } from "@/lib/schedule-intent"
 import ActivityGroupFields from "@/components/ActivityGroupFields"
 import { emptyGroup, readGroupActivities, type GroupDraft } from "@/lib/activity-groups"
 import SessionChoiceManager from "@/components/SessionChoiceManager"
@@ -139,6 +141,7 @@ const FRONTLINE_ROLES = [
 
 export default function AdminSessionsPage() {
   const { t } = usePortal()
+  const { data: account, error: accountError, refresh: refreshAccount } = useServiceModel()
   const {data:caps}=useEffectiveCapabilities()
   const { allowed: canWrite } = useOrganizationWriteAccess()
   const [peopleReadiness, setPeopleReadiness] = useState<{ missing_clients: boolean; missing_staff: boolean } | null>(null)
@@ -150,7 +153,7 @@ const requestedClientId =
 const requestedStart = parseCalendarDraft(searchParams.get("start"))
 const draftEnd = parseCalendarDraft(searchParams.get("end"))
 const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date(requestedStart) && new Date(draftEnd).getTime() - new Date(requestedStart).getTime() <= 86400000 ? draftEnd : ""
-  
+
     const [clients, setClients] =
     useState<ClientOption[]>([])
 
@@ -181,6 +184,9 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
   const [newTypeDuration,setNewTypeDuration] = useState("60")
   const sessionOperation = useRef<{key:string;id:string}|null>(null)
   const appliedDraft = useRef<string | null>(null)
+  const initializedModel = useRef("")
+  const [workflowChosen,setWorkflowChosen] = useState(false)
+  const accountScope=account?`${account.organizationId}:${account.userId}`:""
   const [recoveryAttempt,setRecoveryAttempt]=useState<string|null>(null)
   const [recoveryReady,setRecoveryReady]=useState(false)
   const [recoveryError,setRecoveryError]=useState("")
@@ -214,12 +220,19 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
 
 
   useEffect(() => {
+    if (!account) return
+    const key = `${accountScope}:${searchParams.toString()}`
+    if (initializedModel.current === key) return
+    initializedModel.current = key
     appliedDraft.current = null
     setScheduledStart(requestedStart)
     setScheduledEnd(requestedEnd)
-    setGroupMode(searchParams.get("group") === "1")
-    setIntent(searchParams.get("intent") === "clinical" ? "clinical" : "activity")
-  }, [requestedStart, requestedEnd, searchParams])
+    const explicit=searchParams.has("intent")||searchParams.has("group")
+    const defaults=modelDefaults(account?.model||"unconfirmed")
+    setIntent(explicit ? searchParams.get("intent")==="clinical"?"clinical":"activity" : defaults.kind==="clinical"?"clinical":"activity")
+    setGroupMode(explicit ? searchParams.get("group")==="1" : defaults.kind==="group")
+    setWorkflowChosen(explicit || defaults.kind!==null)
+  }, [account, accountScope, requestedStart, requestedEnd, searchParams])
 
   useEffect(() => {
     if (!requestedStart || appliedDraft.current === requestedStart || scheduledStart !== requestedStart || scheduledEnd) return
@@ -597,6 +610,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
       return
     }
 
+    if (requestedEnd) return
     const selectedType =
       sessionTypes.find(
         (item) =>
@@ -631,6 +645,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
   ) => {
     event?.preventDefault()
 
+    if (!account || !workflowChosen) { setPageError("Choose the scheduling workflow after business defaults load."); return }
     if (!canSchedule || !canWrite) {
       setPageError("Scheduling is unavailable with your current access. Ask your primary administrator to review permissions and the account subscription.")
       return
@@ -849,7 +864,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
               />
 
               <div>
-                <h2 className="font-bold text-[var(--rj-mint-700)]">{t("Session created successfully")}</h2>
+                <h2 className="font-bold text-[var(--rj-mint-700)]">{success.workflow_intent === "activity" ? "Activity scheduled successfully" : "ABA session created successfully"}</h2>
 
                 <p className="mt-1 text-sm text-[var(--rj-text-secondary)]">
                   {success.workflow_intent === "activity" ? "Activity scheduled. No clinical targets prepared; this is not recorded attendance." : `${success.targets_added} active targets prepared automatically.`}
@@ -860,7 +875,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             <Link
               href={success.group_activity ? `/activity/${success.session_id}` : `/sessions/${success.session_id}`}
               className="rj-button rj-button-primary"
-            >{t("Manage Session")}<ExternalLink size={17} />
+            >{success.workflow_intent === "activity" ? "Manage Activity" : "Manage ABA session"}<ExternalLink size={17} />
             </Link>
           </div>
         </section>
@@ -893,7 +908,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
         <SessionSummaryCard
           label="Completed"
           value={completedCount}
-          description={t("Finished sessions")}
+          description="Completed scheduled events"
           icon={CheckCircle2}
           background="var(--rj-mint-100)"
           foreground="var(--rj-mint-700)"
@@ -909,7 +924,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             </div>
 
             <div>
-              <p className="rj-label">{t("New Session")}</p>
+              <p className="rj-label">New scheduled work</p>
 
               <h2 className="rj-heading-2 mt-1">
                 Schedule an activity or clinical session
@@ -927,7 +942,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
       />
 
       <div>
-        <p className="text-sm font-bold text-[var(--rj-blue-700)]">{t("Creating a session for")}{" "}
+        <p className="text-sm font-bold text-[var(--rj-blue-700)]">Creating scheduled work for{" "}
           {getClientName(selectedClient)}
         </p>
 
@@ -942,19 +957,20 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             onSubmit={handleCreateSession}
             className="mt-6 space-y-5"
           >
-            <label className="block">Scheduling workflow<select className="rj-input" value={intent} onChange={event=>setIntent(event.target.value as "activity" | "clinical")}><option value="activity">Ordinary daycare activity</option><option value="clinical">Clinical session with preparation</option></select></label>
+            {accountError && <p role="alert">{accountError} <button type="button" className="underline" onClick={()=>void refreshAccount()}>Retry business defaults</button></p>}
+            <label className="block">Scheduling workflow<select className="rj-input" disabled={!account || creating} value={!workflowChosen?"":intent==="clinical"?"clinical":groupMode?"group":"individual"} onChange={event=>{setWorkflowChosen(true);setIntent(event.target.value==="clinical"?"clinical":"activity");setGroupMode(event.target.value==="group")}}><option value="" disabled>Choose scheduling type</option><option value="individual">Individual Activity</option><option value="group">Group Activity</option><option value="clinical">ABA session with preparation</option></select></label>
             {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
             <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
-            {intent==="activity" && <label className="flex min-h-11 items-center gap-3"><input type="checkbox" checked={groupMode} onChange={event=>setGroupMode(event.target.checked)} />Schedule for a class / group of children</label>}
+
             {intent==="activity" && groupMode ? <ActivityGroupFields value={group} onChange={setGroup} disabled={creating || !canWrite} initialClass={searchParams.get("class") || ""} /> : <>
             <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
             <SearchableChoice label={t("Assigned frontline worker")} value={providerId} required options={providers.map(provider=>({value:provider.id,label:provider.full_name||provider.email||"Unnamed user",recent:!!contextChoices.data?.recent.some(recent=>recent.provider_id===provider.id)}))} onChange={setProviderId} />
             </>}
-            <SearchableChoice label={t("Session type")} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+duration*60000)))}} />
+            <SearchableChoice label={intent === "clinical" ? "ABA session type" : "Activity type"} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart&&!requestedEnd)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+duration*60000)))}} />
             <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
             <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
             <SessionTypeDescription sessionType={selectedSessionType} />
-            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag"&&choice.active!==false)));if(scheduledStart)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
+            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setWorkflowChosen(true);setGroupMode(false);setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag"&&choice.active!==false)));if(scheduledStart&&!requestedEnd)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
@@ -1004,7 +1020,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             <button
               type="submit"
               disabled={
-                creating ||
+                creating || !account || !workflowChosen ||
                 clients.length === 0 ||
                 providers.length === 0 ||
                 sessionTypes.length === 0
@@ -1021,8 +1037,8 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
               )}
 
               {creating
-                ? intent==="activity"?"Scheduling activity…":t("Preparing session…")
-                : intent==="activity"?"Schedule Activity":t("Create Session")}
+                ? intent==="activity"?"Scheduling activity…":"Preparing ABA session…"
+                : intent==="activity"?"Schedule Activity":"Create ABA session"}
             </button>
           </form></SubscriptionWriteControls></fieldset>
 
@@ -1063,7 +1079,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
                 <h2 className="rj-heading-2 mt-1">Scheduled activities and clinical sessions</h2>
 
                 <p className="rj-caption mt-2">
-                  {filteredSessions.length}{t(filteredSessions.length === 1 ? " session" : " sessions")}{" "}
+                  {filteredSessions.length} scheduled events{" "}
                   shown
                 </p>
               </div>
@@ -1245,6 +1261,7 @@ function SessionRowCard({
               {clientName}
             </h3>
 
+            <span className="rj-badge rj-badge-info">{scheduleLabel(session)}</span>
             <StatusBadge
               status={session.status}
             />
@@ -1313,7 +1330,7 @@ function SessionRowCard({
             <ExternalLink size={17} />
           </Link>
 
-          <Link href={session.group_activity ? `/activity/${session.id}?edit=1` : `/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">{isActivity ? "Edit activity" : t("Edit session")}</Link>
+          <Link href={session.group_activity ? `/activity/${session.id}?edit=1` : `/sessions/${session.id}/edit`} className="rj-button rj-button-secondary">{isActivity ? "Edit activity" : "Edit ABA session"}</Link>
           <Link
             href={`/sessions/${session.id}`}
             className="rj-button rj-button-primary"

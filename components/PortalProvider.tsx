@@ -30,7 +30,7 @@ export default function PortalProvider({ children }: { children: ReactNode }) {
   }, [refresh])
   return <PortalContext.Provider value={{ terms, theme, refresh }}><div className="rj-portal min-h-screen" data-portal-theme={theme}>{children}</div></PortalContext.Provider>
 }
-export function usePortal() {
+export function usePortal(workflow?: "clinical" | "activity") {
   const portal = useContext(PortalContext)
-  return { ...portal, t: (text: string) => translatePortalText(text, portal.terms) }
+  return { ...portal, t: (text: string) => translatePortalText(text, workflow === "clinical" ? { ...portal.terms, session_singular: "ABA Session", session_plural: "ABA Sessions" } : portal.terms) }
 }
