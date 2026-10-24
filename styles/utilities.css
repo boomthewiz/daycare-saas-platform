@@ -42,14 +42,6 @@
     box-shadow var(--rj-duration-normal) var(--rj-ease-standard);
 }
 
-.rj-card-interactive:hover {
-  border-color: var(--rj-teal-100);
-  box-shadow: var(--rj-shadow-medium);
-}
-
-.rj-card-interactive:active {
-  transform: scale(0.985);
-}
 
 .rj-button {
   display: inline-flex;
@@ -70,9 +62,6 @@
     box-shadow var(--rj-duration-normal) var(--rj-ease-standard);
 }
 
-.rj-button:active {
-  transform: scale(0.97);
-}
 
 .rj-button:disabled {
   cursor: not-allowed;
@@ -80,14 +69,11 @@
 }
 
 .rj-button-primary {
-  background: var(--rj-teal-500);
+  background: var(--rj-teal-700);
   color: var(--rj-text-inverse);
   box-shadow: var(--rj-shadow-soft);
 }
 
-.rj-button-primary:hover {
-  background: var(--rj-teal-700);
-}
 
 .rj-button-secondary {
   background: var(--rj-blue-100);

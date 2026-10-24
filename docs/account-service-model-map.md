@@ -1,5 +1,7 @@
 # ReJoyce account differentiation and conflict map
 
+October 24 update: [scheduling-conflicts-and-interaction-polish.md](scheduling-conflicts-and-interaction-polish.md) documents the new conflict reader and reviewed UI saves. C4 is partially addressed: older write clients remain compatible, so universal conflict enforcement is not claimed.
+
 October 23 implementation update: see [account-service-model-implementation.md](account-service-model-implementation.md) for the proposed implementation, authority, migration and verification. Earlier implementation/proposal wording below is retained as historical context; C1–C3 are addressed in the new feature branch, pending review and release. C4 and the timezone/location limitations remain open.
 
 Prepared October 22, 2026. Product/engineering plan; account configuration and live scheduling-conflict detection are not implemented by this document. Calendar views are local commit 0c5f48c, following Classes commit c1744d4. PR #42 contains the pushed Classes baseline; the calendar follow-up remains local. No production changes are authorized by this plan.

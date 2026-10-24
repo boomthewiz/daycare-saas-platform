@@ -20,7 +20,7 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
    CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$SELECT auth.jwt()->>'role'$$;
    GRANT USAGE ON SCHEMA auth TO authenticated;GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO authenticated;`)
   await run(fs.readFileSync(process.env.REJOYCE_BASELINE_SQL,'utf8'))
-  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql','20261022044100_classes_group_activities.sql','20261023215652_account_service_model.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+  for(const file of ['20261004053317_client_care_teams.sql','20261008061322_onboarding_progress.sql','20261017192817_daycare_operational_reports.sql','20261017192818_correct_canceled_onboarding_milestone.sql','20261018084149_branch_attendance.sql','20261018084157_session_context_tags.sql','20261019194610_p1_activity_and_attendance_activation.sql','20261019202944_p2_scheduling_reliability.sql','20261022044100_classes_group_activities.sql','20261023215652_account_service_model.sql','20261024082651_schedule_conflict_reviews.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
   await run(`INSERT INTO rejoyce_security.session_policy(singleton,enforced) VALUES(true,true) ON CONFLICT(singleton) DO UPDATE SET enforced=true;
    INSERT INTO public.organizations(id,name) VALUES('${org}','Concurrent synthetic');INSERT INTO auth.users(id,email) VALUES('${user}','synthetic@example.invalid');
    INSERT INTO public.users(id,organization_id,role,status,pin_hash,pin_reset_required) VALUES('${user}','${org}','owner','active','synthetic',false);
@@ -63,5 +63,13 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.equal(models.filter(result=>result.status==='fulfilled').length,1,'only one first confirmation wins')
   assert.match(models.find(result=>result.status==='rejected').reason.message,/changed/)
   assert.equal(await run('SELECT count(*) FROM rejoyce_security.service_model_history'),'1')
+  const proposed=()=>({p_child:client,p_provider:groupStaff,p_start:'2026-12-01T14:00Z',p_end:'2026-12-01T15:00Z',p_type:'play',p_location:null,p_tags:[],p_intent:'activity',p_operation:randomUUID()})
+  const p1=proposed(),p2=proposed()
+  const review=async p=>JSON.parse(await run(`${auth}SELECT public.schedule_conflicts('create_session','${JSON.stringify(p)}'::jsonb)`))
+  const r1=await review(p1),r2=await review(p2);assert.equal(r1.totalEvents,0);assert.equal(r2.totalEvents,0)
+  const commit=(p,r)=>run(`${auth}SELECT public.save_reviewed_schedule('create_session','${JSON.stringify(p)}'::jsonb,'${r.reviewId}','{}')`)
+  const results=(await Promise.all([commit(p1,r1),commit(p2,r2)])).map(JSON.parse)
+  assert.equal(results.filter(r=>r.session_id).length,1,'one overlapping save commits from clean reviews')
+  assert.equal(results.filter(r=>r.review_required?.staffEvents===1).length,1,'second transaction must review the new booking')
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

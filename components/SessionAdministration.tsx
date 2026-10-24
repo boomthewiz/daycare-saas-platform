@@ -2,6 +2,7 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import { useScheduleConflictReview } from "@/components/ScheduleConflictReview"
 import PageGuide from "@/components/PageGuide"
 import ActivityWorkspace from "@/components/ActivityWorkspace"
 import SessionTags from "@/components/SessionTags"
@@ -223,6 +224,7 @@ const ATTENDANCE_STATUSES: {
 
 export default function SessionAdministration({ editing = false }: { editing?: boolean }) {
   const { t } = usePortal("clinical")
+  const conflictReview=useScheduleConflictReview()
 
   const router = useRouter()
   const [canManage, setCanManage] = useState(false)
@@ -661,9 +663,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
     setSuccessMessage(null)
 
     try {
-      const { error } = await supabase
-        .from("sessions")
-        .update({
+      const saved = await conflictReview.save("update_session", {p_session:session.id,p_version:session.updated_at,p_changes:{
           // Do not round or resend locked schedule fields during metadata edits.
           ...(hasStarted ? {} : {
             provider_id: providerId,
@@ -675,15 +675,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           location: location.trim() || null,
           attendance_status: attendanceStatus,
           was_supervised: wasSupervised,
-        })
-        .eq("id", session.id)
-        .eq("organization_id", session.organization_id)
-        .eq("updated_at", session.updated_at)
-        .select("id").single()
-
-      if (error) {
-        throw new Error(error.code === "PGRST116" ? "This session changed or your access is no longer available. Your changes have not been saved. Reload to review the latest record." : error.message)
-      }
+        }})
+      if(!saved)return
 
       setSuccessMessage(
         "Session details saved successfully."
@@ -1110,6 +1103,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           </div>}
         </div>
       </header>
+      {conflictReview.dialog}
       <PageGuide guide="session" />
       <SessionTags sessionId={sessionId} />
 

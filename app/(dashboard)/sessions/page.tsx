@@ -4,6 +4,7 @@ import { usePortal } from "@/components/PortalProvider"
 
 import { useServiceModel } from "@/components/ServiceModelProvider"
 import { modelDefaults, scheduleLabel } from "@/lib/schedule-intent"
+import { useScheduleConflictReview } from "@/components/ScheduleConflictReview"
 import ActivityGroupFields from "@/components/ActivityGroupFields"
 import { emptyGroup, readGroupActivities, type GroupDraft } from "@/lib/activity-groups"
 import SessionChoiceManager from "@/components/SessionChoiceManager"
@@ -141,6 +142,7 @@ const FRONTLINE_ROLES = [
 
 export default function AdminSessionsPage() {
   const { t } = usePortal()
+  const conflictReview=useScheduleConflictReview()
   const { data: account, error: accountError, refresh: refreshAccount } = useServiceModel()
   const {data:caps}=useEffectiveCapabilities()
   const { allowed: canWrite } = useOrganizationWriteAccess()
@@ -715,11 +717,9 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
       if(existing&&existing!==sessionOperation.current.id){sessionOperation.current=null;setRecoveryAttempt(existing);throw new Error("Another save needs recovery before creating a session.")}
       localStorage.setItem(key,sessionOperation.current.id)
       const requestScope=saveScope
-      const {data,error}=await supabase.rpc(isGroup?"create_group_activity":"create_scheduled_context_session",{...payload,p_operation:sessionOperation.current.id})
+      const data=await conflictReview.save(isGroup?"create_group":"create_session",{...payload,p_operation:sessionOperation.current.id})
       if(scopeRef.current!==requestScope)return
-      if (error) {
-        throw new Error(error.message)
-      }
+      if(!data){if(localStorage.getItem(key)===sessionOperation.current.id)localStorage.removeItem(key);sessionOperation.current=null;setRecoveryAttempt(null);return}
       if(localStorage.getItem(key)===sessionOperation.current.id)localStorage.removeItem(key)
       setRecoveryAttempt(null);setRecoveryError("")
 
@@ -917,7 +917,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
         {/* Create Session */}
-        <section id="create-session" className="rj-card h-fit p-6 xl:sticky xl:top-6">
+        <>{conflictReview.dialog}</><section id="create-session" className="rj-card h-fit p-6 xl:sticky xl:top-6">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--rj-teal-100)] text-[var(--rj-teal-700)]">
               <Plus size={23} />

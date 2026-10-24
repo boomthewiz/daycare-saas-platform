@@ -135,7 +135,7 @@ export default function ScheduleCalendar() {
   const refresh = () => { window.dispatchEvent(new Event("rejoyce:schedule-changed")); void branch.reload(); void refreshAccount() }
   const message = rangeError || branch.error || error || permissionError || accountError
 
-  return <section aria-label="Schedule calendar" className="min-w-0 overflow-hidden rounded-2xl border border-[var(--rj-border)] bg-white">
+  return <section aria-label="Schedule calendar" className="rj-calendar min-w-0 overflow-hidden rounded-2xl border border-[var(--rj-border)] bg-white">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rj-border)] p-3 sm:p-4">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold sm:mr-2">{t("Calendar")}</h1>
