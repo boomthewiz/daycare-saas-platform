@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useSchedulingTimezone } from "@/components/SchedulingTimezoneProvider"
+import { civilDate, dayBoundary, nextCivilDate, addCivilMinutes } from "@/lib/scheduling-timezone"
 import { useServiceModel } from "@/components/ServiceModelProvider"
 import { matchesFocus, modelDefaults, scheduleLabel, type CalendarFocus, type SchedulingKind } from "@/lib/schedule-intent"
 import Link from "next/link"
@@ -10,7 +12,7 @@ import { usePortal } from "@/components/PortalProvider"
 import { useBranches } from "@/components/BranchProvider"
 import { useOrganizationWriteAccess } from "@/components/SubscriptionWriteControls"
 import { supabase } from "@/lib/supabase"
-import { addDays, localDate, localDateTime, parseLocalDate, placeEvents, weekStart } from "@/lib/calendar"
+import { addDays, localDate, parseLocalDate, placeEvents, weekStart } from "@/lib/calendar"
 import { readCalendarSessions, type CalendarSession } from "@/lib/calendar-data"
 
 function subscribeMobile(callback: () => void) {
@@ -25,6 +27,9 @@ const terminalStatuses = ["canceled", "client_absent", "provider_absent", "no_sh
 
 export default function ScheduleCalendar() {
   const { t } = usePortal()
+  const {data:clock,error:clockError,refresh:refreshClock}=useSchedulingTimezone()
+  const timezone=clock?.timezone||""
+  const zonedTime=(instant:string)=>new Date(instant).toLocaleTimeString(undefined,{timeZone:timezone,hour:"numeric",minute:"2-digit",timeZoneName:"shortOffset"})
   const { data: account, error: accountError, refresh: refreshAccount } = useServiceModel()
   const [preference, setPreference] = useState<{scope:string;focus:CalendarFocus}|null>(null)
   const [draft, setDraft] = useState<{scope:string;params:string}|null>(null)
@@ -60,10 +65,11 @@ export default function ScheduleCalendar() {
   const startKey = start ? localDate(start) : ""
   const endKey = last ? localDate(addDays(last, 1)) : ""
   const days = !rangeError && start ? Array.from({ length: dayCount }, (_, index) => addDays(start, index)) : []
-  const visibleSessions = account ? sessions.filter(event => matchesFocus(event, focus)) : []
-  const agenda = dayCount > 7 || (mobile && dayCount > 1)
+  const visibleSessions = account && timezone ? sessions.filter(event => matchesFocus(event, focus)) : []
+  const clockChange=!!timezone&&days.some(day=>{try{const date=localDate(day);return Date.parse(dayBoundary(nextCivilDate(date),timezone))-Date.parse(dayBoundary(date,timezone))!==86400000}catch{return true}})
+  const agenda = clockChange || dayCount > 7 || (mobile && dayCount > 1)
   const hourHeight = mobile ? 88 : 64
-  const editable = !!account && canSchedule && allowed && !loading && !branch.loading && !branch.error && !error
+  const editable = !!timezone && !!account && canSchedule && allowed && !loading && !branch.loading && !branch.error && !error
 
   useEffect(() => {
     let current = true
@@ -83,16 +89,16 @@ export default function ScheduleCalendar() {
     setSessions([])
     setLoading(true)
     setError("")
-    if (rangeError || branch.loading || branch.error) { setLoading(false); return }
-    const floor = parseLocalDate(startKey)!, ceiling = parseLocalDate(endKey)!
-    void readCalendarSessions(floor, ceiling, branch.selectedBranchId).then(rows => {
+    if (!timezone || rangeError || branch.loading || branch.error) { setLoading(false); return }
+    void Promise.resolve().then(()=>readCalendarSessions(new Date(dayBoundary(startKey,timezone)),new Date(dayBoundary(endKey,timezone)),branch.selectedBranchId)).then(rows => {
       if (current) setSessions(rows)
     }).catch(cause => {
       if (current) setError(cause instanceof Error ? cause.message : "Unable to load your calendar.")
     }).finally(() => { if (current) setLoading(false) })
     return () => { current = false }
-  }, [startKey, endKey, rangeError, branch.selectedBranchId, branch.loading, branch.error, revision])
+  }, [startKey, endKey, rangeError, branch.selectedBranchId, branch.loading, branch.error, revision, timezone])
 
+  useEffect(()=>{if(timezone){const today=civilDate(new Date().toISOString(),timezone);setAnchor(today);setRangeEnd(localDate(addDays(parseLocalDate(today)!,6)))}},[timezone])
   useEffect(() => { if (!agenda && scroller.current) scroller.current.scrollTop = 7 * hourHeight }, [agenda, startKey, hourHeight])
   useEffect(() => {
     const refresh = () => setRevision(value => value + 1)
@@ -102,13 +108,8 @@ export default function ScheduleCalendar() {
 
   function createAt(day: Date, minutes: number, endMinutes?: number) {
     if (!editable) return
-    const date = new Date(day)
-    date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
-    const params = new URLSearchParams({ start: localDateTime(date) })
-    if (endMinutes !== undefined) {
-      const end = new Date(day); end.setMinutes(endMinutes, 0, 0)
-      params.set("end", localDateTime(end))
-    }
+    const params = new URLSearchParams({start:addCivilMinutes(localDate(day)+"T00:00",minutes),timezone})
+    if(endMinutes!==undefined)params.set("end",addCivilMinutes(localDate(day)+"T00:00",endMinutes))
     const kind = focus === "classes" ? "group" : focus === "sessions" ? "clinical" : focus === "activities" ? null : defaults.kind
     if (kind) openDraft(params.toString(), kind)
     else setDraft({scope:accountScope,params:params.toString()})
@@ -132,14 +133,14 @@ export default function ScheduleCalendar() {
     setAnchor(localDate(addDays(start, direction * dayCount)))
     if (view === "range") setRangeEnd(localDate(addDays(last, direction * dayCount)))
   }
-  const refresh = () => { window.dispatchEvent(new Event("rejoyce:schedule-changed")); void branch.reload(); void refreshAccount() }
-  const message = rangeError || branch.error || error || permissionError || accountError
+  const refresh = () => { window.dispatchEvent(new Event("rejoyce:schedule-changed")); void branch.reload(); void refreshAccount(); void refreshClock() }
+  const message = rangeError || branch.error || error || permissionError || accountError || clockError || (clock&&!timezone?"Confirm the organization scheduling timezone in Setup before using the calendar.":"")
 
   return <section aria-label="Schedule calendar" className="rj-calendar min-w-0 overflow-hidden rounded-2xl border border-[var(--rj-border)] bg-white">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--rj-border)] p-3 sm:p-4">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h1 className="text-xl font-bold sm:mr-2">{t("Calendar")}</h1>
-        <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => { const today = new Date(); setAnchor(localDate(today)); setRangeEnd(localDate(addDays(today, Math.max(0, dayCount - 1)))) }}>Today</button>
+        <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => { const today = timezone?parseLocalDate(civilDate(new Date().toISOString(),timezone))!:new Date(); setAnchor(localDate(today)); setRangeEnd(localDate(addDays(today, Math.max(0, dayCount - 1)))) }}>Today</button>
         <button type="button" aria-label="Previous date range" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100" onClick={() => move(-1)} disabled={!!rangeError}><ChevronLeft size={20} /></button>
         <button type="button" aria-label="Next date range" className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100" onClick={() => move(1)} disabled={!!rangeError}><ChevronRight size={20} /></button>
         <p aria-live="polite" className="text-sm font-semibold">{start && last ? `${dateLabel(start)}${dayCount > 1 ? ` – ${dateLabel(last)}` : ""}` : "Choose dates"}</p>
@@ -163,24 +164,25 @@ export default function ScheduleCalendar() {
         <label className="text-xs text-gray-600">{view === "range" ? "From" : "Go to date"}<input aria-label={view === "range" ? "Range start" : "Go to date"} type="date" value={anchor} onChange={event => setAnchor(event.target.value)} className="ml-2 min-h-11 max-w-full rounded-lg border px-2 text-sm text-gray-900" /></label>
         {view === "range" && <label className="text-xs text-gray-600">Through<input aria-label="Range end" type="date" value={rangeEnd} onChange={event => setRangeEnd(event.target.value)} className="ml-2 min-h-11 max-w-full rounded-lg border px-2 text-sm text-gray-900" /></label>}
       </div>
-      <p className="text-xs text-gray-500">{editable ? (focus === "classes" ? "Select or drag a time to schedule a class activity" : "Select or drag a time to schedule") : "Select scheduled work to view details"} · Drag with a mouse; tap a slot on touch screens · Local time ({Intl.DateTimeFormat().resolvedOptions().timeZone})</p>
+      <p className="text-xs text-gray-500">{editable ? (focus === "classes" ? "Select or drag a time to schedule a class activity" : "Select or drag a time to schedule") : "Select scheduled work to view details"} · Drag with a mouse; tap a slot on touch screens · Organization scheduling timezone: {timezone||"Not confirmed"}</p>
     </div>
+    {clockChange&&<p className="p-3 text-sm">Clock-change dates use an agenda so repeated or missing hours stay clear. Each event shows its timezone offset.</p>}
     {draft?.scope === accountScope && editable && <div className="space-y-3 border-b p-4" role="region" aria-label="Choose scheduling type"><p>Choose the type of scheduled work. Your selected start and end times will be kept.</p><div className="flex flex-wrap gap-2">{(["clinical","individual","group"] as const).map(kind => <button type="button" className="rj-button rj-button-secondary" key={kind} onClick={() => openDraft(draft.params,kind)}>{kind === "clinical" ? "ABA session" : kind === "group" ? "Group Activity" : "Individual Activity"}</button>)}<button type="button" onClick={()=>setDraft(null)}>Cancel</button></div></div>}
     {message && <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-sm text-red-700">{message}{!rangeError && <button className="min-h-11 underline" onClick={refresh}>Try again</button>}</div>}
     {(loading || branch.loading) && <p role="status" className="px-4 py-2 text-sm text-gray-500">{"Loading scheduled work…"}</p>}
     {!message && !loading && !branch.loading && visibleSessions.length === 0 && <p role="status" className="px-4 py-2 text-sm text-gray-500">{"No scheduled work in this view and date range."}{editable ? t(" Select a time slot to schedule one.") : ""}</p>}
     {!rangeError && (agenda ? <div className="max-h-[70dvh] overflow-y-auto">
       {days.map(day => {
-        const events = placeEvents(visibleSessions, day)
+        const events = placeEvents(visibleSessions, day, timezone).sort((a,b)=>Date.parse(a.event.scheduled_start||"")-Date.parse(b.event.scheduled_start||""))
         return <section key={localDate(day)} className="border-b p-4 last:border-b-0">
           <div className="flex items-center justify-between gap-2"><h2 className="font-bold">{day.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</h2>{editable && <button aria-label={`Schedule on ${localDate(day)}`} onClick={() => createAt(day, 9 * 60)} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-gray-100"><Plus size={18} /></button>}</div>
-          {events.length ? <ul className="mt-2 space-y-2">{events.map(({ event }) => <li key={event.id}><Link href={eventHref(event)} className="block rounded-lg border-l-4 border-teal-600 bg-teal-50 p-3 text-sm"><span className="font-bold">{clientName(event)}</span><span className="ml-2">{event.scheduled_start && timeLabel(new Date(event.scheduled_start))} – {event.scheduled_end && timeLabel(new Date(event.scheduled_end))}</span><span className="block">{event.group_activity ? `${event.child_count || 0} children · ` : ""}{event.provider?.full_name || "Assigned team member"} · {scheduleLabel(event)} · {serviceName(event)} · {event.status.replaceAll("_", " ")}</span></Link></li>)}</ul> : <p className="text-sm text-gray-500">{"No scheduled work"}</p>}
+          {events.length ? <ul className="mt-2 space-y-2">{events.map(({ event }) => <li key={event.id}><Link href={eventHref(event)} className="block rounded-lg border-l-4 border-teal-600 bg-teal-50 p-3 text-sm"><span className="font-bold">{clientName(event)}</span><span className="ml-2">{event.scheduled_start && zonedTime(event.scheduled_start)} – {event.scheduled_end && zonedTime(event.scheduled_end)}</span><span className="block">{event.group_activity ? `${event.child_count || 0} children · ` : ""}{event.provider?.full_name || "Assigned team member"} · {scheduleLabel(event)} · {serviceName(event)} · {event.status.replaceAll("_", " ")}</span></Link></li>)}</ul> : <p className="text-sm text-gray-500">{"No scheduled work"}</p>}
         </section>
       })}
     </div> : <div ref={scroller} className="max-h-[70dvh] min-h-[360px] overflow-auto" tabIndex={0} aria-label="Calendar time grid">
       <div className="grid" style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` }}>
         <div className="sticky top-0 z-20 border-b bg-white" />
-        {days.map(day => <div key={localDate(day)} className="sticky top-0 z-20 border-b border-l bg-white px-1 py-3 text-center text-xs"><span className="block text-gray-500">{day.toLocaleDateString(undefined, { weekday: "short" })}</span><span className={`mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold ${localDate(day) === localDate(new Date()) ? "bg-teal-700 text-white" : "text-gray-800"}`}>{day.getDate()}</span></div>)}
+        {days.map(day => <div key={localDate(day)} className="sticky top-0 z-20 border-b border-l bg-white px-1 py-3 text-center text-xs"><span className="block text-gray-500">{day.toLocaleDateString(undefined, { weekday: "short" })}</span><span className={`mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold ${!!timezone && localDate(day) === civilDate(new Date().toISOString(),timezone) ? "bg-teal-700 text-white" : "text-gray-800"}`}>{day.getDate()}</span></div>)}
         <div aria-hidden="true" className="relative bg-gray-50" style={{ height: 24 * hourHeight }}>{Array.from({ length: 24 }, (_, hour) => <span key={hour} className="absolute right-2 text-[10px] text-gray-500" style={{ top: hour * hourHeight + 4 }}>{timeLabel(new Date(2026, 0, 1, hour)).replace(":00", "")}</span>)}</div>
         {days.map((day, dayIndex) => <div key={localDate(day)} className="relative border-l" style={{ height: 24 * hourHeight }} onPointerDown={event => {
           if (!editable || event.button !== 0 || event.pointerType === "touch" || !(event.target instanceof HTMLElement) || !event.target.closest("button[data-slot]")) return
@@ -215,8 +217,8 @@ export default function ScheduleCalendar() {
             }} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } createAt(day, slot * 30) }} className={`absolute left-0 w-full border-t text-left focus-visible:z-10 focus-visible:bg-teal-100 focus-visible:outline-2 focus-visible:outline-teal-600 ${slot % 2 ? "border-dashed border-gray-100" : "border-gray-200"} ${editable ? "hover:bg-teal-50" : "cursor-default"}`} style={{ top: slot * hourHeight / 2, height: hourHeight / 2 }} />
           })}
           {selection?.day === dayIndex && <div className="pointer-events-none absolute left-0 z-20 w-full border-2 border-teal-700 bg-teal-200/60" style={{ top: Math.min(selection.first, selection.last) * hourHeight / 2, height: (Math.abs(selection.last - selection.first) + 1) * hourHeight / 2 }} />}
-          {placeEvents(visibleSessions, day).map(({ event, start, end, column, columns }) => <Link key={event.id} href={eventHref(event)} aria-label={`${clientName(event)}, ${event.scheduled_start && timeLabel(new Date(event.scheduled_start))}, ${event.status.replaceAll("_", " ")}`} title={`${clientName(event)} · ${event.provider?.full_name || "Assigned team member"} · ${serviceName(event)} · ${event.location || ""} · ${event.status.replaceAll("_", " ")}`} className={`absolute z-10 overflow-hidden rounded-md border-l-[3px] p-1 text-[11px] leading-tight focus-visible:z-30 focus-visible:outline-2 focus-visible:outline-offset-1 ${event.status === "completed" ? "border-green-600 bg-green-100 text-green-950" : terminalStatuses.includes(event.status) ? "border-gray-400 bg-gray-100 text-gray-600" : "border-teal-600 bg-teal-100 text-teal-950"}`} style={{ top: start * hourHeight / 60, height: Math.max(mobile ? 44 : 22, (end - start) * hourHeight / 60 - 2), left: `calc(${column * 100 / columns}% + 2px)`, width: `calc(${100 / columns}% - 4px)` }}>
-            <span className="block truncate font-bold">{clientName(event)}</span><span className="block truncate">{scheduleLabel(event)}</span><span className="block truncate">{event.scheduled_start && timeLabel(new Date(event.scheduled_start))}</span><span className="block truncate">{event.provider?.full_name || "Assigned team member"}</span><span className="block truncate">{event.group_activity ? `${event.child_count || 0} children · ` : ""}{serviceName(event)}</span>
+          {placeEvents(visibleSessions, day, timezone).map(({ event, start, end, column, columns }) => <Link key={event.id} href={eventHref(event)} aria-label={`${clientName(event)}, ${event.scheduled_start && zonedTime(event.scheduled_start)}, ${event.status.replaceAll("_", " ")}`} title={`${clientName(event)} · ${event.provider?.full_name || "Assigned team member"} · ${serviceName(event)} · ${event.location || ""} · ${event.status.replaceAll("_", " ")}`} className={`absolute z-10 overflow-hidden rounded-md border-l-[3px] p-1 text-[11px] leading-tight focus-visible:z-30 focus-visible:outline-2 focus-visible:outline-offset-1 ${event.status === "completed" ? "border-green-600 bg-green-100 text-green-950" : terminalStatuses.includes(event.status) ? "border-gray-400 bg-gray-100 text-gray-600" : "border-teal-600 bg-teal-100 text-teal-950"}`} style={{ top: start * hourHeight / 60, height: Math.max(mobile ? 44 : 22, (end - start) * hourHeight / 60 - 2), left: `calc(${column * 100 / columns}% + 2px)`, width: `calc(${100 / columns}% - 4px)` }}>
+            <span className="block truncate font-bold">{clientName(event)}</span><span className="block truncate">{scheduleLabel(event)}</span><span className="block truncate">{event.scheduled_start && zonedTime(event.scheduled_start)}</span><span className="block truncate">{event.provider?.full_name || "Assigned team member"}</span><span className="block truncate">{event.group_activity ? `${event.child_count || 0} children · ` : ""}{serviceName(event)}</span>
           </Link>)}
         </div>)}
       </div>

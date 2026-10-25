@@ -71,5 +71,20 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   const results=(await Promise.all([commit(p1,r1),commit(p2,r2)])).map(JSON.parse)
   assert.equal(results.filter(r=>r.session_id).length,1,'one overlapping save commits from clean reviews')
   assert.equal(results.filter(r=>r.review_required?.staffEvents===1).length,1,'second transaction must review the new booking')
+  await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'))
+  const timezoneEdit=(zone,version)=>run(`${auth}SELECT public.set_scheduling_timezone('${org}','${zone}',${version})`)
+  const zones=await Promise.allSettled([timezoneEdit('America/Chicago',0),timezoneEdit('Asia/Tokyo',0)])
+  assert.equal(zones.filter(r=>r.status==='fulfilled').length,1,'only one first scheduling timezone confirmation wins')
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.scheduling_timezone_history'),'1')
+  await timezoneEdit('America/Chicago',1)
+  const clockPayload={...proposed(),p_start:'2026-12-02T14:00Z',p_end:'2026-12-02T15:00Z',p_clock:{timezone:'America/Chicago',version:2,startLocal:'2026-12-02T08:00',endLocal:'2026-12-02T09:00'}}
+  const clockReview=await review(clockPayload)
+  const race=await Promise.allSettled([commit(clockPayload,clockReview),timezoneEdit('Asia/Tokyo',2)])
+  assert.equal(race[1].status,'fulfilled')
+  if(race[0].status==='rejected'){
+   assert.match(race[0].reason.message,/changed or unverified/)
+   assert.equal(await run("SELECT count(*) FROM public.sessions WHERE scheduled_start='2026-12-02T14:00Z'"),'0')
+  }else assert.ok(JSON.parse(race[0].value).session_id,'save before timezone change preserves reviewed instant')
+  await assert.rejects(commit(clockPayload,clockReview),/changed or unverified/,'stale receipt retries cannot bypass timezone check')
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

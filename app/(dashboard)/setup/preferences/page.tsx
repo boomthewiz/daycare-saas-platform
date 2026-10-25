@@ -1,4 +1,5 @@
 "use client"
+import SchedulingTimezoneSettings from "@/components/SchedulingTimezoneSettings"
 import ServiceModelSettings from "@/components/ServiceModelSettings"
 
 import PageGuide from "@/components/PageGuide"
@@ -114,7 +115,7 @@ function PreferencesRoute() {
   const params = useSearchParams()
   const tab = params.get("tab")
   const initialTab: OperationsTab = tab === "locations" || tab === "target-categories" || tab === "terminology" ? tab : "session-types"
-  return <><ServiceModelSettings /><PreferencesContent key={initialTab} initialTab={initialTab} /></>
+  return <><ServiceModelSettings /><SchedulingTimezoneSettings /><PreferencesContent key={initialTab} initialTab={initialTab} /></>
 }
 function PreferencesContent({ initialTab }: { initialTab: OperationsTab }) {
   const access = useSetupAccess()

@@ -1,5 +1,7 @@
 "use client"
 
+import { useSchedulingTimezone } from "@/components/SchedulingTimezoneProvider"
+import { civilDate, zonedLabel } from "@/lib/scheduling-timezone"
 import { readGroupActivities } from "@/lib/activity-groups"
 import { usePortal } from "@/components/PortalProvider"
 
@@ -22,7 +24,6 @@ import {
   Play,
   RefreshCw,
   Sparkles,
-  UserRound,
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
@@ -71,6 +72,8 @@ type AssignedSession = {
 
 export default function MySessionsPage() {
   const { t } = usePortal()
+  const {data:clock}=useSchedulingTimezone()
+  const timezone=clock?.timezone||""
 
   const [sessions, setSessions] =
     useState<AssignedSession[]>([])
@@ -174,7 +177,8 @@ export default function MySessionsPage() {
     loadSessions()
   }, [loadSessions])
 
-  const now = new Date()
+  const [now,setNow]=useState(()=>new Date())
+  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),60000);return()=>window.clearInterval(timer)},[])
 
   const activeSession = useMemo(
     () =>
@@ -215,10 +219,10 @@ export default function MySessionsPage() {
       sessions.filter((session) =>
         isSameLocalDay(
           session.scheduled_start,
-          new Date()
+          now,timezone
         )
       ),
-    [sessions]
+    [sessions,timezone,now]
   )
 
   const todayRemaining = useMemo(
@@ -423,7 +427,7 @@ export default function MySessionsPage() {
                 session.id !== nextSession?.id &&
                 !isSameLocalDay(
                   session.scheduled_start,
-                  new Date()
+                  now,timezone
                 )
             )}
             emptyMessage="No additional sessions are scheduled."
@@ -450,6 +454,8 @@ function FeaturedSessionCard({
   session: AssignedSession
 }) {
   const { t } = usePortal()
+  const {data:clock}=useSchedulingTimezone()
+  const timezone=clock?.timezone||""
 
   const targetCount =
     session.session_targets?.length || 0
@@ -472,7 +478,7 @@ function FeaturedSessionCard({
             <p className="rj-caption">
               {formatDateRange(
                 session.scheduled_start,
-                session.scheduled_end
+                session.scheduled_end,timezone
               )}
             </p>
 
@@ -605,6 +611,8 @@ function CompactSessionCard({
   completed: boolean
 }) {
   const { t } = usePortal()
+  const {data:clock}=useSchedulingTimezone()
+  const timezone=clock?.timezone||""
 
   const targetCount =
     session.session_targets?.length || 0
@@ -652,7 +660,7 @@ function CompactSessionCard({
           <p className="rj-caption mt-1">
             {formatDateRange(
               session.scheduled_start,
-              session.scheduled_end
+              session.scheduled_end,timezone
             )}
           </p>
 
@@ -807,23 +815,7 @@ function getClientName(
   )
 }
 
-function isSameLocalDay(
-  dateValue: string | null,
-  comparisonDate: Date
-): boolean {
-  if (!dateValue) return false
-
-  const date = new Date(dateValue)
-
-  return (
-    date.getFullYear() ===
-      comparisonDate.getFullYear() &&
-    date.getMonth() ===
-      comparisonDate.getMonth() &&
-    date.getDate() ===
-      comparisonDate.getDate()
-  )
-}
+function isSameLocalDay(dateValue:string|null,comparisonDate:Date,timezone:string):boolean { return !!dateValue&&!!timezone&&civilDate(dateValue,timezone)===civilDate(comparisonDate.toISOString(),timezone) }
 
 function formatLabel(value: string): string {
   return value
@@ -836,38 +828,4 @@ function formatLabel(value: string): string {
     .join(" ")
 }
 
-function formatDateRange(
-  start: string | null,
-  end: string | null
-): string {
-  if (!start) {
-    return "Time not scheduled"
-  }
-
-  const startDate = new Date(start)
-  const endDate = end ? new Date(end) : null
-
-  const dateText =
-    new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    }).format(startDate)
-
-  const startTime =
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(startDate)
-
-  const endTime = endDate
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(endDate)
-    : null
-
-  return endTime
-    ? `${dateText} · ${startTime}–${endTime}`
-    : `${dateText} · ${startTime}`
-}
+function formatDateRange(start:string|null,end:string|null,timezone:string):string { return timezone?`${zonedLabel(start,timezone)} – ${zonedLabel(end,timezone)}`:"Organization scheduling timezone not confirmed" }

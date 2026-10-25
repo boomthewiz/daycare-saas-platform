@@ -1,3 +1,5 @@
+import { dayBoundary, nextCivilDate, zonedCivil } from "./scheduling-timezone"
+
 export function localDate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
@@ -35,17 +37,19 @@ export type TimedEvent = { id: string; scheduled_start: string | null; scheduled
 export type PlacedEvent<T> = { event: T; start: number; end: number; column: number; columns: number }
 
 // Clip overnight sessions to each day, then allocate columns for overlapping groups.
-export function placeEvents<T extends TimedEvent>(events: T[], day: Date): PlacedEvent<T>[] {
-  const floor = new Date(day.getFullYear(), day.getMonth(), day.getDate())
-  const ceiling = addDays(floor, 1)
+export function placeEvents<T extends TimedEvent>(events: T[], day: Date, timezone?: string): PlacedEvent<T>[] {
+  const key = localDate(day)
+  const floor = timezone ? new Date(dayBoundary(key,timezone)) : new Date(day.getFullYear(), day.getMonth(), day.getDate())
+  const ceiling = timezone ? new Date(dayBoundary(nextCivilDate(key),timezone)) : addDays(floor, 1)
   const items = events.flatMap(event => {
     if (!event.scheduled_start) return []
     const start = new Date(event.scheduled_start)
     const parsedEnd = event.scheduled_end ? new Date(event.scheduled_end) : null
     const end = parsedEnd && parsedEnd > start ? parsedEnd : new Date(start.getTime() + 30 * 60000)
     if (!Number.isFinite(start.getTime()) || end <= floor || start >= ceiling) return []
-    const startMinute = start < floor ? 0 : start.getHours() * 60 + start.getMinutes()
-    const endMinute = end >= ceiling ? 1440 : end.getHours() * 60 + end.getMinutes()
+    const minute = (instant: Date) => timezone ? Number(zonedCivil(instant.toISOString(),timezone).slice(11,13))*60+Number(zonedCivil(instant.toISOString(),timezone).slice(14,16)) : instant.getHours()*60+instant.getMinutes()
+    const startMinute = start < floor ? 0 : minute(start)
+    const endMinute = end >= ceiling ? 1440 : minute(end)
     return [{ event, start: startMinute, end: Math.max(startMinute + 1, endMinute), column: 0, columns: 1 }]
   }).sort((a, b) => a.start - b.start || b.end - a.end || a.event.id.localeCompare(b.event.id))
   let group: PlacedEvent<T>[] = [], ends: number[] = [], groupEnd = -1
