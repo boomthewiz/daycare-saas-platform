@@ -2,6 +2,9 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import ScheduleTimeReview from "@/components/ScheduleTimeReview"
+import { useScheduleClock, useSchedulingTimezone } from "@/components/SchedulingTimezoneProvider"
+import { resolveCivil, addCivilMinutes, civilTime, zonedLabel } from "@/lib/scheduling-timezone"
 import { useServiceModel } from "@/components/ServiceModelProvider"
 import { modelDefaults, scheduleLabel } from "@/lib/schedule-intent"
 import { useScheduleConflictReview } from "@/components/ScheduleConflictReview"
@@ -41,7 +44,6 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
-import { parseCalendarDraft, localDateTime } from "@/lib/calendar"
 import {
   useSearchParams,
 } from "next/navigation"
@@ -142,6 +144,9 @@ const FRONTLINE_ROLES = [
 
 export default function AdminSessionsPage() {
   const { t } = usePortal()
+  const scheduleClock=useScheduleClock()
+  const [startOccurrence,setStartOccurrence]=useState("")
+  const [endOccurrence,setEndOccurrence]=useState("")
   const conflictReview=useScheduleConflictReview()
   const { data: account, error: accountError, refresh: refreshAccount } = useServiceModel()
   const {data:caps}=useEffectiveCapabilities()
@@ -150,11 +155,12 @@ export default function AdminSessionsPage() {
 
 const searchParams = useSearchParams()
 
+const draftTimezoneMismatch=!!searchParams.get("timezone")&&!!scheduleClock.timezone&&searchParams.get("timezone")!==scheduleClock.timezone
 const requestedClientId =
   searchParams.get("client")
-const requestedStart = parseCalendarDraft(searchParams.get("start"))
-const draftEnd = parseCalendarDraft(searchParams.get("end"))
-const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date(requestedStart) && new Date(draftEnd).getTime() - new Date(requestedStart).getTime() <= 86400000 ? draftEnd : ""
+const requestedStart = parseSchedulingDraft(searchParams.get("start"))
+const draftEnd = parseSchedulingDraft(searchParams.get("end"))
+const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new Date(requestedStart+"Z") && new Date(draftEnd+"Z").getTime() - new Date(requestedStart+"Z").getTime() <= 86400000 ? draftEnd : ""
 
     const [clients, setClients] =
     useState<ClientOption[]>([])
@@ -241,7 +247,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
     const duration = sessionTypes.find(type => type.code === sessionType)?.default_duration_minutes
     if (duration && duration > 0) {
       appliedDraft.current = requestedStart
-      setScheduledEnd(localDateTime(new Date(new Date(requestedStart).getTime() + duration * 60000)))
+      setScheduledEnd(addCivilMinutes(requestedStart,duration))
     }
   }, [requestedStart, scheduledStart, scheduledEnd, sessionType, sessionTypes])
 
@@ -626,7 +632,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
       return
     }
 
-    const startDate = new Date(startValue)
+    const startDate = new Date(startValue+"Z")
 
     if (Number.isNaN(startDate.getTime())) {
       return
@@ -638,7 +644,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
     )
 
     setScheduledEnd(
-      toDateTimeLocalInput(endDate)
+      endDate.toISOString().slice(0,16)
     )
   }
 
@@ -678,8 +684,13 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
       return
     }
 
-    const startDate = new Date(scheduledStart)
-    const endDate = new Date(scheduledEnd)
+    let startDate: Date, endDate: Date
+    try {
+      if(!scheduleClock.valid)throw new Error(scheduleClock.error)
+      if(draftTimezoneMismatch)throw new Error("The calendar timezone changed. Return to the calendar and select the times again.")
+      startDate=new Date(resolveCivil(scheduledStart,scheduleClock.timezone,startOccurrence))
+      endDate=new Date(resolveCivil(scheduledEnd,scheduleClock.timezone,endOccurrence))
+    }catch(cause){setPageError(cause instanceof Error?cause.message:"Review schedule times.");return}
 
     if (
       Number.isNaN(startDate.getTime()) ||
@@ -966,11 +977,13 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             <SearchableChoice label={t("Client")} value={clientId} required options={clients.map(client=>({value:client.id,label:getClientName(client),recent:!!contextChoices.data?.recent.some(recent=>recent.child_id===client.id)}))} onChange={id=>{setClientId(id);const assigned=clients.find(client=>client.id===id)?.assigned_provider_id;if(assigned&&providers.some(provider=>provider.id===assigned))setProviderId(assigned)}} />
             <SearchableChoice label={t("Assigned frontline worker")} value={providerId} required options={providers.map(provider=>({value:provider.id,label:provider.full_name||provider.email||"Unnamed user",recent:!!contextChoices.data?.recent.some(recent=>recent.provider_id===provider.id)}))} onChange={setProviderId} />
             </>}
-            <SearchableChoice label={intent === "clinical" ? "ABA session type" : "Activity type"} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart&&!requestedEnd)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+duration*60000)))}} />
+            <SearchableChoice label={intent === "clinical" ? "ABA session type" : "Activity type"} value={sessionType} required options={sessionTypes.map(type=>({value:type.code,label:`${type.name}${type.default_duration_minutes?` · ${type.default_duration_minutes} min`:""}`,recent:!!contextChoices.data?.recent.some(recent=>recent.session_type===type.code)}))} onChange={code=>{setSessionType(code);if(scheduledStart)applyDefaultEndTime(scheduledStart,code)}} createLabel="Create and save activity type" onCreate={async label=>{const duration=Number(newTypeDuration);if(!Number.isInteger(duration)||duration<1||duration>1440)throw new Error("Choose a whole duration from 1 to 1440 minutes.");const result=await supabase.rpc("save_session_type_choice",{p_label:label,p_duration:duration});if(result.error)throw new Error(result.error.message);await fetchPageData(true);setSessionType(result.data.code);if(scheduledStart&&!requestedEnd)setScheduledEnd(addCivilMinutes(scheduledStart,duration))}} />
             <label className="block text-sm">Duration for a new activity type (minutes)<input type="number" min={1} max={1440} step={1} className="rj-input" value={newTypeDuration} onChange={event=>setNewTypeDuration(event.target.value)}/></label>
             <Link href="/setup/preferences?tab=session-types" className="inline-block underline">Create and save a new activity type in Setup</Link>
             <SessionTypeDescription sessionType={selectedSessionType} />
-            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setWorkflowChosen(true);setGroupMode(false);setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag"&&choice.active!==false)));if(scheduledStart&&!requestedEnd)setScheduledEnd(localDateTime(new Date(new Date(scheduledStart).getTime()+recent.duration_minutes*60000)))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
+            {!!contextChoices.data?.recent.length && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Reuse recent session details</summary><p className="text-sm">Only your last ten successful selections in this organization are included. Applying one changes details below but never copies a date or creates a session.</p><div className="mt-3 space-y-2">{contextChoices.data.recent.map(recent=><button key={recent.id} type="button" className="block w-full rounded border p-3 text-left" onClick={()=>{if(!clients.some(client=>client.id===recent.child_id)||!providers.some(provider=>provider.id===recent.provider_id)||!sessionTypes.some(type=>type.code===recent.session_type))return;setWorkflowChosen(true);setGroupMode(false);setIntent(recent.workflow_intent || "clinical");setClientId(recent.child_id);setProviderId(recent.provider_id);setSessionType(recent.session_type);if(locationOptions.some(location=>location.name===recent.location)){setSelectedLocation(recent.location||"");setCustomLocation("")}else{setSelectedLocation(recent.location?"custom":"");setCustomLocation(recent.location||"")}setSelectedTags(recent.tag_ids.filter(id=>contextChoices.data?.choices.some(choice=>choice.id===id&&choice.kind==="tag"&&choice.active!==false)));if(scheduledStart&&!requestedEnd)setScheduledEnd(addCivilMinutes(scheduledStart,recent.duration_minutes))}}>Use {getClientName(clients.find(client=>client.id===recent.child_id)!)} · {sessionTypes.find(type=>type.code===recent.session_type)?.name} · {recent.duration_minutes} min · {recent.location||"No location"}</button>)}</div></details>}
+            <p role="status">{draftTimezoneMismatch?"The calendar timezone changed. Return to the calendar and select the times again.":scheduleClock.error}</p>
+            <ScheduleTimeReview start={scheduledStart} end={scheduledEnd} startOccurrence={startOccurrence} endOccurrence={endOccurrence} onStartOccurrence={setStartOccurrence} onEndOccurrence={setEndOccurrence}/>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <FormField label="Start">
                 <div className="relative">
@@ -1014,13 +1027,13 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd) > new Date
             </div>
 
             <SearchableChoice savedKind="location" label="Location" value={selectedLocation==="custom"?customLocation:selectedLocation} options={[...new Set([...(selectedLocation==="custom"&&customLocation?[customLocation]:[]),...locationOptions.map(location=>location.name),...sessions.map(session=>session.location).filter((value):value is string=>!!value),...(contextChoices.data?.choices.filter(choice=>choice.kind==="location"&&choice.active!==false).map(choice=>choice.label)||[]),...(contextChoices.data?.recent.map(recent=>recent.location).filter((value):value is string=>!!value)||[])])].map(value=>({value,label:value,recent:!!contextChoices.data?.recent.some(recent=>recent.location===value)}))} onChange={value=>{if(locationOptions.some(location=>location.name===value)){setSelectedLocation(value);setCustomLocation("")}else{setSelectedLocation(value?"custom":"");setCustomLocation(value)}}} createLabel="Create and save location choice" onCreate={async label=>{const result=await supabase.rpc("save_session_choice",{p_kind:"location",p_label:label,p_domain:"shared"});if(result.error)throw new Error(result.error.message);const latest=await contextChoices.refresh([result.data as string]);const saved=latest?.choices.find(choice=>choice.id===result.data);if(!saved)throw new Error("Location saved; reload choices before selecting it.");setSelectedLocation("custom");setCustomLocation(saved.label)}} />
-            <p className="text-sm">A saved location choice is a scheduling label, not an attendance branch or classroom. Session times use the timezone configured on this device.</p>
+            <p className="text-sm">A saved location choice is a scheduling label, not an attendance branch or classroom. Session times use the confirmed organization scheduling timezone shown above.</p>
             {!(intent==="activity" && groupMode) && <SessionContextChoices context={contextChoices.data} selected={selectedTags} onChange={setSelectedTags} onSaved={contextChoices.refresh} disabled={creating||!canWrite||!canSchedule} />}
 
             <button
               type="submit"
               disabled={
-                creating || !account || !workflowChosen ||
+                creating || draftTimezoneMismatch || !scheduleClock.valid || !account || !workflowChosen ||
                 clients.length === 0 ||
                 providers.length === 0 ||
                 sessionTypes.length === 0
@@ -1232,6 +1245,7 @@ function SessionRowCard({
   sessionTypeName: string
 }) {
   const { t } = usePortal()
+  const {data:clock}=useSchedulingTimezone()
 
   const clientName =
     session.activity_title ||
@@ -1283,10 +1297,7 @@ function SessionRowCard({
             <SessionDetail
               icon={CalendarDays}
               label="Schedule"
-              value={formatDateRange(
-                session.scheduled_start,
-                session.scheduled_end
-              )}
+              value={clock?.timezone ? `${zonedLabel(session.scheduled_start,clock?.timezone)} – ${zonedLabel(session.scheduled_end,clock?.timezone)}` : "Scheduling timezone not confirmed"}
             />
 
             <SessionDetail
@@ -1546,54 +1557,6 @@ function formatLabel(value: string): string {
     .join(" ")
 }
 
-function formatDateRange(
-  start: string | null,
-  end: string | null
-): string {
-  if (!start) {
-    return "Not scheduled"
-  }
 
-  const startDate = new Date(start)
 
-  const endDate = end
-    ? new Date(end)
-    : null
-
-  const dateText =
-    new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    }).format(startDate)
-
-  const startTime =
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(startDate)
-
-  const endTime = endDate
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(endDate)
-    : null
-
-  return endTime
-    ? `${dateText} · ${startTime}–${endTime}`
-    : `${dateText} · ${startTime}`
-}
-
-function toDateTimeLocalInput(
-  date: Date
-): string {
-  const offset =
-    date.getTimezoneOffset() * 60_000
-
-  return new Date(
-    date.getTime() - offset
-  )
-    .toISOString()
-    .slice(0, 16)
-}
+function parseSchedulingDraft(value:string|null):string { try{return value?civilTime(value):""}catch{return ""} }

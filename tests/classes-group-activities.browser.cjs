@@ -7,16 +7,18 @@ const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
 ;(async()=>{const db=await createFoundationsDatabase(),browser=await chromium.launch({...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{}),headless:true});let queue=Promise.resolve();const errors=[],writes=[],evidence=[]
  const inspect=async sql=>{await queue;await db.exec('RESET ROLE');return db.query(sql)}
  try{
+  await db.exec('RESET ROLE');await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'));await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',0)",[ids.org]);
+
   await db.exec(`RESET ROLE; INSERT INTO public.organization_terminology(organization_id,client_singular,client_plural,frontline_singular,frontline_plural,session_singular,session_plural) VALUES('${ids.org}','Child','Children','Educator','Educators','Activity','Activities'); INSERT INTO public.session_types(organization_id,name,code,default_duration_minutes) VALUES('${ids.org}','Outdoor play','outdoor_play',60);INSERT INTO auth.users(id,email) VALUES('${extra}','group@example.invalid');INSERT INTO public.users(id,organization_id,full_name,email,role,status,pin_hash,pin_reset_required) VALUES('${extra}','${ids.org}','Group worker','group@example.invalid','teacher','active','synthetic',false);INSERT INTO auth.sessions(id,user_id) VALUES('${extra}','${extra}');INSERT INTO public.device_sessions(session_id,user_id,full_auth_at,last_pin_at,unlocked_until) VALUES('${extra}','${extra}',now(),now(),now()+interval '1 day');INSERT INTO public.client_locations(organization_id,client_id,location_id) VALUES('${ids.org}','${ids.sourceClient}','${ids.north}')`)
   async function openAs(userId,device){
    const user={id:userId,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
    const token=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:userId,session_id:device,exp:Math.floor(Date.now()/1000)+36000})).toString('base64url')+'.synthetic'
-   const ctx=await browser.newContext({viewport:{width:1280,height:900}})
+   const ctx=await browser.newContext({timezoneId:"Asia/Tokyo",viewport:{width:1280,height:900}})
    await ctx.addInitScript(({user,token})=>localStorage.setItem('sb-workflow-test-auth-token',JSON.stringify({access_token:token,refresh_token:'synthetic',expires_at:Math.floor(Date.now()/1000)+36000,token_type:'bearer',user})),{user,token})
    await ctx.route('**/*',route=>{const req=route.request(),url=new URL(req.url()),name=url.pathname.split('/').pop();
     if(url.origin===new URL(base).origin){if(url.pathname==='/api/session-policy')return route.fulfill({json:{enabled:false}});if(url.pathname==='/api/pin-status')return route.fulfill({json:{hasPin:true,resetRequired:false}});if(url.pathname.startsWith('/api/'))return route.fulfill({status:403,json:{error:'No real business actions in fixture'}});return route.continue()}
     if(url.origin!=='https://workflow-test.supabase.co')return route.abort()
-    const args={schedule_conflicts:["p_action","p_payload"],save_reviewed_schedule:["p_action","p_payload","p_review","p_ack"],account_service_model:[],set_account_service_model:["p_organization","p_model","p_version"],current_organization_id:[],effective_capabilities:[],subscription_access:['p_session_id'],can_manage_sessions:[],can_manage_clients:[],can_manage_users:[],can_review_sessions:[],is_frontline_staff:[],onboarding_progress:['p_staff'],session_people_readiness:[],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],activity_class_context:[],save_activity_class:['p_id','p_version','p_name','p_branch','p_children','p_staff','p_active'],create_group_activity:['p_class','p_version','p_title','p_children','p_staff','p_start','p_end','p_type','p_location','p_operation'],list_group_activities:['p_from','p_to','p_branch','p_child','p_assigned','p_page'],activity_schedule:['p_session'],update_group_activity:['p_activity','p_version','p_start','p_end','p_location','p_status'],recover_session_creation:['p_operation','p_cancel']}
+    const args={scheduling_timezone:[],set_scheduling_timezone:["p_organization","p_timezone","p_version"],schedule_conflicts:["p_action","p_payload"],save_reviewed_schedule:["p_action","p_payload","p_review","p_ack"],account_service_model:[],set_account_service_model:["p_organization","p_model","p_version"],current_organization_id:[],effective_capabilities:[],subscription_access:['p_session_id'],can_manage_sessions:[],can_manage_clients:[],can_manage_users:[],can_review_sessions:[],is_frontline_staff:[],onboarding_progress:['p_staff'],session_people_readiness:[],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],activity_class_context:[],save_activity_class:['p_id','p_version','p_name','p_branch','p_children','p_staff','p_active'],create_group_activity:['p_class','p_version','p_title','p_children','p_staff','p_start','p_end','p_type','p_location','p_operation'],list_group_activities:['p_from','p_to','p_branch','p_child','p_assigned','p_page'],activity_schedule:['p_session'],update_group_activity:['p_activity','p_version','p_start','p_end','p_location','p_status'],recover_session_creation:['p_operation','p_cancel']}
     queue=queue.then(async()=>{try{await actor(db,userId,device);let data=[];const body=req.postData()?req.postDataJSON():{};
      if(url.pathname==='/auth/v1/user')data=user
      else if(url.pathname.includes('/rpc/')){assert.ok(Object.hasOwn(args,name),'Unexpected RPC '+name);if(['save_activity_class','create_group_activity','update_group_activity','save_reviewed_schedule'].includes(name))writes.push(name);data=(await db.query(`SELECT public.${name}(${args[name].map((_,i)=>'$'+(i+1)).join(',')}) v`,args[name].map(key=>body[key]??null))).rows[0].v}
@@ -116,6 +118,34 @@ const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
   await page.goto(base+'/classes');await page.getByRole('button',{name:'Edit Preschool Blue',exact:true}).click();await page.getByLabel('Class name',{exact:true}).waitFor();await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'work/class-activity-evidence/classes-desktop.png',fullPage:true})
   await page.goto(base+'/activity/'+activityId+'?edit=1');await page.getByRole('combobox',{name:/^Schedule status/}).selectOption('canceled');await page.getByRole('button',{name:'Save activity schedule',exact:true}).click();await page.getByRole('status').filter({hasText:'Activity schedule saved.'}).waitFor()
   await assigned.page.goto(base+'/my-sessions/history');await assigned.page.getByRole('heading',{name:'Canceled group activities',exact:true}).waitFor();await assigned.page.locator('a[href="/activity/'+activityId+'"]').waitFor()
+  // A traveling device still schedules in Chicago, with an explicit repeated-time occurrence.
+  await page.goto(base+'/sessions?intent=activity&start=2026-11-01T01:30&end=2026-11-01T02:30')
+  await page.getByLabel(/^(Child|Client)$/).fill('Synthetic destination');await page.getByRole('button',{name:/^Synthetic destination/}).click()
+  await page.getByLabel(/^Assigned /).fill('Synthetic staff');await page.getByRole('button',{name:/^Synthetic staff/}).click()
+  await page.getByLabel('Activity type',{exact:true}).fill('Outdoor');await page.getByRole('button',{name:/^Outdoor play/}).click()
+  const clockReview=page.getByRole('region',{name:'Schedule timezone review',exact:true})
+  await clockReview.getByLabel('Start clock-change occurrence').selectOption('2026-11-01T07:30:00.000Z')
+  await page.getByRole('button',{name:'Schedule Activity',exact:true}).click()
+  await page.getByText('Activity scheduled. No clinical targets prepared; this is not recorded attendance.',{exact:true}).waitFor()
+  const folded=await inspect("SELECT scheduled_start::text start FROM public.sessions WHERE scheduled_start='2026-11-01T07:30Z'");assert.equal(folded.rows.length,1,'selected later occurrence saved from Tokyo device')
+  await page.goto(base+'/sessions?intent=activity&start=2026-03-08T02:30&end=2026-03-08T03:30')
+  await page.getByRole('region',{name:'Schedule timezone review',exact:true}).getByText(/does not exist/).waitFor()
+  assert.equal(await page.locator('input[type=datetime-local]').first().inputValue(),'2026-03-08T02:30','gap is never normalized by the device')
+  await page.goto(base+'/sessions?intent=activity&start=2026-11-02T09:00&end=2026-11-02T10:00')
+  await page.getByRole('region',{name:'Schedule timezone review',exact:true}).getByText(/America\/Chicago/).first().waitFor()
+  const settingsPage=await ctx.newPage();await settingsPage.goto(base+'/setup')
+  const settings=settingsPage.getByRole('region',{name:'Organization scheduling timezone',exact:true})
+  await settings.getByLabel('IANA scheduling timezone',{exact:true}).fill('Asia/Tokyo')
+  await settings.getByRole('button',{name:'Review timezone change',exact:true}).click()
+  await settings.getByRole('button',{name:'Confirm scheduling timezone',exact:true}).click()
+  await settings.getByText('Scheduling timezone saved. Existing booking instants were preserved.',{exact:true}).waitFor()
+  await settingsPage.setViewportSize({width:320,height:900});assert.ok(await settingsPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'timezone settings fit mobile')
+  await settingsPage.screenshot({path:'work/class-activity-evidence/timezone-settings-mobile.png',fullPage:true})
+  await settingsPage.close()
+  await page.evaluate(()=>window.dispatchEvent(new Event('rejoyce:scheduling-timezone-changed')))
+  await page.getByText('Scheduling timezone changed. Reload this page and review times before saving.',{exact:false}).first().waitFor()
+  assert.equal(await page.locator('input[type=datetime-local]').first().inputValue(),'2026-11-02T09:00','remote timezone change preserves draft wall time')
+  assert.ok(await page.getByRole('button',{name:'Schedule Activity',exact:true}).isDisabled())
   await queue;assert.deepEqual(errors,[]);assert.ok(writes.includes('save_reviewed_schedule'));fs.writeFileSync('work/class-activity-evidence/results.json',JSON.stringify({passed:true,evidence,rosterSnapshot:true,secondaryStaffAccess:true,writes},null,2));console.log(JSON.stringify({passed:true,evidence,rosterSnapshot:true,secondaryStaffAccess:true}))
   await assigned.ctx.close();await ctx.close()
  }finally{await browser.close();await db.close()}
