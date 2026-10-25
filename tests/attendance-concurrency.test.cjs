@@ -86,5 +86,25 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
    assert.equal(await run("SELECT count(*) FROM public.sessions WHERE scheduled_start='2026-12-02T14:00Z'"),'0')
   }else assert.ok(JSON.parse(race[0].value).session_id,'save before timezone change preserves reviewed instant')
   await assert.rejects(commit(clockPayload,clockReview),/changed or unverified/,'stale receipt retries cannot bypass timezone check')
+  await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025020957_conflict_write_coverage.sql'),'utf8'))
+  await timezoneEdit('UTC',3)
+  for(const writer of ['legacy-rpc','direct-table']){
+   const day=writer==='legacy-rpc'?'2040-03-01':'2040-03-02'
+   const p={...proposed(),p_start:day+'T14:00Z',p_end:day+'T15:00Z',p_clock:{timezone:'UTC',version:4,startLocal:day+'T14:00',endLocal:day+'T15:00'}}
+   const r=await review(p)
+   const legacySql=writer==='legacy-rpc'?`${auth}SELECT public.create_scheduled_context_session('${client}','${groupStaff}','${p.p_start}','${p.p_end}','play',NULL,'{}','${randomUUID()}','activity')`:`${auth}INSERT INTO public.sessions(organization_id,client_id,provider_id,session_type,workflow_intent,scheduled_start,scheduled_end,status) VALUES('${org}','${client}','${groupStaff}','play','activity','${p.p_start}','${p.p_end}','scheduled') RETURNING id`
+   const outcomes=await Promise.allSettled([commit(p,r),run(legacySql)])
+   assert.equal(await run(`SELECT count(*) FROM public.sessions WHERE scheduled_start='${p.p_start}'`),'1',writer+' cannot race past reviewed scheduling')
+   if(outcomes[1].status==='fulfilled')assert.equal(JSON.parse(outcomes[0].value).review_required.totalEvents,1)
+   else assert.match(outcomes[1].reason.message,/overlaps require/)
+  }
+  const groupDay='2040-03-03',groupPayload={p_class:classResult.id,p_version:2,p_title:'Race group',p_children:[client],p_staff:[groupStaff],p_start:groupDay+'T14:00Z',p_end:groupDay+'T15:00Z',p_type:'play',p_location:null,p_operation:randomUUID(),p_clock:{timezone:'UTC',version:4,startLocal:groupDay+'T14:00',endLocal:groupDay+'T15:00'}}
+  const gr=JSON.parse(await run(`${auth}SELECT public.schedule_conflicts('create_group','${JSON.stringify(groupPayload)}'::jsonb)`))
+  const groupSave=run(`${auth}SELECT public.save_reviewed_schedule('create_group','${JSON.stringify(groupPayload)}'::jsonb,'${gr.reviewId}','{}')`)
+  const groupLegacy=run(`${auth}SELECT public.create_scheduled_context_session('${client}','${groupStaff}','${groupPayload.p_start}','${groupPayload.p_end}','play',NULL,'{}','${randomUUID()}','activity')`)
+  const groupRace2=await Promise.allSettled([groupSave,groupLegacy])
+  assert.equal(await run(`SELECT (SELECT count(*) FROM public.sessions WHERE scheduled_start='${groupPayload.p_start}')+(SELECT count(*) FROM rejoyce_security.group_activities WHERE scheduled_start='${groupPayload.p_start}')`),'1','saved group roster and legacy session serialize together')
+  if(groupRace2[1].status==='fulfilled')assert.equal(JSON.parse(groupRace2[0].value).review_required.totalEvents,1)
+  else assert.match(groupRace2[1].reason.message,/overlaps require/)
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })
