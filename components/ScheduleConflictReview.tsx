@@ -68,7 +68,7 @@ function ConflictDialog({summary,timezone,times,finish}:{summary:ConflictSummary
    {!!summary.uncertainEvents&&<label className="rj-review-check"><input type="checkbox" checked={ack.uncertainty} onChange={e=>setAck({...ack,uncertainty:e.target.checked})}/>I reviewed {summary.uncertainEvents} event(s) with an unknown end time; overlap is uncertain</label>}
    <label className="block">Review reason<textarea className="rj-input mt-2" required minLength={10} maxLength={500} rows={3} value={ack.reason} onChange={e=>setAck({...ack,reason:e.target.value})} aria-describedby="conflict-reason-help"/></label>
    <p id="conflict-reason-help" className="text-sm">10–500 characters. Describe the scheduling decision without clinical notes. Review is not verified attendance, coverage, ratios or billing.</p>
-   <p className="text-sm">The server checks again on save. These warnings do not guarantee a conflict-free schedule across older clients.</p>
+   <p className="text-sm">The schedule is checked again on save. Changed overlaps require another review. Unknown end times remain uncertain.</p>
    <div className="rj-action-row"><button type="button" className="rj-button rj-button-secondary" onClick={()=>finish(null)}>Go back and adjust</button><button type="submit" className="rj-button rj-button-primary" disabled={!ready}>Acknowledge and continue</button></div>
   </form>
  </dialog>

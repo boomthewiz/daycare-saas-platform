@@ -8,7 +8,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
  const errors=[],calls=[]
  const inspect=sql=>{const task=queue.then(async()=>{await db.exec('RESET ROLE');try{return await db.query(sql)}finally{await db.exec('SET ROLE authenticated')}});queue=task.then(()=>{});return task}
  try{
-  await db.exec('RESET ROLE');await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'));await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',0)",[ids.org]);
+  await db.exec('RESET ROLE');await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'));await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/migrations/20261025020957_conflict_write_coverage.sql'),'utf8'));await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',0)",[ids.org]);
 
   const user={id:ids.owner,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
   const token=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:ids.owner,session_id:ids.device,exp:Math.floor(Date.now()/1000)+36000})).toString('base64url')+'.synthetic'
@@ -183,7 +183,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   await page.getByText('Recorded complete',{exact:true}).waitFor()
 
   if(process.env.TEST_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.TEST_SCREENSHOT_DIR,'session-context-desktop.png'),fullPage:true})
-  await queue;await db.exec(`RESET ROLE;UPDATE public.users SET role='teacher' WHERE id='${ids.owner}';UPDATE public.sessions SET provider_id='${ids.owner}' WHERE id='${ids.session}';`);await actor(db)
+  await queue;await db.exec(`RESET ROLE;UPDATE public.sessions SET provider_id='${ids.owner}' WHERE id='${ids.session}';UPDATE public.users SET role='teacher' WHERE id='${ids.owner}';`);await actor(db)
   await page.goto(base+'/attendance');await page.getByText('View attendance and separately assigned attendance branches are required.',{exact:false}).waitFor()
   assert.equal(await page.getByLabel('Child for check-in').count(),0,'clinical assignment alone exposes no attendance selector')
   assert.deepEqual(errors,[])
