@@ -6,6 +6,7 @@ export type SubscriptionAccess = {
   managed: boolean; canWrite: boolean; canFinishSession: boolean; serverNow: string
   trialEndsAt?: string; paidThrough?: string | null; canManageBilling?: boolean; planVersion?: string
   supportGraceExpiresAt?: string | null
+  billingNotices?: {version:number;action:"grant"|"revoke";expiresAt:string|null;createdAt:string}[]
 }
 
 export function useSubscriptionAccess(sessionId?: string) {

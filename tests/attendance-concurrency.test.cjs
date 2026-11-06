@@ -122,5 +122,24 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.equal(await run('SELECT paid_through IS NULL FROM rejoyce_security.organization_subscriptions'),'true','grace does not fabricate payment')
   await run(`UPDATE rejoyce_security.support_workforce SET active=false,version=2 WHERE user_id='${user}'`)
   await assert.rejects(grant(randomUUID()),/authority/,'revoked workforce cannot issue a pending command')
+
+  await run('ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS is_anonymous boolean DEFAULT false');
+  await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261106020548_billing_recovery_review.sql'),'utf8'))
+  await run(`UPDATE rejoyce_security.support_workforce SET active=true,version=3 WHERE user_id='${user}';UPDATE rejoyce_security.billing_grace_policies SET active=false;INSERT INTO rejoyce_security.billing_grace_policies VALUES(2,true,3600,2,300,true,'${user}','POLICY-2',now());UPDATE public.users SET pin_hash='synthetic',pin_reset_required=false WHERE id='${groupStaff}';INSERT INTO auth.sessions(id,user_id,aal) VALUES('${groupStaff}','${groupStaff}','aal2');INSERT INTO public.device_sessions(session_id,user_id,full_auth_at,last_pin_at,unlocked_until) VALUES('${groupStaff}','${groupStaff}',now(),now(),now()+interval '1 hour');INSERT INTO rejoyce_security.support_workforce VALUES('${groupStaff}','administrator',true,1);`)
+  const prepareReview=()=>run(`${supportAuth}SELECT public.prepare_billing_grace('grant','${org}',NULL,1,2,'${expiry}','CASE-456','payment_recovery',3)`)
+  const reviews=(await Promise.all([prepareReview(),prepareReview()])).map(JSON.parse)
+  const approverClaims=JSON.stringify({sub:groupStaff,session_id:groupStaff,role:'authenticated',aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]})
+  const approverAuth=`SELECT set_config('request.jwt.claim.sub','${groupStaff}',false),set_config('request.jwt.claims','${approverClaims}',false);SET ROLE authenticated;`
+  for(const r of reviews)await run(`${approverAuth}SELECT public.inspect_billing_grace_review('${r.id}','${org}',true,1)`)
+  const confirmations=reviews.map(r=>({id:r.id,operation:randomUUID()}))
+  const confirmReview=c=>run(`${supportAuth}SELECT public.confirm_billing_grace('${c.id}','${org}','${c.operation}',3)`)
+  const confirmed=await Promise.allSettled(confirmations.map(confirmReview))
+  assert.equal(confirmed.filter(r=>r.status==='fulfilled').length,1,'approved requests cannot race past the reviewed organization version')
+  assert.match(confirmed.find(r=>r.status==='rejected').reason.message,/changed/)
+  const winner=confirmations[confirmed.findIndex(r=>r.status==='fulfilled')]
+  const retryResults=await Promise.all([confirmReview(winner),confirmReview(winner)]);assert.equal(retryResults[0],retryResults[1])
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_graces'),'2')
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_grace_notices'),'1','one atomic customer notice despite concurrent retries')
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_grace_review_permits'),'0','no transaction permits survive confirmation')
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })
