@@ -144,8 +144,8 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261106055633_clinical_access_coverage.sql'),'utf8'))
   const clinicalSession=randomUUID()
   await run(`INSERT INTO rejoyce_security.clinical_modules VALUES('${org}',true,1);
-   INSERT INTO rejoyce_security.clinical_program_grants VALUES('${org}','${user}',true,true,1);
-   INSERT INTO public.sessions(id,organization_id,client_id,provider_id,session_type,workflow_intent,status,scheduled_start,scheduled_end)
+   INSERT INTO rejoyce_security.clinical_program_grants VALUES('${org}','${user}',true,true,1);`)
+  await run(`${auth}INSERT INTO public.sessions(id,organization_id,client_id,provider_id,session_type,workflow_intent,status,scheduled_start,scheduled_end)
    VALUES('${clinicalSession}','${org}','${client}','${groupStaff}','play','clinical','scheduled','2028-01-22T10:00Z','2028-01-22T11:00Z');`)
   const clinicalConnection=()=>postgres({host:'127.0.0.1',port:55439,username:'postgres',database:dbName,max:1,prepare:false,onnotice:()=>{}})
   const blocker=clinicalConnection(),waiter=clinicalConnection()
