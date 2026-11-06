@@ -92,6 +92,8 @@ const activityDate=new Date(Date.now()+3*86400000).toISOString().slice(0,10)
   await configure('aba');await page.goto(base+'/sessions');await page.waitForFunction(()=>document.querySelector('option[value="clinical"]')?.parentElement.value==='clinical')
   await inspect(`UPDATE public.sessions SET scheduled_start='${activityDate}T20:00:00Z',scheduled_end='${activityDate}T21:00:00Z' WHERE id='${ids.session}'`); await inspect(`INSERT INTO public.sessions(id,organization_id,client_id,provider_id,session_type,workflow_intent,status,scheduled_start,scheduled_end) VALUES('80000000-0000-4000-8000-000000000001','${ids.org}','${ids.client}','${ids.staff}','direct_therapy','activity','scheduled','${activityDate}T21:00:00Z','${activityDate}T22:00:00Z')`)
   await configure('mixed');
+  await page.getByRole('button',{name:"Use this device's timezone",exact:true}).click();assert.equal(await page.getByLabel('IANA scheduling timezone',{exact:true}).inputValue(),'Asia/Tokyo','device timezone is a suggestion, not a silent organization change');
+  assert.equal((await inspect('SELECT timezone FROM rejoyce_security.scheduling_timezone_settings')).rows[0].timezone,'America/Chicago');
   for(const width of [320,375,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Service model settings fit '+width)}
   await page.screenshot({path:'work/class-activity-evidence/service-model-settings.png',fullPage:true})
   await page.goto(base+'/sessions');await page.getByLabel('Scheduling workflow').waitFor();assert.equal(await page.getByLabel('Scheduling workflow').inputValue(),'')
