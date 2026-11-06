@@ -106,5 +106,21 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.equal(await run(`SELECT (SELECT count(*) FROM public.sessions WHERE scheduled_start='${groupPayload.p_start}')+(SELECT count(*) FROM rejoyce_security.group_activities WHERE scheduled_start='${groupPayload.p_start}')`),'1','saved group roster and legacy session serialize together')
   if(groupRace2[1].status==='fulfilled')assert.equal(JSON.parse(groupRace2[0].value).review_required.totalEvents,1)
   else assert.match(groupRace2[1].reason.message,/overlaps require/)
+
+  // Sensitive grace commands must serialize independently of UI and scheduling writes.
+  for(const file of ['20261105235840_launch_foundation.sql','20261106003941_billing_recovery_grace.sql'])await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+  await run(`INSERT INTO rejoyce_security.organization_subscriptions(organization_id,owner_id,created_at,trial_ends_at,creation_payload) VALUES('${org}','${user}',now()-interval '40 days',now()-interval '10 days','{}');UPDATE auth.sessions SET aal='aal2' WHERE id='${device}';INSERT INTO rejoyce_security.support_workforce VALUES('${user}','billing',true,1);INSERT INTO rejoyce_security.billing_grace_policies VALUES(1,true,3600,1,300,false,'${user}','POLICY-1',now());`)
+  const supportClaims=JSON.stringify({sub:user,session_id:device,role:'authenticated',aal:'aal2',amr:[{method:'totp',timestamp:Math.floor(Date.now()/1000)}]})
+  const supportAuth=`${auth}SELECT set_config('request.jwt.claims','${supportClaims}',false);`
+  const expiry=new Date(Date.now()+1800000).toISOString()
+  const grant=op=>run(`${supportAuth}SELECT public.support_billing_grace('grant','${org}',NULL,0,1,'${expiry}','CASE-123','payment_recovery','${op}',1)`)
+  const graceRaces=await Promise.allSettled([grant(randomUUID()),grant(randomUUID())])
+  assert.equal(graceRaces.filter(r=>r.status==='fulfilled').length,1,'one first grace version commits')
+  assert.match(graceRaces.find(r=>r.status==='rejected').reason.message,/changed/)
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_graces'),'1')
+  assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_grace_audit'),'1')
+  assert.equal(await run('SELECT paid_through IS NULL FROM rejoyce_security.organization_subscriptions'),'true','grace does not fabricate payment')
+  await run(`UPDATE rejoyce_security.support_workforce SET active=false,version=2 WHERE user_id='${user}'`)
+  await assert.rejects(grant(randomUUID()),/authority/,'revoked workforce cannot issue a pending command')
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })
