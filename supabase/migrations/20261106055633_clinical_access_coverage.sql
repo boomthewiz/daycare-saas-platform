@@ -4,9 +4,20 @@ BEGIN;
 CREATE FUNCTION rejoyce_security.clinical_actor_allowed(p_org uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
  SELECT coalesce(p_org=public.current_organization_id() AND rejoyce_security.session_is_unlocked()
+ AND EXISTS(SELECT 1 FROM auth.users u JOIN auth.sessions s ON s.user_id=u.id
+ WHERE u.id=auth.uid() AND s.id::text=auth.jwt()->>'session_id'
+ AND NOT coalesce(u.is_anonymous,false) AND (u.banned_until IS NULL OR u.banned_until<=statement_timestamp())
+ AND (s.not_after IS NULL OR s.not_after>statement_timestamp()))
  AND EXISTS(SELECT 1 FROM rejoyce_security.clinical_modules WHERE organization_id=p_org AND enabled)
  AND EXISTS(SELECT 1 FROM rejoyce_security.clinical_program_grants WHERE organization_id=p_org AND user_id=auth.uid() AND program_read),false)
 $$;
+
+-- Live identity is independent of device-policy enforcement and cached JWTs.
+DO $identity$ DECLARE f regprocedure:='rejoyce_security.clinical_program_allowed(uuid,uuid,boolean)'::regprocedure; body text; BEGIN
+ SELECT replace(prosrc,chr(13),'') INTO body FROM pg_proc WHERE oid=f;
+ IF md5(body)<>'f7ef8e54ff82e4016e3c43a52396f678' THEN RAISE EXCEPTION 'Clinical predecessor changed: clinical_program_allowed'; END IF;
+ EXECUTE replace(pg_get_functiondef(f),(SELECT prosrc FROM pg_proc WHERE oid=f),replace(body,'SELECT coalesce(rejoyce_security.session_is_unlocked()','SELECT coalesce(rejoyce_security.clinical_actor_allowed(p_org) AND rejoyce_security.session_is_unlocked()'));
+END $identity$;
 CREATE FUNCTION rejoyce_security.clinical_session_allowed(p_session uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
  SELECT EXISTS(SELECT 1 FROM public.sessions s WHERE s.id=p_session AND s.workflow_intent='clinical'
