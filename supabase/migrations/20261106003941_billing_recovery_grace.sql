@@ -111,6 +111,8 @@ BEGIN
  PERFORM 1 FROM public.organizations WHERE id=p_org FOR UPDATE;
  IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM rejoyce_security.organization_subscriptions WHERE organization_id=p_org) THEN
   RAISE EXCEPTION 'Managed organization required' USING ERRCODE='42501'; END IF;
+ -- Queueing for the organization lock must not outlive MFA/device freshness.
+ policy:=rejoyce_security.require_billing_support(p_workforce_version,p_policy_version);
  stamp:=clock_timestamp();
  payload:=jsonb_build_object('action',p_action,'organization',p_org,'grace',p_grace,'version',p_expected_version,
   'policy',p_policy_version,'expires',p_expires,'ticket',p_ticket,'reason',p_reason);
