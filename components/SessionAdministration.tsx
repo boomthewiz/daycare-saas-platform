@@ -1,6 +1,7 @@
 "use client"
 
 import { usePortal } from "@/components/PortalProvider"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 
 import ScheduleTimeReview from "@/components/ScheduleTimeReview"
 import { useScheduleClock } from "@/components/SchedulingTimezoneProvider"
@@ -226,6 +227,7 @@ const ATTENDANCE_STATUSES: {
 ]
 
 export default function SessionAdministration({ editing = false }: { editing?: boolean }) {
+  const {data:capabilities}=useEffectiveCapabilities()
   const { t } = usePortal("clinical")
   const scheduleClock=useScheduleClock()
   const [startOccurrence,setStartOccurrence]=useState("")
@@ -997,6 +999,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
   }
 
   if (session?.id === sessionId && session.workflow_intent === "activity") return <ActivityWorkspace sessionId={session.id} editing={editing} />
+  if (!capabilities?.clinical) return <p className="rj-card p-6" role="status">This workspace is unavailable for your current access.</p>
 
   if (!session || session.id !== sessionId || !client) {
     return (

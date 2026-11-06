@@ -1,6 +1,6 @@
 export type CapabilityKey = "clients" | "users" | "sessions" | "reports" | "reviews" | "billing" | "accessRequests" | "people" | "attendance"
 export type EffectiveCapabilities = Record<CapabilityKey, boolean> & {
-  userId: string; organizationId: string; canWrite: boolean; owner: boolean
+  userId: string; organizationId: string; canWrite: boolean; owner: boolean; clinical: boolean
   reportingTimezone: string | null; reportingToday: string | null
 }
 /** Reject incomplete/legacy payloads; never infer grants from a role or vocabulary. */
@@ -15,6 +15,7 @@ export function normalizeCapabilities(value: unknown): EffectiveCapabilities | n
     !(source.reportingToday === null || typeof source.reportingToday === "string")) return null
   return { ...Object.fromEntries(booleans.map(key => [key, source[key]])), userId: source.userId,
     organizationId: source.organizationId, reportingTimezone: source.reportingTimezone, reportingToday: source.reportingToday,
+    clinical: source.clinical === true,
     people: source.clients === true || source.users === true || source.sessions === true,
     attendance: Object.hasOwn(source, "attendance") && source.attendance === true } as EffectiveCapabilities
 }

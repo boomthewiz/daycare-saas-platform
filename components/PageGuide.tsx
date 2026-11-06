@@ -66,6 +66,14 @@ const guides = {
     ],
     access: "Manage clients controls client changes. Session preparation requires Manage sessions. Staff care access, session assignments and note review permissions are checked separately; seeing a record does not grant editing authority.",
   },
+  daycareSessions: {
+    title: "Plan ordinary Activities",
+    steps: [
+      { title: "Choose an individual or group Activity", text: "Select current children, assigned staff and an Activity type. Classes provide reusable group rosters." },
+      { title: "Review times and save", text: "Use the shared organization timezone and review any overlaps. Planned Activities do not establish attendance; record actual arrivals and departures in Attendance." },
+    ],
+    access: "Your scheduling and record permissions apply. This optional guide creates no records or grants.",
+  },
   sessions: {
     title: "Schedule, prepare, then deliver care",
     steps: [

@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Synthetic browser-to-PostgreSQL integration runner. */
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path')
-const {createFoundationsDatabase,ids,actor}=require('./helpers/daycare-foundations-db.cjs')
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs')
+const {createClinicalDatabase,approve,ids,actor}=require('./helpers/clinical-access-db.cjs')
 const base=process.env.TEST_BASE_URL||'http://localhost:3047'
 ;(async()=>{
- const db=await createFoundationsDatabase(),browser=await chromium.launch({...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{}),headless:true})
+ const db=await createClinicalDatabase(),browser=await chromium.launch({...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{}),headless:true})
  let page,queue=Promise.resolve(),failMutation=false,failReadiness=false,failSessionResponse=false,failSessionBefore=false
  const errors=[],calls=[]
  const inspect=sql=>{const task=queue.then(async()=>{await db.exec('RESET ROLE');try{return await db.query(sql)}finally{await db.exec('SET ROLE authenticated')}});queue=task.then(()=>{});return task}
  try{
-  await db.exec('RESET ROLE');await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'));await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/migrations/20261025020957_conflict_write_coverage.sql'),'utf8'));await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',0)",[ids.org]);
+  await approve(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',1)",[ids.org]);
 
   const user={id:ids.owner,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
   const token=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:ids.owner,session_id:ids.device,exp:Math.floor(Date.now()/1000)+36000})).toString('base64url')+'.synthetic'
