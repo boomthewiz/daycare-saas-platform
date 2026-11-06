@@ -1,4 +1,5 @@
 "use client"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 import SchedulingTimezoneSettings from "@/components/SchedulingTimezoneSettings"
 import ServiceModelSettings from "@/components/ServiceModelSettings"
 
@@ -113,18 +114,21 @@ export default function PreferencesPage() {
 }
 function PreferencesRoute() {
   const params = useSearchParams()
-  const tab = params.get("tab")
+  const {data:caps}=useEffectiveCapabilities()
+  const tab = params.get("tab") === "target-categories" && !caps?.clinical ? null : params.get("tab")
   const initialTab: OperationsTab = tab === "locations" || tab === "target-categories" || tab === "terminology" ? tab : "session-types"
   return <><ServiceModelSettings /><SchedulingTimezoneSettings /><PreferencesContent key={initialTab} initialTab={initialTab} /></>
 }
 function PreferencesContent({ initialTab }: { initialTab: OperationsTab }) {
   const access = useSetupAccess()
+  const {data:caps}=useEffectiveCapabilities()
   const canEdit = activeTabPermission
   function activeTabPermission(tab: OperationsTab) {
-    return !access.loading && !access.error && (tab === "session-types" || tab === "locations" ? access.sessions : tab === "target-categories" ? access.clients : access.clients || access.sessions)
+    return !access.loading && !access.error && (tab === "session-types" || tab === "locations" ? access.sessions : tab === "target-categories" ? caps?.clinical && access.clients : access.clients || access.sessions)
   }
-  const [activeTab, setActiveTab] =
+  const [chosenTab, setActiveTab] =
     useState<OperationsTab>(initialTab)
+  const activeTab = chosenTab === "target-categories" && !caps?.clinical ? "session-types" : chosenTab
 
   const [organizationId, setOrganizationId] =
     useState<string | null>(null)

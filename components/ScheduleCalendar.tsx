@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { useSchedulingTimezone } from "@/components/SchedulingTimezoneProvider"
 import { civilDate, dayBoundary, nextCivilDate, addCivilMinutes } from "@/lib/scheduling-timezone"
+import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 import { useServiceModel } from "@/components/ServiceModelProvider"
 import { matchesFocus, modelDefaults, scheduleLabel, type CalendarFocus, type SchedulingKind } from "@/lib/schedule-intent"
 import Link from "next/link"
@@ -27,6 +28,7 @@ const terminalStatuses = ["canceled", "client_absent", "provider_absent", "no_sh
 
 export default function ScheduleCalendar() {
   const { t } = usePortal()
+  const {data:caps}=useEffectiveCapabilities()
   const {data:clock,error:clockError,refresh:refreshClock}=useSchedulingTimezone()
   const timezone=clock?.timezone||""
   const zonedTime=(instant:string)=>new Date(instant).toLocaleTimeString(undefined,{timeZone:timezone,hour:"numeric",minute:"2-digit",timeZoneName:"shortOffset"})
@@ -38,8 +40,9 @@ export default function ScheduleCalendar() {
   const { allowed } = useOrganizationWriteAccess()
   const mobile = useSyncExternalStore(subscribeMobile, () => window.matchMedia("(max-width: 639px)").matches, () => false)
   const accountScope = account ? `${account.organizationId}:${account.userId}` : ""
-  const defaults = modelDefaults(account?.model || "unconfirmed")
-  const focus = preference?.scope === accountScope ? preference.focus : defaults.focus
+  const defaults = modelDefaults(caps?.clinical ? account?.model || "unconfirmed" : "daycare")
+  const chosenFocus = preference?.scope === accountScope ? preference.focus : defaults.focus
+  const focus = !caps?.clinical && chosenFocus === "sessions" ? "activities" : chosenFocus
   const setFocus = (value: CalendarFocus) => setPreference({scope:accountScope,focus:value})
   const [selection, setSelection] = useState<{ day: number; first: number; last: number } | null>(null)
   const suppressClick = useRef(false)
@@ -148,7 +151,7 @@ export default function ScheduleCalendar() {
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor="calendar-focus">Schedule focus</label>
         <select id="calendar-focus" className="min-h-11 rounded-lg border bg-white px-3 text-sm" value={focus} onChange={event => { setSelection(null); setFocus(event.target.value as typeof focus) }}>
-          <option value="all">All scheduled work</option><option value="classes">Classes · daycare overview</option><option value="activities">Activities · individual and group</option><option value="sessions">ABA · clinical session detail</option>
+          <option value="all">All scheduled work</option><option value="classes">Classes · daycare overview</option><option value="activities">Activities · individual and group</option>{caps?.clinical && <option value="sessions">ABA · clinical session detail</option>}
         </select>
         <label className="sr-only" htmlFor="calendar-view">Calendar view</label>
         <select id="calendar-view" className="min-h-11 rounded-lg border bg-white px-3 text-sm" value={mode} onChange={event => setMode(event.target.value as typeof mode)}>
@@ -167,7 +170,7 @@ export default function ScheduleCalendar() {
       <p className="text-xs text-gray-500">{editable ? (focus === "classes" ? "Select or drag a time to schedule a class activity" : "Select or drag a time to schedule") : "Select scheduled work to view details"} · Drag with a mouse; tap a slot on touch screens · Organization scheduling timezone: {timezone||"Not confirmed"}</p>
     </div>
     {clockChange&&<p className="p-3 text-sm">Clock-change dates use an agenda so repeated or missing hours stay clear. Each event shows its timezone offset.</p>}
-    {draft?.scope === accountScope && editable && <div className="space-y-3 border-b p-4" role="region" aria-label="Choose scheduling type"><p>Choose the type of scheduled work. Your selected start and end times will be kept.</p><div className="flex flex-wrap gap-2">{(["clinical","individual","group"] as const).map(kind => <button type="button" className="rj-button rj-button-secondary" key={kind} onClick={() => openDraft(draft.params,kind)}>{kind === "clinical" ? "ABA session" : kind === "group" ? "Group Activity" : "Individual Activity"}</button>)}<button type="button" onClick={()=>setDraft(null)}>Cancel</button></div></div>}
+    {draft?.scope === accountScope && editable && <div className="space-y-3 border-b p-4" role="region" aria-label="Choose scheduling type"><p>Choose the type of scheduled work. Your selected start and end times will be kept.</p><div className="flex flex-wrap gap-2">{(caps?.clinical ? ["clinical","individual","group"] as const : ["individual","group"] as const).map(kind => <button type="button" className="rj-button rj-button-secondary" key={kind} onClick={() => openDraft(draft.params,kind)}>{kind === "clinical" ? "ABA session" : kind === "group" ? "Group Activity" : "Individual Activity"}</button>)}<button type="button" onClick={()=>setDraft(null)}>Cancel</button></div></div>}
     {message && <div role="alert" className="flex flex-wrap items-center gap-3 p-4 text-sm text-red-700">{message}{!rangeError && <button className="min-h-11 underline" onClick={refresh}>Try again</button>}</div>}
     {(loading || branch.loading) && <p role="status" className="px-4 py-2 text-sm text-gray-500">{"Loading scheduled work…"}</p>}
     {!message && !loading && !branch.loading && visibleSessions.length === 0 && <p role="status" className="px-4 py-2 text-sm text-gray-500">{"No scheduled work in this view and date range."}{editable ? t(" Select a time slot to schedule one.") : ""}</p>}

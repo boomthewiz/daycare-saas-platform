@@ -141,5 +141,35 @@ test('independent PostgreSQL transactions serialize duplicate check-ins, retries
   assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_graces'),'2')
   assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_grace_notices'),'1','one atomic customer notice despite concurrent retries')
   assert.equal(await run('SELECT count(*) FROM rejoyce_security.billing_grace_review_permits'),'0','no transaction permits survive confirmation')
+  await run(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261106055633_clinical_access_coverage.sql'),'utf8'))
+  const clinicalSession=randomUUID()
+  await run(`INSERT INTO rejoyce_security.clinical_modules VALUES('${org}',true,1);
+   INSERT INTO rejoyce_security.clinical_program_grants VALUES('${org}','${user}',true,true,1);
+   INSERT INTO public.sessions(id,organization_id,client_id,provider_id,session_type,workflow_intent,status,scheduled_start,scheduled_end)
+   VALUES('${clinicalSession}','${org}','${client}','${groupStaff}','play','clinical','scheduled','2028-01-22T10:00Z','2028-01-22T11:00Z');`)
+  const clinicalConnection=()=>postgres({host:'127.0.0.1',port:55439,username:'postgres',database:dbName,max:1,prepare:false,onnotice:()=>{}})
+  const blocker=clinicalConnection(),waiter=clinicalConnection()
+  const waitForLock=async(fragment)=>{
+   for(let attempt=0;attempt<100;attempt++){
+    if(await run(`SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname='${dbName}' AND wait_event_type='Lock' AND position('${fragment}' in query)>0)`)=== 'true')return
+    await new Promise(resolve=>setTimeout(resolve,20))
+   }
+   throw new Error('Clinical race did not reach the expected lock')
+  }
+  try{
+   await blocker.unsafe(`BEGIN;UPDATE rejoyce_security.clinical_program_grants SET program_read=false,program_edit=false,version=2 WHERE user_id='${user}'`).simple()
+   const queued=waiter.unsafe(`${auth}SELECT public.prepare_session_targets('${clinicalSession}')`).simple().then(()=>({allowed:true}),error=>({error}))
+   await waitForLock(clinicalSession)
+   await blocker.unsafe('COMMIT')
+   assert.match((await queued).error?.message||'',/Clinical record unavailable/,'queued writer rechecks committed grant revocation')
+   assert.equal(await run(`SELECT prepared_at IS NULL FROM public.sessions WHERE id='${clinicalSession}'`),'true')
+   await run(`UPDATE rejoyce_security.clinical_program_grants SET program_read=true,program_edit=true,version=3 WHERE user_id='${user}'`)
+   await blocker.unsafe(`BEGIN;${auth}SELECT public.prepare_session_targets('${clinicalSession}')`).simple()
+   const revoke=run(`UPDATE rejoyce_security.clinical_program_grants SET program_read=false,program_edit=false,version=4 WHERE user_id='${user}'`)
+   await waitForLock('version=4')
+   await blocker.unsafe('COMMIT')
+   await revoke
+   await assert.rejects(run(`${auth}SELECT public.prepare_session_targets('${clinicalSession}')`),/Clinical record unavailable/,'later requests deny after an in-flight authorized operation finishes')
+  }finally{await blocker.unsafe('ROLLBACK').catch(()=>{});await Promise.all([blocker.end({timeout:1}),waiter.end({timeout:1})])}
  }finally{await run(`DROP DATABASE ${dbName};`,'postgres')}
 })

@@ -21,7 +21,7 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
   const { data: capabilities, loading: loadingPermissions, error, refresh } = useEffectiveCapabilities()
   const isOwner = capabilities?.owner === true
   const visibleNavItems = useMemo(() => loadingPermissions ? [] : navigationItems.filter(item =>
-    item.permission === null || capabilities?.[item.permission] === true
+    (item.permission === null || capabilities?.[item.permission] === true) && (item.href !== "/reviews" || capabilities?.clinical === true)
   ), [capabilities, loadingPermissions])
   return (
     <aside

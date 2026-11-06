@@ -181,7 +181,8 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
   const [providerId, setProviderId] = useState("")
   const [groupMode,setGroupMode]=useState(searchParams.get("group")==="1")
   const [group,setGroup]=useState<GroupDraft>(emptyGroup)
-  const [intent, setIntent] = useState<"activity" | "clinical">(searchParams.get("intent") === "clinical" ? "clinical" : "activity")
+  const [selectedIntent, setIntent] = useState<"activity" | "clinical">(searchParams.get("intent") === "clinical" ? "clinical" : "activity")
+  const intent = caps?.clinical && selectedIntent === "clinical" ? "clinical" : "activity"
   const [sessionType, setSessionType] = useState("")
   const [scheduledStart, setScheduledStart] = useState(requestedStart)
   const [scheduledEnd, setScheduledEnd] = useState(requestedEnd)
@@ -855,7 +856,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
           </div>
         </div>
       </header>
-      <PageGuide guide="sessions" />
+      <PageGuide guide={caps?.clinical ? "sessions" : "daycareSessions"} />
 
       {pageError && (
         <MessageBanner
@@ -938,7 +939,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
               <p className="rj-label">New scheduled work</p>
 
               <h2 className="rj-heading-2 mt-1">
-                Schedule an activity or clinical session
+                {caps?.clinical ? "Schedule an activity or clinical session" : "Schedule an Activity"}
               </h2>
             </div>
           </div>
@@ -969,7 +970,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
             className="mt-6 space-y-5"
           >
             {accountError && <p role="alert">{accountError} <button type="button" className="underline" onClick={()=>void refreshAccount()}>Retry business defaults</button></p>}
-            <label className="block">Scheduling workflow<select className="rj-input" disabled={!account || creating} value={!workflowChosen?"":intent==="clinical"?"clinical":groupMode?"group":"individual"} onChange={event=>{setWorkflowChosen(true);setIntent(event.target.value==="clinical"?"clinical":"activity");setGroupMode(event.target.value==="group")}}><option value="" disabled>Choose scheduling type</option><option value="individual">Individual Activity</option><option value="group">Group Activity</option><option value="clinical">ABA session with preparation</option></select></label>
+            <label className="block">Scheduling workflow<select className="rj-input" disabled={!account || creating} value={!workflowChosen?"":intent==="clinical"?"clinical":groupMode?"group":"individual"} onChange={event=>{setWorkflowChosen(true);setIntent(event.target.value==="clinical"?"clinical":"activity");setGroupMode(event.target.value==="group")}}><option value="" disabled>Choose scheduling type</option><option value="individual">Individual Activity</option><option value="group">Group Activity</option>{caps?.clinical && <option value="clinical">ABA session with preparation</option>}</select></label>
             {contextChoices.error && <p role="alert">Saved choices unavailable: {contextChoices.error} <button type="button" className="underline" onClick={()=>void contextChoices.refresh()}>Retry choices</button></p>}
             <p className="text-sm">Search current saved choices. Recent selections are suggestions, not automatic changes. Child and staff creation still use the separately authorized People workflow.</p>
 
@@ -1089,7 +1090,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
                   Organization Schedule
                 </p>
 
-                <h2 className="rj-heading-2 mt-1">Scheduled activities and clinical sessions</h2>
+                <h2 className="rj-heading-2 mt-1">{caps?.clinical ? "Scheduled activities and clinical sessions" : "Scheduled Activities"}</h2>
 
                 <p className="rj-caption mt-2">
                   {filteredSessions.length} scheduled events{" "}
