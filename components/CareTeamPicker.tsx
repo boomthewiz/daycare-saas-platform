@@ -72,7 +72,7 @@ export default function CareTeamPicker({ context, locationIds, selected, primary
         const state = groupSelection(eligible.filter(person => group.member_ids.includes(person.id) && person.location_ids.includes(group.location_id)).map(person => person.id), unique)
         return state.count > 0 ? <p key={group.id} className="text-sm">{group.name}: {state.count}/{state.total}{state.partial ? " — partially selected" : " — all eligible members selected"}</p> : null
       })}
-      <p className="mt-2 text-sm">{t("Selected staff may view this client’s profile, targets, and behaviors while branch eligibility is valid. Session and note access follow existing permissions.")}</p>
+      <p className="mt-2 text-sm">{t("Selected staff may view this client profile while branch eligibility is valid. Clinical program definitions also require enabled ABA capability and explicit program grants. Session and note access follow their separate permissions.")}</p>
     </div>
   </fieldset>
 }
