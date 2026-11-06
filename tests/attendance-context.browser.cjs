@@ -8,6 +8,8 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
  const errors=[],calls=[]
  const inspect=sql=>{const task=queue.then(async()=>{await db.exec('RESET ROLE');try{return await db.query(sql)}finally{await db.exec('SET ROLE authenticated')}});queue=task.then(()=>{});return task}
  try{
+  await db.exec('RESET ROLE');await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations/20261025012613_scheduling_timezone.sql'),'utf8'));await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/migrations/20261025020957_conflict_write_coverage.sql'),'utf8'));await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'America/Chicago',0)",[ids.org]);
+
   const user={id:ids.owner,aud:'authenticated',role:'authenticated',email:'synthetic@example.invalid',app_metadata:{},user_metadata:{}}
   const token=Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:ids.owner,session_id:ids.device,exp:Math.floor(Date.now()/1000)+36000})).toString('base64url')+'.synthetic'
   const context=await browser.newContext({viewport:{width:1280,height:900},acceptDownloads:true})
@@ -26,10 +28,11 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
      let data=[];const body=request.postData()?request.postDataJSON():{}
      if(url.pathname==='/auth/v1/user')data=user
      else if(url.pathname.includes('/rpc/')){
-      const args={list_group_activities:["p_from","p_to","p_branch","p_child","p_assigned","p_page"],effective_capabilities:[],current_organization_id:[],is_frontline_staff:[],can_review_sessions:[],can_manage_clients:[],can_manage_users:[],can_manage_sessions:[],subscription_access:['p_session_id'],session_people_readiness:[],attendance_context:[],attendance_activation:["p_user"],activity_schedule:["p_session"],create_scheduled_context_session:["p_child","p_provider","p_start","p_end","p_type","p_location","p_tags","p_operation","p_intent"],attendance_read:['p_branch','p_from','p_to','p_open','p_search','p_page','p_export'],attendance_mutate:['p_action','p_child','p_branch','p_visit','p_version','p_in','p_out','p_reason','p_operation'],attendance_history:['p_visit'],set_attendance_scope:['p_user','p_branches','p_expected'],session_context:['p_session'],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],update_session_choice:['p_choice','p_version','p_action','p_label'],recover_session_creation:['p_operation','p_cancel'],attendance_local_options:['p_visit','p_local'],correct_attendance_local:['p_visit','p_version','p_branch','p_in_local','p_out_local','p_in_instant','p_out_instant','p_reason','p_operation'],task_workspace:['p_date','p_page'],set_task_completed:['p_task','p_expected','p_completed'],set_task_owner:['p_task','p_user','p_expected'],save_session_choice:['p_kind','p_label','p_domain'],save_session_type_choice:['p_label','p_duration'],create_context_session:['p_child','p_provider','p_start','p_end','p_type','p_location','p_tags','p_operation']}
+      const args={scheduling_timezone:[],set_scheduling_timezone:["p_organization","p_timezone","p_version"],schedule_conflicts:["p_action","p_payload"],save_reviewed_schedule:["p_action","p_payload","p_review","p_ack"],account_service_model:[],set_account_service_model:["p_organization","p_model","p_version"],list_group_activities:["p_from","p_to","p_branch","p_child","p_assigned","p_page"],effective_capabilities:[],current_organization_id:[],is_frontline_staff:[],can_review_sessions:[],can_manage_clients:[],can_manage_users:[],can_manage_sessions:[],subscription_access:['p_session_id'],session_people_readiness:[],attendance_context:[],attendance_activation:["p_user"],activity_schedule:["p_session"],create_scheduled_context_session:["p_child","p_provider","p_start","p_end","p_type","p_location","p_tags","p_operation","p_intent"],attendance_read:['p_branch','p_from','p_to','p_open','p_search','p_page','p_export'],attendance_mutate:['p_action','p_child','p_branch','p_visit','p_version','p_in','p_out','p_reason','p_operation'],attendance_history:['p_visit'],set_attendance_scope:['p_user','p_branches','p_expected'],session_context:['p_session'],session_context_v2:['p_session','p_selected','p_location'],search_session_choices:['p_kind','p_query','p_page','p_archived'],update_session_choice:['p_choice','p_version','p_action','p_label'],recover_session_creation:['p_operation','p_cancel'],attendance_local_options:['p_visit','p_local'],correct_attendance_local:['p_visit','p_version','p_branch','p_in_local','p_out_local','p_in_instant','p_out_instant','p_reason','p_operation'],task_workspace:['p_date','p_page'],set_task_completed:['p_task','p_expected','p_completed'],set_task_owner:['p_task','p_user','p_expected'],save_session_choice:['p_kind','p_label','p_domain'],save_session_type_choice:['p_label','p_duration'],create_context_session:['p_child','p_provider','p_start','p_end','p_type','p_location','p_tags','p_operation']}
       if(!Object.hasOwn(args,name))throw new Error('Unexpected RPC '+name)
       calls.push({name,body})
-      if(name==='create_scheduled_context_session'&&failSessionBefore){failSessionBefore=false;return route.fulfill({status:503,json:{message:'Synthetic pre-commit interruption'}})}
+      if(name==='save_reviewed_schedule'&&body.p_action==='create_session')calls.push({name:'create_scheduled_context_session',body:body.p_payload})
+      if((name==='create_scheduled_context_session'||(name==='save_reviewed_schedule'&&body.p_action==='create_session'&&body.p_review))&&failSessionBefore){failSessionBefore=false;return route.fulfill({status:503,json:{message:'Synthetic pre-commit interruption'}})}
       if(name==='attendance_activation'&&failReadiness){failReadiness=false;return route.fulfill({status:503,json:{message:'Synthetic readiness unavailable'}})}
       if(name==='attendance_mutate'&&failMutation){failMutation=false;return route.fulfill({status:503,json:{message:'Synthetic interrupted attendance save'}})}
       const keys=args[name];data=(await db.query(`SELECT public.${name}(${keys.map((_,i)=>'$'+(i+1)).join(',')}) value`,keys.map(key=>body[key]??null))).rows[0].value
@@ -49,7 +52,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
       if(name==='sessions')for(const row of data){row.clients={first_name:'Synthetic destination',preferred_name:null};row.provider={full_name:'Synthetic staff'};row.session_targets=[]}
       if((request.headers().accept||'').includes('vnd.pgrst.object'))data=data[0]||null
      }
-     if(name==='create_scheduled_context_session'&&failSessionResponse){failSessionResponse=false;return route.fulfill({status:503,json:{message:'Synthetic committed response lost'}})}
+     if((name==='create_scheduled_context_session'||(name==='save_reviewed_schedule'&&body.p_action==='create_session'&&body.p_review))&&failSessionResponse){failSessionResponse=false;return route.fulfill({status:503,json:{message:'Synthetic committed response lost'}})}
      await route.fulfill({json:data})
     }catch(cause){if(!cause.code)errors.push(cause.message);await route.fulfill({status:400,json:{message:cause.message,code:cause.code||'FIXTURE'}})}
    });return queue
@@ -101,7 +104,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   await page.getByLabel('Client',{exact:true}).fill('Synthetic destination');await page.getByRole('button',{name:'Synthetic destination',exact:true}).click()
   const providerLabel=await page.getByText('Assigned frontline worker',{exact:true}).count()?'Assigned frontline worker':'Assigned team member'
   await page.getByLabel(providerLabel,{exact:true}).fill('Synthetic staff');await page.getByRole('button',{name:'Synthetic staff',exact:true}).click()
-  await page.getByLabel('Session type',{exact:true}).fill('Parent practice appointment')
+  await page.getByLabel('Activity type',{exact:true}).fill('Parent practice appointment')
   await page.getByRole('button',{name:'Create and save activity type: Parent practice appointment',exact:true}).click()
   await page.getByLabel('Start',{exact:true}).fill('2026-10-20T10:00');await page.getByLabel('End',{exact:true}).fill('2026-10-20T11:00')
   await page.getByLabel('Location',{exact:true}).fill('Family room')
@@ -111,7 +114,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   assert.equal((await inspect('SELECT count(*)::integer n FROM rejoyce_security.session_choices WHERE kind=\'tag\' AND label=\'Parent observed\'')).rows[0].n,0,'typing does not save a tag')
   await page.getByRole('button',{name:'Create and save tag: Parent observed',exact:true}).click()
   failSessionResponse=true
-  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
+  await page.getByRole('button',{name:/^(Create ABA session|Schedule Activity)$/}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
   await page.reload()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
@@ -145,18 +148,18 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   await page.getByRole('button',{name:/Use Synthetic destination/}).click()
   assert.ok((await page.getByLabel('Client',{exact:true}).inputValue()).includes('Synthetic destination'))
   assert.equal(await page.getByLabel('Start',{exact:true}).inputValue(),'','preset does not silently copy an old date')
-  assert.equal(await page.getByLabel('Scheduling workflow').inputValue(),'activity')
+  assert.equal(await page.getByLabel('Scheduling workflow').inputValue(),'individual')
   await page.getByLabel('Scheduling workflow').selectOption('clinical')
   await page.getByLabel('Start',{exact:true}).fill('2026-10-21T10:00');await page.getByLabel('End',{exact:true}).fill('2026-10-21T11:00')
   failSessionBefore=true
-  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
+  await page.getByRole('button',{name:/^(Create ABA session|Schedule Activity)$/}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor()
   await page.getByRole('button',{name:'Cancel unconfirmed attempt',exact:true}).click()
   await page.getByRole('region',{name:'Recover interrupted session save'}).waitFor({state:'hidden'})
   assert.equal((await inspect('SELECT count(*)::integer n FROM rejoyce_security.canceled_session_operations')).rows[0].n,1)
 
-  await page.getByRole('button',{name:/^(Create Session|Schedule Activity)$/}).click()
-  await page.getByRole('heading',{name:'Session created successfully',exact:true}).waitFor()
+  await page.getByRole('button',{name:/^(Create ABA session|Schedule Activity)$/}).click()
+  await page.getByRole('heading',{name:'ABA session created successfully',exact:true}).waitFor()
   assert.equal((await inspect("SELECT count(*)::integer n FROM public.sessions WHERE workflow_intent='clinical'")).rows[0].n,2)
   assert.ok(calls.some(call=>call.name==='create_scheduled_context_session'&&call.body.p_intent==='clinical'))
   assert.ok(calls.some(call=>call.name==='create_scheduled_context_session'&&call.body.p_intent==='activity'))
@@ -180,7 +183,7 @@ const base=process.env.TEST_BASE_URL||'http://localhost:3047'
   await page.getByText('Recorded complete',{exact:true}).waitFor()
 
   if(process.env.TEST_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.TEST_SCREENSHOT_DIR,'session-context-desktop.png'),fullPage:true})
-  await queue;await db.exec(`RESET ROLE;UPDATE public.users SET role='teacher' WHERE id='${ids.owner}';UPDATE public.sessions SET provider_id='${ids.owner}' WHERE id='${ids.session}';`);await actor(db)
+  await queue;await db.exec(`RESET ROLE;UPDATE public.sessions SET provider_id='${ids.owner}' WHERE id='${ids.session}';UPDATE public.users SET role='teacher' WHERE id='${ids.owner}';`);await actor(db)
   await page.goto(base+'/attendance');await page.getByText('View attendance and separately assigned attendance branches are required.',{exact:false}).waitFor()
   assert.equal(await page.getByLabel('Child for check-in').count(),0,'clinical assignment alone exposes no attendance selector')
   assert.deepEqual(errors,[])

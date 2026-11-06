@@ -1,8 +1,10 @@
 "use client"
+import { useServiceModel } from "@/components/ServiceModelProvider"
 import Link from "next/link"
 import { usePortal } from "@/components/PortalProvider"
 import { useSetupProgress } from "@/lib/use-setup-progress"
 export default function SetupProgressChecklist() {
+  const { data: account } = useServiceModel()
   const { terms } = usePortal()
   const { data, loading, error, refresh } = useSetupProgress()
   const steps = data ? [
@@ -14,6 +16,7 @@ export default function SetupProgressChecklist() {
   const next = steps.find(step => !step.done)
   return <section className="rj-card space-y-4 break-words p-5" aria-labelledby="setup-progress-title" aria-busy={loading}>
     <h2 id="setup-progress-title" className="rj-heading-3">Workspace readiness</h2>
+    {account?.model === "unconfirmed" && <p>{account.canManage ? <Link className="underline" href="/setup">Review and confirm your business service model</Link> : "Business service model awaits confirmation by an authorized administrator."}</p>}
     <div aria-live="polite">
       {loading ? <p>Checking setup progress…</p> : error ? <p role="alert">{error}</p> : data && <>
         <p>{steps.filter(step => step.done).length} of {steps.length} applicable milestones complete</p>

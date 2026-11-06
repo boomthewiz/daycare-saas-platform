@@ -64,3 +64,25 @@
     transition-duration: 0.01ms !important;
   }
 }
+/* Small, opt-in feedback. Calendar drag targets never move under the pointer. */
+.rj-action-row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.rj-action-row > .rj-button { flex: 1 1 12rem; }
+.rj-conflict-dialog { margin: auto; max-width: calc(100vw - 1.5rem); width: min(36rem, calc(100vw - 1.5rem)); max-height: min(90dvh, 56rem); overflow-y: auto; overscroll-behavior: contain; padding: 0; border: 1px solid var(--rj-border); border-radius: var(--rj-radius-lg); background: var(--rj-surface); color: var(--rj-text-primary); box-shadow: var(--rj-shadow-medium); }
+.rj-conflict-dialog::backdrop { background: rgb(15 23 42 / .45); }
+.rj-conflict-warning { border: 1px solid var(--rj-border); border-left: 4px solid var(--rj-teal-700); border-radius: var(--rj-radius-md); padding: .875rem; }
+.rj-review-check { display: flex; align-items: flex-start; gap: .75rem; min-height: 44px; padding-block: .75rem; cursor: pointer; }
+.rj-review-check input { flex: 0 0 auto; width: 1.25rem; height: 1.25rem; margin-top: .125rem; accent-color: var(--rj-teal-700); }
+.rj-conflict-warning:has(input:checked) { background: var(--rj-success-soft); }
+.rj-button, .rj-card-interactive, .rj-calendar button:not([data-slot]) { -webkit-tap-highlight-color: transparent; }
+.rj-button[aria-disabled="true"] { cursor: not-allowed; opacity: .55; }
+.rj-button:focus-visible, .rj-card-interactive:focus-visible, .rj-calendar button:focus-visible { outline: 3px solid var(--rj-teal-700); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+ .rj-button-primary:not(:disabled):not([aria-disabled="true"]):hover { background: var(--rj-teal-700); box-shadow: var(--rj-shadow-medium); }
+ .rj-card-interactive:hover { border-color: var(--rj-teal-100); box-shadow: var(--rj-shadow-medium); }
+}
+@media (prefers-reduced-motion: no-preference) {
+ .rj-button:not(:disabled):not([aria-disabled="true"]):active, .rj-calendar button:not([data-slot]):not(:disabled):active { transform: scale(.985); }
+ .rj-card-interactive:active { transform: scale(.995); }
+ .rj-calendar button:not([data-slot]) { transition: transform 120ms var(--rj-ease-standard), background-color 180ms var(--rj-ease-standard); }
+ .rj-conflict-dialog[open], .rj-feedback { animation: rj-fade-in 160ms var(--rj-ease-standard); }
+}

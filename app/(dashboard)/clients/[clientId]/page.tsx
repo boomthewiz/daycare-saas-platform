@@ -1,5 +1,6 @@
 "use client"
 
+import { useClinicalProgramAccess } from "@/lib/use-clinical-program-access"
 import ChildActivityGroups from "@/components/ChildActivityGroups"
 import { usePortal } from "@/components/PortalProvider"
 
@@ -189,6 +190,9 @@ export default function ClientDetailPage() {
   const router = useRouter()
 
   const clientId = params.clientId
+  const programAccess = useClinicalProgramAccess(clientId)
+  const canReadProgram = programAccess?.read === true
+  const canEditProgram = programAccess?.edit === true
 
   const [activeTab, setActiveTab] =
     useState<PageTab>("overview")
@@ -1150,8 +1154,7 @@ export default function ClientDetailPage() {
             </h1>
 
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
-              Manage profile details, goals, behavior
-              tracking, and scheduled services.
+              {canReadProgram ? "Manage profile details, goals, behavior tracking, and scheduled services." : "Review profile details, Classes, Activities and current branches."}
             </p>
 
             <p className="rj-caption mt-2">
@@ -1182,7 +1185,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </header>
-      <PageGuide guide="client" />
+      <PageGuide guide={canReadProgram ? "client" : "daycareClient"} />
 
       {pageError && (
         <MessageBanner
@@ -1202,6 +1205,7 @@ export default function ClientDetailPage() {
 
       {/* Summary cards */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {canReadProgram && <>
         <SummaryCard
           label={t("Active Targets")}
           value={activeTargets.length}
@@ -1218,6 +1222,7 @@ export default function ClientDetailPage() {
           foreground="var(--rj-lavender-700)"
         />
 
+        </>}
         <SummaryCard
           label={t("Upcoming Sessions")}
           value={upcomingSessions.length}
@@ -1247,6 +1252,7 @@ export default function ClientDetailPage() {
             }
           />
 
+          {canReadProgram && <>
           <PageTabButton
             active={activeTab === "targets"}
             label={t("Targets")}
@@ -1267,6 +1273,7 @@ export default function ClientDetailPage() {
             }
           />
 
+          </>}
           <PageTabButton
             active={activeTab === "sessions"}
             label={t("Sessions")}
@@ -1298,7 +1305,8 @@ export default function ClientDetailPage() {
         />
       )}
 
-      {activeTab === "targets" && (
+      {canReadProgram && activeTab === "targets" && (
+        <fieldset disabled={!canEditProgram}>
         <div className="space-y-6">
           {showTargetForm && (
             <TargetForm
@@ -1421,9 +1429,11 @@ export default function ClientDetailPage() {
             )}
           </section>
         </div>
+        </fieldset>
       )}
 
-      {activeTab === "behaviors" && (
+      {canReadProgram && activeTab === "behaviors" && (
+        <fieldset disabled={!canEditProgram}>
         <div className="space-y-6">
           {showBehaviorForm && (
             <BehaviorForm
@@ -1493,6 +1503,7 @@ export default function ClientDetailPage() {
             )}
           </section>
         </div>
+        </fieldset>
       )}
 
       {activeTab === "sessions" && (

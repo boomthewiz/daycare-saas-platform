@@ -122,7 +122,7 @@ type DisplayBehavior = ClientBehaviorRecord & {
 }
 
 export default function ActiveSessionPage() {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
 
   const router = useRouter()
   const params = useParams<{ sessionId: string }>()

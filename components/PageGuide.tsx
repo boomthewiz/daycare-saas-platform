@@ -49,6 +49,14 @@ const guides = {
     ],
     access: "Manage clients is required to add clients and manage care assignments. Invitations require Manage users, and scheduling requires Manage sessions. The database checks access on every save.",
   },
+  daycareClient: {
+    title: "Review the child profile",
+    steps: [
+      { title: "Check current details and branches", text: "Review the saved profile and current branches. Class membership and a planned Activity do not establish attendance or pickup authority." },
+      { title: "Review Classes and Activities", text: "Use the child record for current groups and planned work. Record actual attendance through the separately authorized attendance workspace." },
+    ],
+    access: "Your existing roster and attendance permissions apply. This optional guide changes no records or grants.",
+  },
   client: {
     title: "Start with the client's care plan",
     steps: [

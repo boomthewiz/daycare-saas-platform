@@ -2,6 +2,10 @@
 
 import { usePortal } from "@/components/PortalProvider"
 
+import ScheduleTimeReview from "@/components/ScheduleTimeReview"
+import { useScheduleClock } from "@/components/SchedulingTimezoneProvider"
+import { resolveCivil, zonedCivil, zonedLabel } from "@/lib/scheduling-timezone"
+import { useScheduleConflictReview } from "@/components/ScheduleConflictReview"
 import PageGuide from "@/components/PageGuide"
 import ActivityWorkspace from "@/components/ActivityWorkspace"
 import SessionTags from "@/components/SessionTags"
@@ -222,7 +226,12 @@ const ATTENDANCE_STATUSES: {
 ]
 
 export default function SessionAdministration({ editing = false }: { editing?: boolean }) {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
+  const scheduleClock=useScheduleClock()
+  const [startOccurrence,setStartOccurrence]=useState("")
+  const [endOccurrence,setEndOccurrence]=useState("")
+  const toDateTimeLocal=useCallback((value:string|null)=>value&&scheduleClock.timezone?zonedCivil(value,scheduleClock.timezone):"",[scheduleClock.timezone])
+  const conflictReview=useScheduleConflictReview()
 
   const router = useRouter()
   const [canManage, setCanManage] = useState(false)
@@ -519,6 +528,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             []) as TargetResponseRecord[]
         )
 
+        setStartOccurrence(loadedSession.scheduled_start?new Date(loadedSession.scheduled_start).toISOString():"");setEndOccurrence(loadedSession.scheduled_end?new Date(loadedSession.scheduled_end).toISOString():"")
         // Populate form state
         setProviderId(loadedSession.provider_id || "")
         setSessionType(
@@ -555,7 +565,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
         setRefreshing(false)
       }
     },
-    [sessionId]
+    [sessionId, toDateTimeLocal]
   )
 
   useEffect(() => {
@@ -607,6 +617,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
     (session?.status === "scheduled" || session?.status === "confirmed")
 
   const dirty = editing && !!session && session.id === sessionId && (
+    (!!startOccurrence&&!!session.scheduled_start&&startOccurrence!==new Date(session.scheduled_start).toISOString()) ||
+    (!!endOccurrence&&!!session.scheduled_end&&endOccurrence!==new Date(session.scheduled_end).toISOString()) ||
     providerId !== (session.provider_id || "") || sessionType !== session.session_type ||
     scheduledStart !== toDateTimeLocal(session.scheduled_start) ||
     scheduledEnd !== toDateTimeLocal(session.scheduled_end) ||
@@ -636,8 +648,12 @@ export default function SessionAdministration({ editing = false }: { editing?: b
       return
     }
 
-    const startDate = new Date(scheduledStart)
-    const endDate = new Date(scheduledEnd)
+    let startDate: Date, endDate: Date
+    try {
+      if(!scheduleClock.valid)throw new Error(scheduleClock.error)
+      startDate=new Date(hasStarted?session.scheduled_start||0:resolveCivil(scheduledStart,scheduleClock.timezone,startOccurrence,session.scheduled_start))
+      endDate=new Date(hasStarted?session.scheduled_end||0:resolveCivil(scheduledEnd,scheduleClock.timezone,endOccurrence,session.scheduled_end))
+    }catch(cause){setPageError(cause instanceof Error?cause.message:"Review schedule times.");return}
 
     if (!hasStarted && (
       Number.isNaN(startDate.getTime()) ||
@@ -661,9 +677,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
     setSuccessMessage(null)
 
     try {
-      const { error } = await supabase
-        .from("sessions")
-        .update({
+      const saved = await conflictReview.save("update_session", {p_session:session.id,p_version:session.updated_at,p_changes:{
           // Do not round or resend locked schedule fields during metadata edits.
           ...(hasStarted ? {} : {
             provider_id: providerId,
@@ -675,15 +689,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           location: location.trim() || null,
           attendance_status: attendanceStatus,
           was_supervised: wasSupervised,
-        })
-        .eq("id", session.id)
-        .eq("organization_id", session.organization_id)
-        .eq("updated_at", session.updated_at)
-        .select("id").single()
-
-      if (error) {
-        throw new Error(error.code === "PGRST116" ? "This session changed or your access is no longer available. Your changes have not been saved. Reload to review the latest record." : error.message)
-      }
+        }})
+      if(!saved)return
 
       setSuccessMessage(
         "Session details saved successfully."
@@ -1075,10 +1082,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
             {editing && <p className="mt-2 font-bold">{clientName}</p>}
 
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">
-              {formatDateRange(
-                session.scheduled_start,
-                session.scheduled_end
-              )}
+              {scheduleClock.timezone ? `${zonedLabel(session.scheduled_start,scheduleClock.timezone)} – ${zonedLabel(session.scheduled_end,scheduleClock.timezone)}` : "Confirm scheduling timezone in Setup"}
             </p>
 
             <p className="rj-caption mt-1">
@@ -1110,6 +1114,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
           </div>}
         </div>
       </header>
+      {conflictReview.dialog}
       <PageGuide guide="session" />
       <SessionTags sessionId={sessionId} />
 
@@ -1279,10 +1284,12 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               <p className="rj-caption mt-2">Changing the service type preserves these scheduled times. Adjust Start and End explicitly if needed.</p>
             </FormField>
 
+            <div className="col-span-full"><p role="status">{scheduleClock.error}</p><ScheduleTimeReview start={scheduledStart} end={scheduledEnd} startOccurrence={startOccurrence} endOccurrence={endOccurrence} onStartOccurrence={setStartOccurrence} onEndOccurrence={setEndOccurrence}/></div>
             <FormField label="Start">
               <div className="relative">
                 <input
                   type="datetime-local"
+                  step="0.001"
                   value={scheduledStart}
                   onChange={(event) =>
                     setScheduledStart(
@@ -1300,6 +1307,7 @@ export default function SessionAdministration({ editing = false }: { editing?: b
               <div className="relative">
                 <input
                   type="datetime-local"
+                  step="0.001"
                   value={scheduledEnd}
                   onChange={(event) =>
                     setScheduledEnd(
@@ -1794,7 +1802,8 @@ export default function SessionAdministration({ editing = false }: { editing?: b
 }
 
 function SessionDetailLoading() {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
+
 
   return (
     <div className="flex min-h-[65vh] items-center justify-center">
@@ -1907,7 +1916,8 @@ function PreparationBadge({
 }: {
   prepared: boolean
 }) {
-  const { t } = usePortal()
+  const { t } = usePortal("clinical")
+
 
   return (
     <span
@@ -2011,23 +2021,6 @@ function TimelineItem({
   )
 }
 
-function toDateTimeLocal(
-  value: string | null
-): string {
-  if (!value) return ""
-
-  const date = new Date(value)
-
-  const timezoneOffset =
-    date.getTimezoneOffset() * 60_000
-
-  return new Date(
-    date.getTime() - timezoneOffset
-  )
-    .toISOString()
-    .slice(0, 16)
-}
-
 function formatLabel(value: string): string {
   return value
     .split("_")
@@ -2037,45 +2030,6 @@ function formatLabel(value: string): string {
         word.slice(1)
     )
     .join(" ")
-}
-
-function formatDateRange(
-  start: string | null,
-  end: string | null
-): string {
-  if (!start) {
-    return "Time not scheduled"
-  }
-
-  const startDate = new Date(start)
-  const endDate = end
-    ? new Date(end)
-    : null
-
-  const dateText =
-    new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(startDate)
-
-  const startTime =
-    new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(startDate)
-
-  const endTime = endDate
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      }).format(endDate)
-    : null
-
-  return endTime
-    ? `${dateText} · ${startTime}–${endTime}`
-    : `${dateText} · ${startTime}`
 }
 
 function formatDateTime(
