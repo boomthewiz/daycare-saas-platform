@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {createFoundationsDatabase,ids,actor}=require('./helpers/daycare-foundations-db.cjs')
 async function database(){
  const db=await createFoundationsDatabase();await db.exec('RESET ROLE');
- for(const file of ['20261025012613_scheduling_timezone.sql','20261025020957_conflict_write_coverage.sql','20261105235840_launch_foundation.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
+ for(const file of ['20261025012613_scheduling_timezone.sql','20261025020957_conflict_write_coverage.sql','20261105235840_launch_foundation.sql','20261106004753_audited_scheduling_timezone_bootstrap.sql'])await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',file),'utf8'))
  await actor(db);await db.query("SELECT public.set_scheduling_timezone($1,'UTC',0)",[ids.org]);return db
 }
 async function enable(db,edit=true){
@@ -100,5 +100,20 @@ test('daycare workflows remain available without clinical module or support memb
   assert.ok(group.id)
   const activity=(await db.query("SELECT public.create_scheduled_context_session($1,$2,'2027-01-22T16:00Z','2027-01-22T17:00Z','direct_therapy',NULL,'{}',gen_random_uuid(),'activity') v",[ids.client,ids.staff])).rows[0].v
   assert.ok(activity.session_id)
+ }finally{await db.close()}
+})
+
+test('approved initial timezone bootstrap records release provenance without impersonating a customer',async()=>{
+ const db=await database();try{
+  await db.exec('RESET ROLE')
+  await assert.rejects(db.query('INSERT INTO rejoyce_security.scheduling_timezone_settings VALUES($1,$2,1,NULL,now())',[ids.foreignOrg,'America/Chicago']),/bootstrap evidence/)
+  await db.query('INSERT INTO rejoyce_security.scheduling_timezone_bootstraps(organization_id,timezone,approval_reference) VALUES($1,$2,$3)',[ids.foreignOrg,'America/Chicago','Owner release approval'])
+  await db.query('INSERT INTO rejoyce_security.scheduling_timezone_settings VALUES($1,$2,1,NULL,now())',[ids.foreignOrg,'America/Chicago'])
+  await db.query('INSERT INTO rejoyce_security.scheduling_timezone_history VALUES($1,1,NULL,$2,NULL,now())',[ids.foreignOrg,'America/Chicago'])
+  await assert.rejects(db.query('UPDATE rejoyce_security.scheduling_timezone_settings SET version=2 WHERE organization_id=$1',[ids.foreignOrg]),/bootstrap evidence/)
+  await assert.rejects(db.query('DELETE FROM rejoyce_security.scheduling_timezone_bootstraps'),/append-only/)
+  await actor(db);await assert.rejects(db.query('SELECT * FROM rejoyce_security.scheduling_timezone_bootstraps'),/permission denied/)
+  const changed=(await db.query("SELECT public.set_scheduling_timezone($1,'Asia/Tokyo',1) v",[ids.org])).rows[0].v
+  assert.equal(changed.updatedBy,ids.owner);assert.equal(changed.version,2)
  }finally{await db.close()}
 })
