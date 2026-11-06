@@ -6,7 +6,7 @@ const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from
 const person={...user,organization_id:org,full_name:'Synthetic Owner',role:'owner',status:'active',created_at:new Date().toISOString()}
 const client={id:child,organization_id:org,first_name:'Synthetic Child',last_name:null,preferred_name:null,status:'active',assigned_provider_id:id,client_locations:[],created_at:new Date().toISOString()}
 const branch={id:'branch-one',organization_id:org,name:'Synthetic branch',active:true,sort_order:0}
-const caps={userId:id,organizationId:org,clients:true,users:true,sessions:true,reports:true,reviews:true,billing:true,accessRequests:true,attendance:true,canWrite:true,owner:true,reportingTimezone:'America/Chicago',reportingToday:'2026-10-20'}
+const caps={userId:id,organizationId:org,clinical:true,clients:true,users:true,sessions:true,reports:true,reviews:true,billing:true,accessRequests:true,attendance:true,canWrite:true,owner:true,reportingTimezone:'America/Chicago',reportingToday:'2026-10-20'}
 assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Visual fixture must use a local server')
 const results=[],errors=[],blocked=[],unknown=[]
 fs.mkdirSync('work/form-field-evidence',{recursive:true})
