@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase"
 export type SubscriptionAccess = {
   managed: boolean; canWrite: boolean; canFinishSession: boolean; serverNow: string
   trialEndsAt?: string; paidThrough?: string | null; canManageBilling?: boolean; planVersion?: string
+  supportGraceExpiresAt?: string | null
+  billingNotices?: {version:number;action:"grant"|"revoke";expiresAt:string|null;createdAt:string}[]
 }
 
 export function useSubscriptionAccess(sessionId?: string) {
@@ -19,7 +21,7 @@ export function useSubscriptionAccess(sessionId?: string) {
       if (failure || !data || typeof data.canWrite !== "boolean" || typeof data.canFinishSession !== "boolean") throw new Error("Unable to check organization access. Reconnect and try again.")
       if (request !== generation.current) return
       setLoadedSession(sessionId)
-      setAccess(data as SubscriptionAccess); setError("")
+      setAccess(previous => JSON.stringify(previous) === JSON.stringify(data) ? previous : data as SubscriptionAccess); setError("")
     } catch {
       if (request !== generation.current) return
       setAccess(null); setError("Unable to check organization access. Reconnect and try again.")
@@ -41,7 +43,8 @@ export function useSubscriptionAccess(sessionId?: string) {
   }, [refresh])
   useEffect(() => {
     if (!access?.managed || !access.canWrite) return
-    const deadline = Math.max(Date.parse(access.trialEndsAt || "") || 0, Date.parse(access.paidThrough || "") || 0)
+    const deadline = Math.max(Date.parse(access.trialEndsAt || "") || 0, Date.parse(access.paidThrough || "") || 0,
+      Date.parse(access.supportGraceExpiresAt || "") || 0)
     const remaining = deadline - Date.parse(access.serverNow)
     if (!Number.isFinite(remaining)) return
     const timer = window.setTimeout(() => {

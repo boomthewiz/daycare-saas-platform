@@ -17,9 +17,11 @@ export default function SubscriptionBanner() {
   // Access failures remain available to permission-sensitive screens.
   if (!access?.managed) return null
   const trialActive = !!access.trialEndsAt && Date.parse(access.trialEndsAt) > Date.parse(access.serverNow)
-  if (access.canWrite && !trialActive) return null
+  const graceActive = access.canWrite && !!access.supportGraceExpiresAt && Date.parse(access.supportGraceExpiresAt) > Date.parse(access.serverNow)
+    && !(access.paidThrough && Date.parse(access.paidThrough) > Date.parse(access.serverNow)) && !trialActive
+  if (access.canWrite && !trialActive && !graceActive) return null
   return <aside className="border-b border-teal-200 bg-teal-50 p-3 text-sm text-teal-950" aria-label="Organization access">
-    {trialActive ? <>Your free trial ends {new Date(access.trialEndsAt!).toLocaleDateString()}. No card is required until you subscribe.</> : <>{t("Your organization has read-only access. Sessions underway when the trial ended may be finished and their notes submitted.")}</>}
+    {graceActive ? <>Temporary support grace enables editing until {new Date(access.supportGraceExpiresAt!).toLocaleString()}. This does not mark an invoice paid.</> : trialActive ? <>Your free trial ends {new Date(access.trialEndsAt!).toLocaleDateString()}. No card is required until you subscribe.</> : <>{t("Your organization has read-only access. Sessions underway when the trial ended may be finished and their notes submitted.")}</>}
     {access.canManageBilling && <> <Link href="/billing" className="font-semibold underline">View subscription</Link></>}
   </aside>
 }
