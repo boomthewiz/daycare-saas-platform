@@ -176,16 +176,33 @@ export default function LoginPage() {
       <div className="mt-8 text-center text-sm text-slate-600"><p>New to ReJoyce?</p><Link href="/onboarding-owner" className="inline-block mt-2 font-semibold text-teal-800 underline">Create an organization — 30 days free</Link></div>
     </section>
     <style jsx>{`
+      @property --rejoyce-login-angle {
+        syntax: "<angle>";
+        inherits: false;
+        initial-value: 0deg;
+      }
+
+      .login-gradient {
+        background-image:
+          radial-gradient(ellipse at center, rgb(255 255 255 / 45%), transparent 72%),
+          conic-gradient(
+            from calc(135deg + var(--rejoyce-login-angle, 0deg)),
+            #fef3b8,
+            #fce1ed 25%,
+            #e2e5fd 50%,
+            #dbeafe 72%,
+            #fef3b8
+          );
+      }
+
       @media (prefers-reduced-motion: no-preference) {
         .login-gradient {
-          background-size: 155% 155%;
-          animation: login-gradient-drift 20s ease-in-out infinite;
+          animation: login-gradient-sweep 16s linear infinite;
         }
       }
 
-      @keyframes login-gradient-drift {
-        0%, 100% { background-position: 0% 0%; }
-        50% { background-position: 100% 100%; }
+      @keyframes login-gradient-sweep {
+        to { --rejoyce-login-angle: 360deg; }
       }
     `}</style>
   </main>
