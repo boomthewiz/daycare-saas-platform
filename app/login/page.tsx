@@ -142,7 +142,7 @@ export default function LoginPage() {
     setPassword(""); setCode(""); setSent(false); setError(""); setRecovery(false)
   }
 
-  return <main className="min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-yellow-100 flex items-center justify-center p-6">
+  return <main className="login-gradient min-h-screen bg-gradient-to-br from-pink-100 via-blue-100 to-yellow-100 flex items-center justify-center p-6">
     <section className="w-full max-w-md bg-white/95 rounded-3xl shadow-xl p-8 border border-white">
       <p className="text-center font-semibold text-teal-700 mb-3">ReJoyce</p>
       <h1 className="text-center text-3xl font-bold text-slate-800">{method === "email" && sent ? "Check your email" : "Welcome back"}</h1>
@@ -175,5 +175,18 @@ export default function LoginPage() {
       </div>
       <div className="mt-8 text-center text-sm text-slate-600"><p>New to ReJoyce?</p><Link href="/onboarding-owner" className="inline-block mt-2 font-semibold text-teal-800 underline">Create an organization — 30 days free</Link></div>
     </section>
+    <style jsx>{`
+      @media (prefers-reduced-motion: no-preference) {
+        .login-gradient {
+          background-size: 155% 155%;
+          animation: login-gradient-drift 20s ease-in-out infinite;
+        }
+      }
+
+      @keyframes login-gradient-drift {
+        0%, 100% { background-position: 0% 0%; }
+        50% { background-position: 100% 100%; }
+      }
+    `}</style>
   </main>
 }
