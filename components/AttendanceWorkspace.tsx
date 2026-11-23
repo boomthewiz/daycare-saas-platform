@@ -48,7 +48,12 @@ export default function AttendanceWorkspace() {
       const next = result.data as Context
       setContext(next)
       setActivationRevision(previous => previous + 1)
-      setBranch(previous => next.branches.some(item => item.id === previous) ? previous : next.branches[0]?.id || "")
+      const requestedBranch = new URLSearchParams(window.location.search).get("branch")
+      setBranch(previous => {
+        if (next.branches.some(item => item.id === previous)) return previous
+        if (requestedBranch && next.branches.some(item => item.id === requestedBranch)) return requestedBranch
+        return next.branches[0]?.id || ""
+      })
       if (next.timezone) {
         const parts = new Intl.DateTimeFormat("en-CA",{timeZone:next.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date())
         const today = ["year","month","day"].map(type=>parts.find(part=>part.type===type)?.value).join("-")

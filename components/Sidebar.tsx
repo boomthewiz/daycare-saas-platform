@@ -7,10 +7,18 @@ import { usePortal } from "@/components/PortalProvider"
 import { useEffectiveCapabilities } from "@/components/EffectiveCapabilitiesProvider"
 import { useDailySchedule } from "@/components/DailyScheduleProvider"
 import {
+  ChevronDown,
   LoaderCircle,
 } from "lucide-react"
 
-import { navigationItems } from "@/config/navigation"
+import { navigationItems, type NavigationItem } from "@/config/navigation"
+
+const directLinks = ["/dashboard", "/my-sessions", "/tasks", "/attendance", "/sessions"]
+const groups = [
+  { name: "People", links: ["/team-management", "/classes", "/access-requests"] },
+  { name: "Organization", links: ["/setup", "/billing"] },
+  { name: "Reporting", links: ["/reports", "/reviews"] },
+]
 
 export default function Sidebar({ sticky = false, mobile = false, collapsed = false, onNavigate }: { sticky?: boolean; mobile?: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const { t } = usePortal()
@@ -23,6 +31,45 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
   const visibleNavItems = useMemo(() => loadingPermissions ? [] : navigationItems.filter(item =>
     (item.permission === null || capabilities?.[item.permission] === true) && (item.href !== "/reviews" || capabilities?.clinical === true)
   ), [capabilities, loadingPermissions])
+  const isActiveRoute = (item: NavigationItem) =>
+    pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`))
+
+  function renderLink(item: NavigationItem) {
+    const Icon = item.icon
+
+    const isActive = isActiveRoute(item)
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onNavigate}
+        aria-label={t(item.name)}
+        aria-current={
+          isActive ? "page" : undefined
+        }
+        title={t(item.name)}
+        className={`flex ${mobile ? "flex-row justify-start gap-3" : "flex-col items-center justify-center gap-1 sm:flex-row sm:gap-3 sm:px-4"} px-2 py-3 rounded-xl transition ${
+          collapsed
+            ? "justify-center"
+            : "sm:justify-start"
+        } ${
+          isActive
+            ? "bg-gray-100 text-gray-900 font-semibold"
+            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        }`}
+      >
+        <Icon
+          size={20}
+          strokeWidth={2}
+          className="shrink-0"
+        />
+
+        <span className={`min-w-0 break-words leading-tight ${mobile ? "text-left text-base" : `text-center text-[10px] ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}`}>{t(item.name)}</span>
+      </Link>
+    )
+  }
+
   return (
     <aside
       className={`${sticky ? "sticky top-0 h-dvh overflow-y-auto" : "min-h-[calc(100dvh-4rem)]"} ${mobile ? "w-full" : "w-20"} shrink-0 bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${
@@ -43,52 +90,33 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
             />
           </div>
         ) : (
-          visibleNavItems.map((item) => {
-            const Icon = item.icon
+          <>
+            {visibleNavItems.filter(item => directLinks.includes(item.href)).sort((a, b) => directLinks.indexOf(a.href) - directLinks.indexOf(b.href)).map(renderLink)}
+            {groups.map(({ name, links }) => {
+              const items = links.flatMap(href => visibleNavItems.filter(item => item.href === href))
+              if (items.length < 2) return items.map(renderLink)
 
-            /*
-             * Exact match for normal routes.
-             *
-             * For nested pages such as /reviews/[sessionId],
-             * the parent navigation item remains active.
-             */
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/dashboard" &&
-                pathname.startsWith(
-                  `${item.href}/`
-                ))
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                aria-label={t(item.name)}
-                aria-current={
-                  isActive ? "page" : undefined
-                }
-                title={t(item.name)}
-                className={`flex ${mobile ? "flex-row justify-start gap-3" : "flex-col items-center justify-center gap-1 sm:flex-row sm:gap-3 sm:px-4"} px-2 py-3 rounded-xl transition ${
-                  collapsed
-                    ? "justify-center"
-                    : "sm:justify-start"
-                } ${
-                  isActive
-                    ? "bg-gray-100 text-gray-900 font-semibold"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                }`}
-              >
-                <Icon
-                  size={20}
-                  strokeWidth={2}
-                  className="shrink-0"
-                />
-
-                <span className={`min-w-0 break-words leading-tight ${mobile ? "text-left text-base" : `text-center text-[10px] ${collapsed ? "sm:hidden" : "sm:text-left sm:text-base"}`}`}>{t(item.name)}</span>
-              </Link>
-            )
-          })
+              const Icon = items[0].icon
+              const active = items.some(isActiveRoute)
+              return (
+                <details key={`${name}:${pathname}`} open={active}>
+                  <summary
+                    title={t(name)}
+                    aria-label={t(name)}
+                    className={`flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-xl px-2 py-3 text-gray-600 hover:bg-gray-50 [&::-webkit-details-marker]:hidden ${collapsed ? "" : "sm:justify-start sm:px-4"} ${active ? "bg-gray-100 font-semibold" : ""}`}
+                  >
+                    <Icon size={20} className="shrink-0" aria-hidden="true" />
+                    <span className={`min-w-0 break-words leading-tight ${mobile ? "" : collapsed ? "sr-only" : "text-[10px] sm:text-base"}`}>{t(name)}</span>
+                    <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+                  </summary>
+                  <div className={`flex flex-col gap-1 ${mobile || !collapsed ? "border-l border-gray-200 sm:ml-4" : ""}`}>
+                    {items.map(renderLink)}
+                  </div>
+                </details>
+              )
+            })}
+            {visibleNavItems.filter(item => item.href === "/profile").map(renderLink)}
+          </>
         )}
       </nav>
 

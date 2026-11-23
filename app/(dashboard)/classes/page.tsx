@@ -37,7 +37,7 @@ export default function ClassesPage() {
    <label className="block">Find a class<input className="rj-input" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search classes" /></label>
    {context.classes.filter(item => item.name.toLowerCase().includes(search.toLowerCase())).map(item => <article key={item.id} className="min-w-0 space-y-2 break-words rounded-xl border p-4">
     <h3 className="font-semibold">{item.name}{!item.active && " · Archived"}</h3><p>{context.branches.find(location => location.id === item.branch_id)?.name} · {item.child_ids.length} {item.child_ids.length === 1 ? "child" : "children"} · {item.staff_ids.length} suggested staff</p>
-    <div className="flex flex-wrap gap-3">{context.canEdit && <button className="underline" disabled={busy} onClick={() => edit(item)}>Edit {item.name}</button>}{item.active && caps?.sessions && <Link className="underline" href={`/sessions?group=1&class=${item.id}`}>Schedule activity for {item.name}</Link>}</div>
+    <div className="flex flex-wrap gap-3">{context.canEdit && <button className="underline" disabled={busy} onClick={() => edit(item)}>Edit {item.name}</button>}{item.active && caps?.sessions && <Link className="underline" href={`/sessions?group=1&class=${item.id}`}>Schedule activity for {item.name}</Link>}{item.active && caps?.attendance && <Link className="underline" href={`/attendance?branch=${encodeURIComponent(item.branch_id)}`}>Open attendance for this branch</Link>}</div>
    </article>)}
    {!context.classes.length && <p>No classes yet. Create a class to reuse its roster when scheduling.</p>}
   </section>{context.canEdit && <form className="rj-card min-w-0 space-y-4 p-5" onSubmit={async event => {
