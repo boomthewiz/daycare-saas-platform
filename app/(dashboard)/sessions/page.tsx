@@ -822,6 +822,7 @@ const requestedEnd = requestedStart && draftEnd && new Date(draftEnd+"Z") > new 
             </div>
 
             <h1 className="rj-heading-1 mt-4">Schedule</h1>
+            {caps?.reviews && caps.clinical && <Link href="/reviews" className="rj-button rj-button-secondary mt-3">Session reviews</Link>}
 
             <p className="rj-body mt-3 text-[var(--rj-text-secondary)]">{t("Schedule services using the session types, durations, and locations configured in Setup.")}</p>
           </div>

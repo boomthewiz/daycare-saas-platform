@@ -19,6 +19,7 @@ export default function SetupPage() {
     {access.error && <p role="alert">{access.error}</p>}
     <ServiceModelSettings /><SchedulingTimezoneSettings /><div data-tour="setup-readiness"><SetupProgressChecklist /></div>
     <div className="grid gap-4 md:grid-cols-2">
+      {capabilities?.accessRequests && <Link href="/access-requests" className="rj-card rj-card-interactive block p-5"><h2 className="rj-heading-3">Access Requests</h2><p className="mt-2">Review requests for organization access.</p></Link>}
       {(access.clients || access.sessions) && <Link data-tour="setup-people" href="/team-management?tab=clients" className="rj-card rj-card-interactive block p-5"><h2 className="rj-heading-3">People roster</h2><p className="mt-2">Current child profiles and branch membership.</p></Link>}
       {capabilities?.reports && <Link data-tour="setup-reports" href="/reports" className="rj-card rj-card-interactive block p-5"><h2 className="rj-heading-3">Operational reports</h2><p className="mt-2">Current roster, authorized staff readiness and recorded schedule activity.</p></Link>}
       <Link href="/setup/appearance" className="rj-card rj-card-interactive block p-5"><h2 className="rj-heading-3">Portal appearance and vocabulary</h2><p className="mt-2">Preview themes, choose a business preset, and customize the words your team sees.</p></Link>
