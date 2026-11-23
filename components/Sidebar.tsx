@@ -99,7 +99,7 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
               const Icon = items[0].icon
               const active = items.some(isActiveRoute)
               return (
-                <details key={`${name}:${pathname}`} open={active}>
+                <details className="rj-sidebar-submenu" key={`${name}:${pathname}`} open={active}>
                   <summary
                     title={t(name)}
                     aria-label={t(name)}
@@ -107,7 +107,7 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
                   >
                     <Icon size={20} className="shrink-0" aria-hidden="true" />
                     <span className={`min-w-0 break-words leading-tight ${mobile ? "" : collapsed ? "sr-only" : "text-[10px] sm:text-base"}`}>{t(name)}</span>
-                    <ChevronDown size={14} className="shrink-0" aria-hidden="true" />
+                    <ChevronDown size={14} className="rj-sidebar-chevron shrink-0" aria-hidden="true" />
                   </summary>
                   <div className={`flex flex-col gap-1 ${mobile || !collapsed ? "border-l border-gray-200 sm:ml-4" : ""}`}>
                     {items.map(renderLink)}
@@ -145,6 +145,32 @@ export default function Sidebar({ sticky = false, mobile = false, collapsed = fa
           </div>
         )}
       </div>
+      <style jsx global>{`
+        .rj-sidebar-submenu[open] > summary > .rj-sidebar-chevron {
+          transform: rotate(180deg);
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+          .rj-sidebar-submenu > summary > .rj-sidebar-chevron {
+            transition: transform 180ms ease-out;
+          }
+
+          @supports (interpolate-size: allow-keywords) and
+                    (transition-behavior: allow-discrete) and
+                    selector(details::details-content) {
+            .rj-sidebar-submenu::details-content {
+              interpolate-size: allow-keywords;
+              block-size: 0;
+              overflow: clip;
+              transition: block-size 180ms ease-out, content-visibility 180ms allow-discrete;
+            }
+
+            .rj-sidebar-submenu[open]::details-content {
+              block-size: auto;
+            }
+          }
+        }
+      `}</style>
     </aside>
   )
 }
