@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ReJoyce sample workspace</title><style>
+*{box-sizing:border-box}body{margin:0;padding:clamp(1rem,4vw,2rem);background:#eef7f5;color:#173f3a;font:16px/1.45 system-ui,sans-serif}header{display:flex;justify-content:space-between;align-items:center;gap:1rem}header strong{font-size:1.35rem}small{color:#3e645f}h1{margin:.8em 0 .3em}p{margin:0 0 1rem;color:#3e645f}ul{list-style:none;padding:0;display:grid;gap:.6rem}li{background:white;border:1px solid #cfdeda;border-radius:.8rem;padding:.75rem}label{display:flex;gap:.65rem;align-items:center}input{width:1.2rem;height:1.2rem;accent-color:#0c7466}
+</style></head><body><header><strong>ReJoyce</strong><small>Sample workspace</small></header><main><h1></h1><p></p><ul></ul></main><script>
+const scenes = [
+  ["Opening", "Get the room ready before families arrive.", ["Review the opening checklist", "Prepare the activity space", "Confirm classroom supplies"]],
+  ["Roster review", "Review the sample Sunflower Room roster.", ["Avery · Confirm today's roster", "Morgan · Review activity group", "Riley · Confirm classroom assignment"]],
+  ["Pickup and closing", "Finish the day with a shared checklist.", ["Review recorded departures", "Tidy the activity space", "Prepare tomorrow's opening checklist"]]
+];
+const choices = scenes.map(() => new Set());
+function render(index) {
+  const [title, description, items] = scenes[index];
+  document.querySelector("h1").textContent = title;
+  document.querySelector("p").textContent = description;
+  document.querySelector("ul").replaceChildren(...items.map((text, i) => {
+    const row = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = choices[index].has(i);
+    box.addEventListener("change", () => {
+      if (box.checked) choices[index].add(i);
+      else choices[index].delete(i);
+      parent.postMessage({ type: "rejoyce:demo-interaction" }, "*");
+    });
+    label.append(box, text);
+    row.append(label);
+    return row;
+  }));
+}
+window.addEventListener("message", event => {
+  if (event.source === parent && event.data?.type === "rejoyce:demo-scene" &&
+      Number.isInteger(event.data.scene) && scenes[event.data.scene]) render(event.data.scene);
+});
+render(0);
+parent.postMessage({ type: "rejoyce:demo-ready" }, "*");
+</script></body></html>
